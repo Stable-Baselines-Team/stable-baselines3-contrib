@@ -24,6 +24,8 @@ setup(
     package_data={"sb3_contrib": ["py.typed", "version.txt"]},
     install_requires=[
         "stable_baselines3[tests,docs]",
+        # For progress bar when using CRR
+        "tqdm"
         # Enable CMA
         # "cma",
     ],

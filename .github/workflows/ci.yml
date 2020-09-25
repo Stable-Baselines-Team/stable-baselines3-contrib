@@ -32,6 +32,7 @@ jobs:
         pip install stable_baselines3[extra,tests,docs]
         # Install master version
         pip install git+https://github.com/DLR-RM/stable-baselines3
+        pip install .
         # Use headless version
         pip install opencv-python-headless
     # - name: Build the doc
