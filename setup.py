@@ -23,7 +23,7 @@ setup(
     packages=[package for package in find_packages() if package.startswith("sb3_contrib")],
     package_data={"sb3_contrib": ["py.typed", "version.txt"]},
     install_requires=[
-        "stable_baselines3[tests,docs]",
+        "stable_baselines3[tests,docs]>=0.9.0a0",
         # For progress bar when using CRR
         "tqdm"
         # Enable CMA
