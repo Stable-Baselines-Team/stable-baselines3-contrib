@@ -62,8 +62,9 @@ Along with the code, PR **must** include the following:
    unless solid arguments can be provided why they did not match. 
 3) The **exact** code to run the replicated experiment (i.e. it should produce the above results), and inside the
    code information about the environment used (Python version, library versions, OS, hardware information).
-4) A new test file under `tests/`, which tests the implementation for functional errors. This this is **not** for
-   testing e.g. training performance of a learning algorithm, and should be relatively quick to run.
+4) Updated tests in `tests/test_run.py` and `tests/test_save_load.py` to test that algorithms run as expected and serialize
+   correctly. This this is **not** for testing e.g. training performance of a learning algorithm, and
+   should be relatively quick to run.
 
 README.md template:
 
