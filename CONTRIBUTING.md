@@ -29,19 +29,18 @@ are not very strict.
 
 ## How to implement your suggestion
 
-All code will go under `sb3_contrib/[feature_name]` directory, regardless of what they implement.
-The idea is to keep different contributions separate from each other and only over time combine/mature
-them into a shared package.
-
 Implement your feature/suggestion/algorithm in following ways, using the first one that applies:
-1) Environment wrapper: This can be used with any algorithm and even outside stable-baselines3.
-2) [Custom callback](https://stable-baselines3.readthedocs.io/en/master/guide/callbacks.html)
+1) Environment wrapper: This can be used with any algorithm and even outside stable-baselines3. 
+   Place code for these under `sb3_contrib/common/wrappers` directory.
+2) [Custom callback](https://stable-baselines3.readthedocs.io/en/master/guide/callbacks.html).
+   Place code under `sb3_contrib/common/callbacks` directory.
 3) Following the style/naming of `common` files in the stable-baseline3. If your suggestion is a specific network architecture
-   for feature extraction from images, place this under `sb3_contrib/[feature_name]/torch_layers.py`, for example.
+   for feature extraction from images, place this in `sb3_contrib/common/torch_layers.py`, for example.
 4) A new learning algorithm. This is the last resort but most applicable solution.
    Even if your suggestion is a (trivial) modification to an existing algorithm, create a new algorithm for it
    unless otherwise discussed (which inherits the base algorithm). The algorithm should use same API as
-   stable-baselines3 algorithms (e.g. `learn`, `load`)
+   stable-baselines3 algorithms (e.g. `learn`, `load`), and the code should be placed under
+   `sb3_contrib/[algorithm_name]` directory.
 
 Look over stable-baselines3 code for the general naming of variables and try to keep this style.
 
