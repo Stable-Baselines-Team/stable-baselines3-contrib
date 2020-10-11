@@ -27,6 +27,9 @@ otherwise the implementation can do more harm than good (wrong results). Parts t
 are taken into account during review but being a repository for more experimental code, these
 are not very strict.
 
+See [issues with "experimental" tag](https://github.com/DLR-RM/stable-baselines3/issues?q=is%3Aissue+is%3Aopen+label%3Aexperimental)
+for suggestions of the community for new possible features to include in contrib.
+
 ## How to implement your suggestion
 
 Implement your feature/suggestion/algorithm in following ways, using the first one that applies:
