@@ -1,7 +1,7 @@
 ## Contributing to Stable-Baselines3 - Contrib
 
 This contrib repository is designed for experimental implementations of various
-training algorithms so that others may make use of them. This includes full
+parts of reinforcement training so that others may make use of them. This includes full
 training algorithms, different tools (e.g. new environment wrappers,
 callbacks) and extending algorithms implemented in stable-baselines3.
 
@@ -10,14 +10,14 @@ Once we agree that the plan looks good, go ahead and implement it.
 
 Contributions and review focuses on following three parts:
 1) **Implementation quality**
-  - Performance of the training algorithms should match what proposed authors reported.
+  - Performance of the training algorithms should match what proposed authors reported (if applicable).
   - This is ensured by including a code that replicates an experiment from the original
     paper or from an established codebase (e.g. the code from authors), as well as 
     a test to check that implementation works on program level (does not crash).
 2) Documentation
-  - Documentation quality should match that of stable-baselines3, with each algorithm
-    containing its own documentation page, changelog, in-code documentation to clarify the flow
-    of logic and report of the expected results.
+  - Documentation quality should match that of stable-baselines3, with each feature covered
+    in the documentation, in-code documentation to clarify the flow
+    of logic and report of the expected results, where applicable.
 3) Consistency with stable-baselines3
   - To ease readibility, all contributions need to follow the code style (see below) and
     ideoms used in stable-baselines3. 
@@ -59,10 +59,12 @@ Each PR need to be reviewed and accepted by at least one of the maintainers.
 A PR must pass the Continuous Integration tests to be merged with the master branch.
 
 Along with the code, PR **must** include the following:
-1) Update to documentation to include a description of the feature (see template below).
-2) Results of a replicated experiment from the original paper in the documentation, **which must match the results from authors**
-   unless solid arguments can be provided why they did not match. 
-3) The **exact** code to run the replicated experiment (i.e. it should produce the above results), and inside the
+1) Update to documentation to include a description of the feature. If feature is a simple tool (e.g. wrapper, callback),
+   this goes under respective pages in documentation. If full training algorithm, this goes under a new page with template below
+   (`docs/modules/[algo_name]`).
+2) If a training algorithm/improvement: results of a replicated experiment from the original paper in the documentation,
+   **which must match the results from authors** unless solid arguments can be provided why they did not match. 
+3) If above holds: The **exact** code to run the replicated experiment (i.e. it should produce the above results), and inside the
    code information about the environment used (Python version, library versions, OS, hardware information). If small enough,
    include this in the documentation. If applicable, use [rl-baselines3-zoo](https://github.com/DLR-RM/rl-baselines3-zoo) to
    run the agent performance comparison experiments (fork repository, implement experiment in a new branch and share link to 
@@ -71,7 +73,7 @@ Along with the code, PR **must** include the following:
    correctly. This this is **not** for testing e.g. training performance of a learning algorithm, and
    should be relatively quick to run.
 
-Template for the feature documentation
+Below is a template for documentation for full training algorithms.
 
 ```rst
 [Feature/Algorithm name]
@@ -103,13 +105,6 @@ Comments
 
 Comments regarding the implementation, e.g. missing parts, uncertain parts, differences
 to the original implementation.
-
-Changelog
----------
-
-Per-feature changelog, in format "dd/mm/yyyy username: comment". E.g:
-- 05.10.2020 arrafin: Adding missing instructions for contrib repo
-- 04.10.2020 Miffyli: Initial commit
 ````
 
 If you are not familiar with creating a Pull Request, here are some guides:
