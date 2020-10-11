@@ -16,8 +16,8 @@ Contributions and review focuses on following three parts:
     a test to check that implementation works on program level (does not crash).
 2) Documentation
   - Documentation quality should match that of stable-baselines3, with each algorithm
-    containing its own README file, changelog, in-code documentation to clarify the flow
-    of logic and report the expected results.
+    containing its own documentation page, changelog, in-code documentation to clarify the flow
+    of logic and report of the expected results.
 3) Consistency with stable-baselines3
   - To ease readibility, all contributions need to follow the code style (see below) and
     ideoms used in stable-baselines3. 
@@ -59,43 +59,57 @@ Each PR need to be reviewed and accepted by at least one of the maintainers.
 A PR must pass the Continuous Integration tests to be merged with the master branch.
 
 Along with the code, PR **must** include the following:
-1) `README.md` file for the feature (see template below). This is placed in the algorithm's directory.
-2) Results of a replicated experiment from the original paper, **which must match the results from authors**
+1) Update to documentation to include a description of the feature (see template below).
+2) Results of a replicated experiment from the original paper in the documentation, **which must match the results from authors**
    unless solid arguments can be provided why they did not match. 
 3) The **exact** code to run the replicated experiment (i.e. it should produce the above results), and inside the
-   code information about the environment used (Python version, library versions, OS, hardware information).
-4) Updated tests in `tests/test_run.py` and `tests/test_save_load.py` to test that algorithms run as expected and serialize
+   code information about the environment used (Python version, library versions, OS, hardware information). If small enough,
+   include this in the documentation. If applicable, use [rl-baselines3-zoo](https://github.com/DLR-RM/rl-baselines3-zoo) to
+   run the agent performance comparison experiments (fork repository, implement experiment in a new branch and share link to 
+   that branch). If above do not apply, create new code to replicate the experiment and include link to it.
+4) Updated tests in `tests/test_run.py` and `tests/test_save_load.py` to test that features run as expected and serialize
    correctly. This this is **not** for testing e.g. training performance of a learning algorithm, and
    should be relatively quick to run.
 
-README.md template:
+Template for the feature documentation
 
-```markdown
-# [Feature/Algorithm name]
+```rst
+[Feature/Algorithm name]
+========================
 
-* Non-abreviated name and/or one-sentence description of the method.
-* Link and reference to the original publications the present the feature, or other established source(s).
-* Links to any codebases that were used for reference (e.g. authors' implementations)
+- Non-abreviated name and/or one-sentence description of the method.
+- Link and reference to the original publications the present the feature, or other established source(s).
+- Links to any codebases that were used for reference (e.g. authors' implementations)
 
-## Example
+Example
+-------
 
 A minimal example on how to use the feature (full, runnable code).
 
-## Results
+Results
+-------
 
-A copy of results reported in the original paper and results obtained by your replicate of the experiments, as well
-as an overview of the experiment setup (full details are in the code you will provide).
+A description and comparison of results (e.g. how the change improved results over the non-changed algorithm), if
+applicable.
 
-## Comments
+Include the expected results from the work that originally proposed the method (e.g. original paper).
+
+Include the code to replicate these results or a link to repository/branch where the code can be found.
+Use `rl-baselines3-zoo <https://github.com/DLR-RM/rl-baselines3-zoo>`_ if possible, fork it, create a new branch
+and share the code to replicate results there.
+
+Comments
+--------
 
 Comments regarding the implementation, e.g. missing parts, uncertain parts, differences
 to the original implementation.
 
-## Changelog
+Changelog
+---------
 
-Per-algorithm changelog, in format "dd/mm/yyyy username: comment". E.g:
-* 05.10.2020 Miffyli: Adding missing instructions for contrib repo
-* 04.10.2020 Miffyli: Initial commit
+Per-feature changelog, in format "dd/mm/yyyy username: comment". E.g:
+- 05.10.2020 arrafin: Adding missing instructions for contrib repo
+- 04.10.2020 Miffyli: Initial commit
 ````
 
 If you are not familiar with creating a Pull Request, here are some guides:
@@ -153,6 +167,12 @@ make lint
 To run `pytype`, `format` and `lint` in one command:
 ```
 make commit-checks
+```
+
+Build the documentation:
+
+```
+make doc
 ```
 
 ## Changelog and Documentation
