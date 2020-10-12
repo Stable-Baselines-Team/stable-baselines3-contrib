@@ -45,7 +45,7 @@ def test_save_load(tmp_path, model_class):
 
     # create model
     model = model_class("MlpPolicy", env, policy_kwargs=dict(net_arch=[16]), verbose=1)
-    model.learn(total_timesteps=500, eval_freq=250)
+    model.learn(total_timesteps=500)
 
     env.reset()
     observations = np.concatenate([env.step([env.action_space.sample()])[0] for _ in range(10)], axis=0)
@@ -154,7 +154,7 @@ def test_save_load(tmp_path, model_class):
         assert np.allclose(selected_actions, new_selected_actions, 1e-4)
 
         # check if learn still works
-        model.learn(total_timesteps=1000, eval_freq=500)
+        model.learn(total_timesteps=500)
 
         del model
 
@@ -177,17 +177,17 @@ def test_set_env(model_class):
     # create model
     model = model_class("MlpPolicy", env, policy_kwargs=dict(net_arch=[16]))
     # learn
-    model.learn(total_timesteps=1000, eval_freq=500)
+    model.learn(total_timesteps=500)
 
     # change env
     model.set_env(env2)
     # learn again
-    model.learn(total_timesteps=1000, eval_freq=500)
+    model.learn(total_timesteps=500)
 
     # change env test wrapping
     model.set_env(env3)
     # learn again
-    model.learn(total_timesteps=1000, eval_freq=500)
+    model.learn(total_timesteps=500)
 
 
 @pytest.mark.parametrize("model_class", MODEL_LIST)
@@ -247,45 +247,6 @@ def test_save_load_replay_buffer(tmp_path, model_class):
     )
 
 
-@pytest.mark.parametrize("model_class", [TQC])
-@pytest.mark.parametrize("optimize_memory_usage", [False, True])
-def test_warn_buffer(recwarn, model_class, optimize_memory_usage):
-    """
-    When using memory efficient replay buffer,
-    a warning must be emitted when calling `.learn()`
-    multiple times.
-    See https://github.com/DLR-RM/stable-baselines3/issues/46
-    """
-    # remove gym warnings
-    warnings.filterwarnings(action="ignore", category=DeprecationWarning)
-    warnings.filterwarnings(action="ignore", category=UserWarning, module="gym")
-
-    model = model_class(
-        "MlpPolicy",
-        select_env(model_class),
-        buffer_size=100,
-        optimize_memory_usage=optimize_memory_usage,
-        policy_kwargs=dict(net_arch=[64]),
-        learning_starts=10,
-    )
-
-    model.learn(150)
-
-    model.learn(150, reset_num_timesteps=False)
-
-    # Check that there is no warning
-    assert len(recwarn) == 0
-
-    model.learn(150)
-
-    if optimize_memory_usage:
-        assert len(recwarn) == 1
-        warning = recwarn.pop(UserWarning)
-        assert "The last trajectory in the replay buffer will be truncated" in str(warning.message)
-    else:
-        assert len(recwarn) == 0
-
-
 @pytest.mark.parametrize("model_class", MODEL_LIST)
 @pytest.mark.parametrize("policy_str", ["MlpPolicy", "CnnPolicy"])
 def test_save_load_policy(tmp_path, model_class, policy_str):
@@ -309,7 +270,7 @@ def test_save_load_policy(tmp_path, model_class, policy_str):
 
     # create model
     model = model_class(policy_str, env, policy_kwargs=dict(net_arch=[16]), verbose=1, **kwargs)
-    model.learn(total_timesteps=500, eval_freq=250)
+    model.learn(total_timesteps=500)
 
     env.reset()
     observations = np.concatenate([env.step([env.action_space.sample()])[0] for _ in range(10)], axis=0)
@@ -375,52 +336,3 @@ def test_save_load_policy(tmp_path, model_class, policy_str):
     os.remove(tmp_path / "policy.pkl")
     if actor_class is not None:
         os.remove(tmp_path / "actor.pkl")
-
-
-@pytest.mark.parametrize("pathtype", [str, pathlib.Path])
-def test_open_file_str_pathlib(tmp_path, pathtype):
-    # check that suffix isn't added because we used open_path first
-    with open_path(pathtype(f"{tmp_path}/t1"), "w") as fp1:
-        save_to_pkl(fp1, "foo")
-    assert fp1.closed
-    with pytest.warns(None) as record:
-        assert load_from_pkl(pathtype(f"{tmp_path}/t1")) == "foo"
-    assert not record
-
-    # test custom suffix
-    with open_path(pathtype(f"{tmp_path}/t1.custom_ext"), "w") as fp1:
-        save_to_pkl(fp1, "foo")
-    assert fp1.closed
-    with pytest.warns(None) as record:
-        assert load_from_pkl(pathtype(f"{tmp_path}/t1.custom_ext")) == "foo"
-    assert not record
-
-    # test without suffix
-    with open_path(pathtype(f"{tmp_path}/t1"), "w", suffix="pkl") as fp1:
-        save_to_pkl(fp1, "foo")
-    assert fp1.closed
-    with pytest.warns(None) as record:
-        assert load_from_pkl(pathtype(f"{tmp_path}/t1.pkl")) == "foo"
-    assert not record
-
-    # test that a warning is raised when the path doesn't exist
-    with open_path(pathtype(f"{tmp_path}/t2.pkl"), "w") as fp1:
-        save_to_pkl(fp1, "foo")
-    assert fp1.closed
-    with pytest.warns(None) as record:
-        assert load_from_pkl(open_path(pathtype(f"{tmp_path}/t2"), "r", suffix="pkl")) == "foo"
-    assert len(record) == 0
-
-    with pytest.warns(None) as record:
-        assert load_from_pkl(open_path(pathtype(f"{tmp_path}/t2"), "r", suffix="pkl", verbose=2)) == "foo"
-    assert len(record) == 1
-
-    fp = pathlib.Path(f"{tmp_path}/t2").open("w")
-    fp.write("rubbish")
-    fp.close()
-    # test that a warning is only raised when verbose = 0
-    with pytest.warns(None) as record:
-        open_path(pathtype(f"{tmp_path}/t2"), "w", suffix="pkl", verbose=0).close()
-        open_path(pathtype(f"{tmp_path}/t2"), "w", suffix="pkl", verbose=1).close()
-        open_path(pathtype(f"{tmp_path}/t2"), "w", suffix="pkl", verbose=2).close()
-    assert len(record) == 1

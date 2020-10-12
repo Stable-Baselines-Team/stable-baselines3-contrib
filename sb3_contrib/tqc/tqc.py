@@ -7,7 +7,6 @@ from stable_baselines3.common.noise import ActionNoise
 from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback
 from stable_baselines3.common.utils import polyak_update
-from tqdm import tqdm
 
 from sb3_contrib.tqc.policies import TQCPolicy
 
@@ -15,48 +14,48 @@ from sb3_contrib.tqc.policies import TQCPolicy
 class TQC(OffPolicyAlgorithm):
     """
 
-    Controlling Overestimation Bias with Truncated Mixture of Continuous Distributional Quantile Critics
+    Controlling Overestimation Bias with Truncated Mixture of Continuous Distributional Quantile Critics.
     Paper: https://arxiv.org/abs/2005.04269
 
-    :param policy: (TQCPolicy or str) The policy model to use (MlpPolicy, CnnPolicy, ...)
-    :param env: (GymEnv or str) The environment to learn from (if registered in Gym, can be str)
-    :param learning_rate: (float or callable) learning rate for adam optimizer,
+    :param policy: The policy model to use (MlpPolicy, CnnPolicy, ...)
+    :param env: The environment to learn from (if registered in Gym, can be str)
+    :param learning_rate: learning rate for adam optimizer,
         the same learning rate will be used for all networks (Q-Values, Actor and Value function)
         it can be a function of the current progress remaining (from 1 to 0)
-    :param buffer_size: (int) size of the replay buffer
-    :param learning_starts: (int) how many steps of the model to collect transitions for before learning starts
-    :param batch_size: (int) Minibatch size for each gradient update
-    :param tau: (float) the soft update coefficient ("Polyak update", between 0 and 1)
-    :param gamma: (float) the discount factor
-    :param train_freq: (int) Update the model every ``train_freq`` steps.
-    :param gradient_steps: (int) How many gradient update after each step
-    :param n_episodes_rollout: (int) Update the model every ``n_episodes_rollout`` episodes.
+    :param buffer_size: size of the replay buffer
+    :param learning_starts: how many steps of the model to collect transitions for before learning starts
+    :param batch_size: Minibatch size for each gradient update
+    :param tau: the soft update coefficient ("Polyak update", between 0 and 1)
+    :param gamma: the discount factor
+    :param train_freq: Update the model every ``train_freq`` steps.
+    :param gradient_steps: How many gradient update after each step
+    :param n_episodes_rollout: Update the model every ``n_episodes_rollout`` episodes.
         Note that this cannot be used at the same time as ``train_freq``
-    :param action_noise: (ActionNoise) the action noise type (None by default), this can help
+    :param action_noise: the action noise type (None by default), this can help
         for hard exploration problem. Cf common.noise for the different action noise type.
-    :param optimize_memory_usage: (bool) Enable a memory efficient variant of the replay buffer
+    :param optimize_memory_usage: Enable a memory efficient variant of the replay buffer
         at a cost of more complexity.
         See https://github.com/DLR-RM/stable-baselines3/issues/37#issuecomment-637501195
-    :param ent_coef: (str or float) Entropy regularization coefficient. (Equivalent to
+    :param ent_coef: Entropy regularization coefficient. (Equivalent to
         inverse of reward scale in the original SAC paper.)  Controlling exploration/exploitation trade-off.
         Set it to 'auto' to learn it automatically (and 'auto_0.1' for using 0.1 as initial value)
-    :param target_update_interval: (int) update the target network every ``target_network_update_freq``
+    :param target_update_interval: update the target network every ``target_network_update_freq``
         gradient steps.
-    :param target_entropy: (str or float) target entropy when learning ``ent_coef`` (``ent_coef = 'auto'``)
-    :param use_sde: (bool) Whether to use generalized State Dependent Exploration (gSDE)
+    :param target_entropy: target entropy when learning ``ent_coef`` (``ent_coef = 'auto'``)
+    :param use_sde: Whether to use generalized State Dependent Exploration (gSDE)
         instead of action noise exploration (default: False)
-    :param sde_sample_freq: (int) Sample a new noise matrix every n steps when using gSDE
+    :param sde_sample_freq: Sample a new noise matrix every n steps when using gSDE
         Default: -1 (only sample at the beginning of the rollout)
-    :param use_sde_at_warmup: (bool) Whether to use gSDE instead of uniform sampling
+    :param use_sde_at_warmup: Whether to use gSDE instead of uniform sampling
         during the warm up phase (before learning starts)
-    :param create_eval_env: (bool) Whether to create a second environment that will be
+    :param create_eval_env: Whether to create a second environment that will be
         used for evaluating the agent periodically. (Only available when passing string for the environment)
-    :param policy_kwargs: (dict) additional arguments to be passed to the policy on creation
-    :param verbose: (int) the verbosity level: 0 no output, 1 info, 2 debug
-    :param seed: (int) Seed for the pseudo random generators
-    :param device: (str or th.device) Device (cpu, cuda, ...) on which the code should be run.
+    :param policy_kwargs: additional arguments to be passed to the policy on creation
+    :param verbose: the verbosity level: 0 no output, 1 info, 2 debug
+    :param seed: Seed for the pseudo random generators
+    :param device: Device (cpu, cuda, ...) on which the code should be run.
         Setting it to auto, the code will be run on the GPU if possible.
-    :param _init_setup_model: (bool) Whether or not to build the network at the creation of the instance
+    :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
 
     def __init__(
@@ -274,171 +273,6 @@ class TQC(OffPolicyAlgorithm):
         if len(ent_coef_losses) > 0:
             logger.record("train/ent_coef_loss", np.mean(ent_coef_losses))
 
-    def pretrain(
-        self,
-        gradient_steps: int,
-        batch_size: int = 64,
-        n_action_samples: int = -1,
-        target_update_interval: int = 1,
-        tau: float = 0.005,
-        strategy: str = "exp",
-        reduce: str = "mean",
-        exp_temperature: float = 1.0,
-        off_policy_update_freq: int = -1,
-    ) -> None:
-        """
-        Pretrain with Critic Regularized Regression (CRR)
-        Paper: https://arxiv.org/abs/2006.15134
-        """
-        # Update optimizers learning rate
-        optimizers = [self.actor.optimizer, self.critic.optimizer]
-        if self.ent_coef_optimizer is not None:
-            optimizers += [self.ent_coef_optimizer]
-
-        # Update learning rate according to lr schedule
-        self._update_learning_rate(optimizers)
-
-        actor_losses, critic_losses = [], []
-
-        for gradient_step in tqdm(range(gradient_steps)):
-
-            if off_policy_update_freq > 0 and gradient_step % off_policy_update_freq == 0:
-                self.train(gradient_steps=1, batch_size=batch_size)
-                continue
-
-            # Sample replay buffer
-            replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)
-
-            # We need to sample because `log_std` may have changed between two gradient steps
-            if self.use_sde:
-                self.actor.reset_noise()
-
-            # Action by the current actor for the sampled state
-            _, log_prob = self.actor.action_log_prob(replay_data.observations)
-            log_prob = log_prob.reshape(-1, 1)
-
-            ent_coef_loss = None
-            if self.ent_coef_optimizer is not None:
-                # Important: detach the variable from the graph
-                # so we don't change it with other losses
-                # see https://github.com/rail-berkeley/softlearning/issues/60
-                ent_coef = th.exp(self.log_ent_coef.detach())
-                ent_coef_loss = -(self.log_ent_coef * (log_prob + self.target_entropy).detach()).mean()
-            else:
-                ent_coef = self.ent_coef_tensor
-
-            self.replay_buffer.ent_coef = ent_coef.item()
-
-            # Optimize entropy coefficient, also called
-            # entropy temperature or alpha in the paper
-            if ent_coef_loss is not None:
-                self.ent_coef_optimizer.zero_grad()
-                ent_coef_loss.backward()
-                self.ent_coef_optimizer.step()
-
-            with th.no_grad():
-                top_quantiles_to_drop = self.top_quantiles_to_drop_per_net * self.critic.n_critics
-                # Select action according to policy
-                next_actions, next_log_prob = self.actor.action_log_prob(replay_data.next_observations)
-                # Compute and cut quantiles at the next state
-                # batch x nets x quantiles
-                next_z = self.critic_target(replay_data.next_observations, next_actions)
-                sorted_z, _ = th.sort(next_z.reshape(batch_size, -1))
-                sorted_z_part = sorted_z[:, : self.critic.quantiles_total - top_quantiles_to_drop]
-
-                target_q = sorted_z_part - ent_coef * next_log_prob.reshape(-1, 1)
-                # td error + entropy term
-                q_backup = replay_data.rewards + (1 - replay_data.dones) * self.gamma * target_q
-
-            # Get current Q estimates
-            # using action from the replay buffer
-            current_z = self.critic(replay_data.observations, replay_data.actions)
-            # Compute critic loss
-            critic_loss = self.quantile_huber_loss(current_z, q_backup)
-            critic_losses.append(critic_loss.item())
-
-            # Optimize the critic
-            self.critic.optimizer.zero_grad()
-            critic_loss.backward()
-            self.critic.optimizer.step()
-
-            if strategy == "bc":
-                # Behavior cloning
-                weight = 1
-            else:
-                # Tensor version: TODO: check that the reshape works as expected
-                # cleaner but not faster on cpu for large batch size
-                # with th.no_grad():
-                #     # Q-value for the action in the buffer
-                #     qf_buffer = self.critic(replay_data.observations, replay_data.actions).mean(2).mean(1, keepdim=True)
-                #     # Create tensor to avoid loop
-                #     # Note: For SDE, we need to sample several matrices
-                #     obs_ = replay_data.observations.repeat(n_action_samples, 1)
-                #     if self.use_sde:
-                #         self.actor.reset_noise(batch_size * n_action_samples)
-                #         actions_pi, _ = self.actor.action_log_prob(obs_)
-                #         qf_pi = self.critic(obs_, actions_pi.detach()).mean(2).mean(1, keepdim=True)
-                #         # Agregate: reduce mean or reduce max
-                #         if reduce == "max":
-                #             _, qf_agg = qf_pi.reshape(n_action_samples, batch_size, 1).max(axis=0)
-                #         else:
-                #             qf_agg = qf_pi.reshape(n_action_samples, batch_size, 1).mean(axis=0)
-                with th.no_grad():
-                    qf_buffer = self.critic(replay_data.observations, replay_data.actions).mean(2).mean(1, keepdim=True)
-
-                    # Use the mean (as done in AWAC, cf rlkit)
-                    if n_action_samples == -1:
-                        actions_pi = self.actor.forward(replay_data.observations, deterministic=True)
-                        qf_agg = self.critic(replay_data.observations, actions_pi).mean(2).mean(1, keepdim=True)
-                    else:
-                        qf_agg = None
-                        for _ in range(n_action_samples):
-                            if self.use_sde:
-                                self.actor.reset_noise()
-                            actions_pi, _ = self.actor.action_log_prob(replay_data.observations)
-
-                            qf_pi = self.critic(replay_data.observations, actions_pi.detach()).mean(2).mean(1, keepdim=True)
-                            if qf_agg is None:
-                                if reduce == "max":
-                                    qf_agg = qf_pi
-                                else:
-                                    qf_agg = qf_pi / n_action_samples
-                            else:
-                                if reduce == "max":
-                                    qf_agg = th.max(qf_pi, qf_agg)
-                                else:
-                                    qf_agg += qf_pi / n_action_samples
-
-                    advantage = qf_buffer - qf_agg
-                if strategy == "binary":
-                    # binary advantage
-                    weight = advantage > 0
-                else:
-                    # exp advantage
-                    exp_clip = 20.0
-                    weight = th.clamp(th.exp(advantage / exp_temperature), 0.0, exp_clip)
-
-            # Log prob by the current actor for the sampled state and action
-            log_prob = self.actor.evaluate_actions(replay_data.observations, replay_data.actions)
-            log_prob = log_prob.reshape(-1, 1)
-
-            # weigthed regression loss (close to policy gradient loss)
-            actor_loss = (-log_prob * weight).mean()
-            # actor_loss = ((actions_pi - replay_data.actions * weight) ** 2).mean()
-            actor_losses.append(actor_loss.item())
-
-            # Optimize the actor
-            self.actor.optimizer.zero_grad()
-            actor_loss.backward()
-            self.actor.optimizer.step()
-
-            # Update target networks
-            if gradient_step % target_update_interval == 0:
-                polyak_update(self.critic.parameters(), self.critic_target.parameters(), tau)
-
-        if self.use_sde:
-            print(f"std={(self.actor.get_std()).mean().item()}")
-
     def learn(
         self,
         total_timesteps: int,
@@ -469,7 +303,7 @@ class TQC(OffPolicyAlgorithm):
         Returns the names of the parameters that should be excluded by default
         when saving the model.
 
-        :return: (List[str]) List of parameters that should be excluded from save
+        :return: List of parameters that should be excluded from save
         """
         # Exclude aliases
         return super(TQC, self)._excluded_save_params() + ["actor", "critic", "critic_target"]
