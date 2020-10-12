@@ -29,15 +29,16 @@ jobs:
         python -m pip install --upgrade pip
         # cpu version of pytorch
         pip install torch==1.6.0+cpu -f https://download.pytorch.org/whl/torch_stable.html
+        # Install dependencies for docs and tests
         pip install stable_baselines3[extra,tests,docs]
         # Install master version
         pip install git+https://github.com/DLR-RM/stable-baselines3
         pip install .
         # Use headless version
         pip install opencv-python-headless
-    # - name: Build the doc
-    #   run: |
-    #     make doc
+    - name: Build the doc
+      run: |
+        make doc
     - name: Type check
       run: |
         make type
