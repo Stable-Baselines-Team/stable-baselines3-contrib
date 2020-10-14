@@ -24,6 +24,8 @@ Others:
 
 Documentation:
 ^^^^^^^^^^^^^^
+- Added initial documentation
+- Added contribution guide and related PR templates
 
 
 Maintainers
