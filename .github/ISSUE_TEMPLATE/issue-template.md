@@ -32,6 +32,7 @@ for both code and stack traces.
 
 ```python
 from stable_baselines3 import ...
+from sb3_contrib import ...
 
 ```
 

@@ -19,8 +19,8 @@ Contributions and review focuses on following three parts:
     in the documentation, in-code documentation to clarify the flow
     of logic and report of the expected results, where applicable.
 3) Consistency with stable-baselines3
-  - To ease readibility, all contributions need to follow the code style (see below) and
-    ideoms used in stable-baselines3. 
+  - To ease readability, all contributions need to follow the code style (see below) and
+    idioms used in stable-baselines3. 
 
 The implementation quality is a strict requirements with little room for changes, because
 otherwise the implementation can do more harm than good (wrong results). Parts two and three
@@ -79,7 +79,7 @@ Below is a template for documentation for full training algorithms.
 [Feature/Algorithm name]
 ========================
 
-- Non-abreviated name and/or one-sentence description of the method.
+- Non-abbreviated  name and/or one-sentence description of the method.
 - Link and reference to the original publications the present the feature, or other established source(s).
 - Links to any codebases that were used for reference (e.g. authors' implementations)
 
