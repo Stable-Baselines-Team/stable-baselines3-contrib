@@ -18,3 +18,19 @@ Implemented:
 ```
 pip install git+https://github.com/Stable-Baselines-Team/stable-baselines3-contrib
 ```
+
+
+## Citing the Project
+
+To cite this repository in publications (please cite SB3 directly):
+
+```
+@misc{stable-baselines3,
+  author = {Raffin, Antonin and Hill, Ashley and Ernestus, Maximilian and Gleave, Adam and Kanervisto, Anssi and Dormann, Noah},
+  title = {Stable Baselines3},
+  year = {2019},
+  publisher = {GitHub},
+  journal = {GitHub repository},
+  howpublished = {\url{https://github.com/DLR-RM/stable-baselines3}},
+}
+```

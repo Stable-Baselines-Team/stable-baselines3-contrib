@@ -28,6 +28,11 @@ check-codestyle:
 
 commit-checks: format type lint
 
+doc:
+	cd docs && make html
+
+spelling:
+	cd docs && make spelling
 
 # PyPi package release
 release:
@@ -41,4 +46,4 @@ test-release:
 	python setup.py bdist_wheel
 	twine upload --repository-url https://test.pypi.org/legacy/ dist/*
 
-.PHONY: lint format check-codestyle commit-checks
+.PHONY: lint format check-codestyle commit-checks doc spelling
