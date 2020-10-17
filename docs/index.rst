@@ -27,11 +27,11 @@ RL Baselines3 Zoo also offers a simple interface to train, evaluate agents and d
    guide/examples
 
 
-.. .. toctree::
-..   :maxdepth: 1
-..   :caption: RL Algorithms
-..
-..   modules/a2c
+.. toctree::
+  :maxdepth: 1
+  :caption: RL Algorithms
+
+  modules/tqc
 
 .. .. toctree::
 ..   :maxdepth: 1
