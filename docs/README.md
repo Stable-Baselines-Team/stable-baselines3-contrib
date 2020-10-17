@@ -1,6 +1,6 @@
-## Stable Baselines3 Documentation
+## Stable Baselines3 Contrib Documentation
 
-This folder contains documentation for the RL baselines.
+This folder contains documentation for the RL baselines contribution repository.
 
 
 ### Build the Documentation

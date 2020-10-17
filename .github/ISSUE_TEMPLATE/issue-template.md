@@ -32,6 +32,7 @@ for both code and stack traces.
 
 ```python
 from stable_baselines3 import ...
+from sb3_contrib import ...
 
 ```
 
@@ -43,6 +44,7 @@ Traceback (most recent call last): File ...
 **System Info**
 Describe the characteristic of your environment:
  * Describe how the library was installed (pip, docker, source, ...)
+ * Stable-Baselines3 and sb3-contrib versions
  * GPU models and configuration
  * Python version
  * PyTorch version

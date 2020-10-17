@@ -14,7 +14,7 @@ def test_tqc(ent_coef):
         create_eval_env=True,
         ent_coef=ent_coef,
     )
-    model.learn(total_timesteps=500, eval_freq=250)
+    model.learn(total_timesteps=300, eval_freq=250)
 
 
 @pytest.mark.parametrize("n_critics", [1, 3])
@@ -23,7 +23,7 @@ def test_n_critics(n_critics):
     model = TQC(
         "MlpPolicy", "Pendulum-v0", policy_kwargs=dict(net_arch=[64], n_critics=n_critics), learning_starts=100, verbose=1
     )
-    model.learn(total_timesteps=500)
+    model.learn(total_timesteps=300)
 
 
 def test_sde():
@@ -35,6 +35,6 @@ def test_sde():
         learning_starts=100,
         verbose=1,
     )
-    model.learn(total_timesteps=500)
+    model.learn(total_timesteps=300)
     model.policy.reset_noise()
     model.policy.actor.get_std()
