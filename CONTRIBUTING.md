@@ -2,7 +2,7 @@
 
 This contrib repository is designed for experimental implementations of various
 parts of reinforcement training so that others may make use of them. This includes full
-training algorithms, different tools (e.g. new environment wrappers,
+RL algorithms, different tools (e.g. new environment wrappers,
 callbacks) and extending algorithms implemented in stable-baselines3.
 
 **Before opening a pull request**, open an issue discussing the contribution.
@@ -10,9 +10,9 @@ Once we agree that the plan looks good, go ahead and implement it.
 
 Contributions and review focuses on following three parts:
 1) **Implementation quality**
-  - Performance of the training algorithms should match what proposed authors reported (if applicable).
+  - Performance of the RL algorithms should match the one reported by the original authors (if applicable).
   - This is ensured by including a code that replicates an experiment from the original
-    paper or from an established codebase (e.g. the code from authors), as well as 
+    paper or from an established codebase (e.g. the code from authors), as well as
     a test to check that implementation works on program level (does not crash).
 2) Documentation
   - Documentation quality should match that of stable-baselines3, with each feature covered
@@ -20,7 +20,7 @@ Contributions and review focuses on following three parts:
     of logic and report of the expected results, where applicable.
 3) Consistency with stable-baselines3
   - To ease readability, all contributions need to follow the code style (see below) and
-    idioms used in stable-baselines3. 
+    idioms used in stable-baselines3.
 
 The implementation quality is a strict requirements with little room for changes, because
 otherwise the implementation can do more harm than good (wrong results). Parts two and three
@@ -33,7 +33,7 @@ for suggestions of the community for new possible features to include in contrib
 ## How to implement your suggestion
 
 Implement your feature/suggestion/algorithm in following ways, using the first one that applies:
-1) Environment wrapper: This can be used with any algorithm and even outside stable-baselines3. 
+1) Environment wrapper: This can be used with any algorithm and even outside stable-baselines3.
    Place code for these under `sb3_contrib/common/wrappers` directory.
 2) [Custom callback](https://stable-baselines3.readthedocs.io/en/master/guide/callbacks.html).
    Place code under `sb3_contrib/common/callbacks` directory.
@@ -63,17 +63,17 @@ Along with the code, PR **must** include the following:
    this goes under respective pages in documentation. If full training algorithm, this goes under a new page with template below
    (`docs/modules/[algo_name]`).
 2) If a training algorithm/improvement: results of a replicated experiment from the original paper in the documentation,
-   **which must match the results from authors** unless solid arguments can be provided why they did not match. 
+   **which must match the results from authors** unless solid arguments can be provided why they did not match.
 3) If above holds: The **exact** code to run the replicated experiment (i.e. it should produce the above results), and inside the
    code information about the environment used (Python version, library versions, OS, hardware information). If small enough,
    include this in the documentation. If applicable, use [rl-baselines3-zoo](https://github.com/DLR-RM/rl-baselines3-zoo) to
-   run the agent performance comparison experiments (fork repository, implement experiment in a new branch and share link to 
+   run the agent performance comparison experiments (fork repository, implement experiment in a new branch and share link to
    that branch). If above do not apply, create new code to replicate the experiment and include link to it.
 4) Updated tests in `tests/test_run.py` and `tests/test_save_load.py` to test that features run as expected and serialize
    correctly. This this is **not** for testing e.g. training performance of a learning algorithm, and
    should be relatively quick to run.
 
-Below is a template for documentation for full training algorithms.
+Below is a template for documentation for full RL algorithms.
 
 ```rst
 [Feature/Algorithm name]

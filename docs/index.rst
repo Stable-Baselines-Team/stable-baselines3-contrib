@@ -6,7 +6,7 @@
 Welcome to Stable Baselines3 Contrib docs!
 ==========================================
 
-Contrib package for `Stable Baselines3 <https://github.com/DLR-RM/stable-baselines3>`_ - Experimental code.
+Contrib package for `Stable Baselines3 (SB3) <https://github.com/DLR-RM/stable-baselines3>`_ - Experimental code.
 
 
 Github repository: https://github.com/Stable-Baselines-Team/stable-baselines3-contrib
@@ -64,7 +64,7 @@ To cite this project in publications:
 Contributing
 ------------
 
-If you want to contribute, please read `CONTRIBUTING.md <https://github.com/DLR-RM/stable-baselines3/blob/master/CONTRIBUTING.md>`_ first.
+If you want to contribute, please read `CONTRIBUTING.md <https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/blob/master/CONTRIBUTING.md>`_ first.
 
 Indices and tables
 -------------------
