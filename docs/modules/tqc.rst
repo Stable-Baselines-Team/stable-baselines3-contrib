@@ -6,10 +6,9 @@
 TQC
 ===
 
-Controlling Overestimation Bias with Truncated Mixture of Continuous Distributional Quantile Critics.
-This paper build on SAC, TD3 and QR-DQN, making use of quantile regression to predict a distribution for the value function (instead of a mean value).
+Controlling Overestimation Bias with Truncated Mixture of Continuous Distributional Quantile Critics (TQC).
+This paper builds on SAC, TD3 and QR-DQN, making use of quantile regression to predict a distribution for the value function (instead of a mean value).
 It truncates the quantiles predicted by different networks (a bit as it is done in TD3).
-This is for continuous actions only.
 
 
 .. rubric:: Available Policies
@@ -75,28 +74,65 @@ Example
       if done:
         obs = env.reset()
 
-Example
--------
-
-A minimal example on how to use the feature (full, runnable code).
 
 Results
 -------
 
-A description and comparison of results (e.g. how the change improved results over the non-changed algorithm), if
-applicable.
+Result on the PyBullet benchmark (1M steps) and on BipedalWalkerHardcore-v3 (2M steps)
+using 3 seeds.
+The complete learning curves are available in the `associated PR <https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/pull/4>`_.
 
-Include the expected results from the work that originally proposed the method (e.g. original paper).
+The main difference with SAC is on harder environments (BipedalWalkerHardcore, Walker2D).
 
-Include the code to replicate these results or a link to repository/branch where the code can be found.
-Use `rl-baselines3-zoo <https://github.com/DLR-RM/rl-baselines3-zoo>`_ if possible, fork it, create a new branch
-and share the code to replicate results there.
+
+.. note::
+
+  Hyperparameters from the `gSDE paper <https://arxiv.org/abs/2005.05719>`_ were used (as they are tuned for SAC on PyBullet envs),
+  including using gSDE for the exploration and not the unstructured Gaussian noise
+  but this should not affect results in simulation.
+
+
+===================== ============ ============
+Environments          SAC          TQC
+===================== ============ ============
+\                     gSDE         gSDE
+HalfCheetah           2984 +/- 202 3041 +/- 157
+Ant                   3102 +/- 37  3700 +/- 37
+Hopper                2262 +/- 1   2184 +/- 129
+Walker2D              2136 +/- 67  2535 +/- 94
+BipedalWalkerHardcore 13 +/- 18    228 +/- 18
+===================== ============ ============
+
+How to replicate the results?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Clone RL-Zoo and checkout the branch ``feat/tqc``:
+
+.. code-block:: bash
+
+  git clone https://github.com/DLR-RM/rl-baselines3-zoo
+  cd rl-baselines3-zoo/
+  git checkout feat/tqc
+
+Run the benchmark (replace ``$ENV_ID`` by the envs mentioned above):
+
+.. code-block:: bash
+
+  python train.py --algo tqc --env $ENV_ID --eval-episodes 10 --eval-freq 10000
+
+
+Plot the results:
+
+.. code-block:: bash
+
+  python scripts/all_plots.py -a tqc -e HalfCheetah Ant Hopper Walker2D BipedalWalkerHardcore -f logs/ -o logs/tqc_results
+  python scripts/plot_from_file.py -i logs/tqc_results.pkl -latex -l TQC
 
 Comments
 --------
 
-Comments regarding the implementation, e.g. missing parts, uncertain parts, differences
-to the original implementation.
+This implementation is based on SB3 SAC implementation and uses the code from the original TQC implementation for the quantile huber loss.
+
 
 Parameters
 ----------
