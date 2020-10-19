@@ -98,10 +98,13 @@ Environments          SAC          TQC
 \                     gSDE         gSDE
 HalfCheetah           2984 +/- 202 3041 +/- 157
 Ant                   3102 +/- 37  3700 +/- 37
-Hopper                2262 +/- 1   2184 +/- 129
+Hopper                2262 +/- 1   2401 +/- 62*
 Walker2D              2136 +/- 67  2535 +/- 94
 BipedalWalkerHardcore 13 +/- 18    228 +/- 18
 ===================== ============ ============
+
+\* with tuned hyperparameter ``top_quantiles_to_drop_per_net`` taken from the original paper
+
 
 How to replicate the results?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
