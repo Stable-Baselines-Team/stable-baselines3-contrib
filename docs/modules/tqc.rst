@@ -153,6 +153,9 @@ TQC Policies
   :members:
   :inherited-members:
 
-.. .. autoclass:: CnnPolicy
-..   :members:
-..   :inherited-members:
+.. autoclass:: sb3_contrib.tqc.policies.TQCPolicy
+  :members:
+  :noindex:
+
+.. autoclass:: CnnPolicy
+  :members:
