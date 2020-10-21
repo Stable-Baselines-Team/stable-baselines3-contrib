@@ -93,6 +93,7 @@ Results
 
 A description and comparison of results (e.g. how the change improved results over the non-changed algorithm), if
 applicable.
+Please link the associated pull request, e.g., `Pull Request #4 <https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/pull/4>`_.
 
 Include the expected results from the work that originally proposed the method (e.g. original paper).
 

@@ -7,7 +7,7 @@ TQC
 ===
 
 Controlling Overestimation Bias with Truncated Mixture of Continuous Distributional Quantile Critics (TQC).
-This paper builds on SAC, TD3 and QR-DQN, making use of quantile regression to predict a distribution for the value function (instead of a mean value).
+Truncated Quantile Critics (TQC) builds on SAC, TD3 and QR-DQN, making use of quantile regression to predict a distribution for the value function (instead of a mean value).
 It truncates the quantiles predicted by different networks (a bit as it is done in TD3).
 
 
