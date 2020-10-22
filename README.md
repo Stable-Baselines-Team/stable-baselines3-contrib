@@ -34,7 +34,13 @@ Documentation is available online: [https://sb3-contrib.readthedocs.io/](https:/
 
 ## Installation
 
-**Note:** You need the `master` version of [Stable Baselines3](https://github.com/DLR-RM/stable-baselines3/).
+To install Stable Baselines3 contrib with pip, execute:
+
+```
+pip install sb3-contrib
+```
+
+We recommend to use the `master` version of [Stable Baselines3](https://github.com/DLR-RM/stable-baselines3/).
 
 To install Stable Baselines3 `master` version:
 ```
