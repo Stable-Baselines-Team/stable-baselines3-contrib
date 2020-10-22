@@ -15,4 +15,4 @@ dependencies:
     - numpy
     - matplotlib
     - sphinx_autodoc_typehints
-    - stable-baselines3>=0.9.0
+    - stable-baselines3>=0.10.0a0
