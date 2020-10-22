@@ -27,10 +27,9 @@ See documentation for the full list of included features.
 - [Truncated Quantile Critics (TQC)](https://arxiv.org/abs/2005.04269)
 
 
-<!-- TODO: uncomment when the repo is public -->
-<!-- ## Documentation
+## Documentation
 
-Documentation is available online: [https://sb3-contrib.readthedocs.io/](https://sb3-contrib.readthedocs.io/) -->
+Documentation is available online: [https://sb3-contrib.readthedocs.io/](https://sb3-contrib.readthedocs.io/)
 
 
 ## Installation
