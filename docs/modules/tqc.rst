@@ -92,6 +92,13 @@ The main difference with SAC is on harder environments (BipedalWalkerHardcore, W
   but this should not affect results in simulation.
 
 
+.. note::
+
+  We are using the open source PyBullet environments and not the MuJoCo simulator (as done in the original paper).
+  You can find a complete benchmark on PyBullet envs in the `gSDE paper <https://arxiv.org/abs/2005.05719>`_
+  if you want to compare TQC results to those of A2C/PPO/SAC/TD3.
+
+
 ===================== ============ ============
 Environments          SAC          TQC
 ===================== ============ ============

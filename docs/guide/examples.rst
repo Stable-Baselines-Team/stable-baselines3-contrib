@@ -6,6 +6,8 @@ Examples
 TQC
 ---
 
+Train a Truncated Quantile Critics (TQC) agent on the Pendulum environment.
+
 .. code-block:: python
 
   from sb3_contrib import TQC
