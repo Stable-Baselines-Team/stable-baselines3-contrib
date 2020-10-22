@@ -12,6 +12,7 @@ Breaking Changes:
 
 New Features:
 ^^^^^^^^^^^^^
+- Added ``TQC`` algorithm (@araffin)
 
 Bug Fixes:
 ^^^^^^^^^^

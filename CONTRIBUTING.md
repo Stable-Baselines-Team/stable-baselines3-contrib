@@ -93,12 +93,18 @@ Results
 
 A description and comparison of results (e.g. how the change improved results over the non-changed algorithm), if
 applicable.
+Please link the associated pull request, e.g., `Pull Request #4 <https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/pull/4>`_.
 
 Include the expected results from the work that originally proposed the method (e.g. original paper).
+
+How to replicate the results?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Include the code to replicate these results or a link to repository/branch where the code can be found.
 Use `rl-baselines3-zoo <https://github.com/DLR-RM/rl-baselines3-zoo>`_ if possible, fork it, create a new branch
 and share the code to replicate results there.
+
+If applicable, please also provide the command to replicate the plots.
 
 Comments
 --------

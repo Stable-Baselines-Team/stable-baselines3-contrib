@@ -16,6 +16,7 @@ class TQC(OffPolicyAlgorithm):
 
     Controlling Overestimation Bias with Truncated Mixture of Continuous Distributional Quantile Critics.
     Paper: https://arxiv.org/abs/2005.04269
+    This implementation uses SB3 SAC implementation as base.
 
     :param policy: The policy model to use (MlpPolicy, CnnPolicy, ...)
     :param env: The environment to learn from (if registered in Gym, can be str)
@@ -169,6 +170,14 @@ class TQC(OffPolicyAlgorithm):
 
     @staticmethod
     def quantile_huber_loss(quantiles: th.Tensor, samples: th.Tensor) -> th.Tensor:
+        """
+        The quantile-regression loss, as described in the QR-DQN and TQC papers.
+        Taken from https://github.com/bayesgroup/tqc_pytorch
+
+        :param quantiles:
+        :param samples:
+        :return: the loss
+        """
         # batch x nets x quantiles x samples
         pairwise_delta = samples[:, None, None, :] - quantiles[:, :, :, None]
         abs_pairwise_delta = th.abs(pairwise_delta)
@@ -251,7 +260,7 @@ class TQC(OffPolicyAlgorithm):
             self.critic.optimizer.step()
 
             # Compute actor loss
-            qf_pi = self.critic(replay_data.observations, actions_pi).mean(2).mean(1, keepdim=True)
+            qf_pi = self.critic(replay_data.observations, actions_pi).mean(dim=2).mean(dim=1, keepdim=True)
             actor_loss = (ent_coef * log_prob - qf_pi).mean()
             actor_losses.append(actor_loss.item())
 
@@ -299,19 +308,10 @@ class TQC(OffPolicyAlgorithm):
         )
 
     def _excluded_save_params(self) -> List[str]:
-        """
-        Returns the names of the parameters that should be excluded by default
-        when saving the model.
-
-        :return: List of parameters that should be excluded from save
-        """
         # Exclude aliases
         return super(TQC, self)._excluded_save_params() + ["actor", "critic", "critic_target"]
 
     def _get_torch_save_params(self) -> Tuple[List[str], List[str]]:
-        """
-        cf base class
-        """
         state_dicts = ["policy", "actor.optimizer", "critic.optimizer"]
         saved_pytorch_variables = ["log_ent_coef"]
         if self.ent_coef_optimizer is not None:

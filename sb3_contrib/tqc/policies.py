@@ -5,7 +5,13 @@ import torch as th
 from stable_baselines3.common.distributions import SquashedDiagGaussianDistribution, StateDependentNoiseDistribution
 from stable_baselines3.common.policies import BaseModel, BasePolicy, create_sde_features_extractor, register_policy
 from stable_baselines3.common.preprocessing import get_action_dim
-from stable_baselines3.common.torch_layers import BaseFeaturesExtractor, FlattenExtractor, NatureCNN, create_mlp
+from stable_baselines3.common.torch_layers import (
+    BaseFeaturesExtractor,
+    FlattenExtractor,
+    NatureCNN,
+    create_mlp,
+    get_actor_critic_arch,
+)
 from torch import nn as nn
 
 # CAP the standard deviation of the actor
@@ -306,6 +312,8 @@ class TQCPolicy(BasePolicy):
             else:
                 net_arch = []
 
+        actor_arch, critic_arch = get_actor_critic_arch(net_arch)
+
         # Create shared features extractor
         self.features_extractor = features_extractor_class(self.observation_space, **self.features_extractor_kwargs)
         self.features_dim = self.features_extractor.features_dim
@@ -317,12 +325,11 @@ class TQCPolicy(BasePolicy):
             "action_space": self.action_space,
             "features_extractor": self.features_extractor,
             "features_dim": self.features_dim,
-            "net_arch": self.net_arch,
+            "net_arch": actor_arch,
             "activation_fn": self.activation_fn,
             "normalize_images": normalize_images,
         }
         self.actor_kwargs = self.net_args.copy()
-        self.critic_kwargs = self.net_args.copy()
         sde_kwargs = {
             "use_sde": use_sde,
             "log_std_init": log_std_init,
@@ -331,7 +338,8 @@ class TQCPolicy(BasePolicy):
             "clip_mean": clip_mean,
         }
         self.actor_kwargs.update(sde_kwargs)
-        tqc_kwargs = {"n_quantiles": n_quantiles, "n_critics": n_critics}
+        self.critic_kwargs = self.net_args.copy()
+        tqc_kwargs = {"n_quantiles": n_quantiles, "n_critics": n_critics, "net_arch": critic_arch}
         self.critic_kwargs.update(tqc_kwargs)
         self.actor, self.actor_target = None, None
         self.critic, self.critic_target = None, None
@@ -356,7 +364,7 @@ class TQCPolicy(BasePolicy):
 
         data.update(
             dict(
-                net_arch=self.net_args["net_arch"],
+                net_arch=self.net_arch,
                 activation_fn=self.net_args["activation_fn"],
                 use_sde=self.actor_kwargs["use_sde"],
                 log_std_init=self.actor_kwargs["log_std_init"],
