@@ -4,7 +4,7 @@ Changelog
 ==========
 
 
-Pre-Release 0.10.0a1 (WIP)
+Pre-Release 0.10.0a2 (WIP)
 ------------------------------
 
 Breaking Changes:
@@ -16,6 +16,7 @@ New Features:
 
 Bug Fixes:
 ^^^^^^^^^^
+- Fixed feature extractor issue (``TQC`` with ``CnnPolicy``)
 
 Deprecations:
 ^^^^^^^^^^^^^

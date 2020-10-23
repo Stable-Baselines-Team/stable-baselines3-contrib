@@ -178,6 +178,6 @@ make doc
 
 ## Changelog and Documentation
 
-Please do not forget to update the changelog (`CHANGELOG.rst`).
+Please do not forget to update the changelog (`docs/misc/changelog.rst`).
 
 Credits: this contributing guide is based on the [PyTorch](https://github.com/pytorch/pytorch/) one.
