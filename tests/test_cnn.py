@@ -50,12 +50,27 @@ def params_should_differ(params, other_params):
 
 
 @pytest.mark.parametrize("model_class", [TQC])
-def test_feature_extractor_target_net(model_class):
+@pytest.mark.parametrize("share_features_extractor", [True, False])
+def test_feature_extractor_target_net(model_class, share_features_extractor):
     env = FakeImageEnv(screen_height=40, screen_width=40, n_channels=1, discrete=model_class not in {TQC})
     # Avoid memory error when using replay buffer
     # Reduce the size of the features
-    kwargs = dict(buffer_size=250, learning_starts=100, policy_kwargs=dict(features_extractor_kwargs=dict(features_dim=32)))
+    kwargs = dict(
+        buffer_size=250,
+        learning_starts=100,
+        policy_kwargs=dict(
+            features_extractor_kwargs=dict(features_dim=32),
+            share_features_extractor=share_features_extractor,
+        ),
+    )
     model = model_class("CnnPolicy", env, seed=0, **kwargs)
+
+    if share_features_extractor:
+        # Check that the objects are the same and not just copied
+        assert id(model.policy.actor.features_extractor) == id(model.policy.critic.features_extractor)
+    else:
+        # Check that the objects differ
+        assert id(model.policy.actor.features_extractor) != id(model.policy.critic.features_extractor)
 
     # Critic and target should be equal at the begginning of training
     params_should_match(model.critic.parameters(), model.critic_target.parameters())

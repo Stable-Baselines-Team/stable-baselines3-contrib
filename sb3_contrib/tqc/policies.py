@@ -203,6 +203,8 @@ class Critic(BaseModel):
     :param activation_fn: Activation function
     :param normalize_images: Whether to normalize images or not,
          dividing by 255.0 (True by default)
+    :param share_features_extractor: Whether the features extractor is shared or not
+        between the actor and the critic (this saves computation time)
     """
 
     def __init__(
@@ -216,6 +218,7 @@ class Critic(BaseModel):
         normalize_images: bool = True,
         n_quantiles: int = 25,
         n_critics: int = 2,
+        share_features_extractor: bool = True,
     ):
         super().__init__(
             observation_space,
@@ -226,6 +229,7 @@ class Critic(BaseModel):
 
         action_dim = get_action_dim(self.action_space)
 
+        self.share_features_extractor = share_features_extractor
         self.q_networks = []
         self.n_quantiles = n_quantiles
         self.n_critics = n_critics
@@ -239,8 +243,8 @@ class Critic(BaseModel):
 
     def forward(self, obs: th.Tensor, action: th.Tensor) -> List[th.Tensor]:
         # Learn the features extractor using the policy loss only
-        # this is much faster
-        with th.no_grad():
+        # when the features_extractor is shared with the actor
+        with th.set_grad_enabled(not self.share_features_extractor):
             features = self.extract_features(obs)
         qvalue_input = th.cat([features, action], dim=1)
         quantiles = th.stack(tuple(qf(qvalue_input) for qf in self.q_networks), dim=1)
@@ -274,6 +278,8 @@ class TQCPolicy(BasePolicy):
         ``th.optim.Adam`` by default
     :param optimizer_kwargs: Additional keyword arguments,
         excluding the learning rate, to pass to the optimizer
+    :param share_features_extractor: Whether to share or not the features extractor
+        between the actor and the critic (this saves computation time)
     """
 
     def __init__(
@@ -295,6 +301,7 @@ class TQCPolicy(BasePolicy):
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
         n_quantiles: int = 25,
         n_critics: int = 2,
+        share_features_extractor: bool = True,
     ):
         super(TQCPolicy, self).__init__(
             observation_space,
@@ -314,17 +321,11 @@ class TQCPolicy(BasePolicy):
 
         actor_arch, critic_arch = get_actor_critic_arch(net_arch)
 
-        # Create shared features extractor
-        self.features_extractor = features_extractor_class(self.observation_space, **self.features_extractor_kwargs)
-        self.features_dim = self.features_extractor.features_dim
-
         self.net_arch = net_arch
         self.activation_fn = activation_fn
         self.net_args = {
             "observation_space": self.observation_space,
             "action_space": self.action_space,
-            "features_extractor": self.features_extractor,
-            "features_dim": self.features_dim,
             "net_arch": actor_arch,
             "activation_fn": self.activation_fn,
             "normalize_images": normalize_images,
@@ -339,10 +340,16 @@ class TQCPolicy(BasePolicy):
         }
         self.actor_kwargs.update(sde_kwargs)
         self.critic_kwargs = self.net_args.copy()
-        tqc_kwargs = {"n_quantiles": n_quantiles, "n_critics": n_critics, "net_arch": critic_arch}
+        tqc_kwargs = {
+            "n_quantiles": n_quantiles,
+            "n_critics": n_critics,
+            "net_arch": critic_arch,
+            "share_features_extractor": share_features_extractor,
+        }
         self.critic_kwargs.update(tqc_kwargs)
         self.actor, self.actor_target = None, None
         self.critic, self.critic_target = None, None
+        self.share_features_extractor = share_features_extractor
 
         self._build(lr_schedule)
 
@@ -350,18 +357,21 @@ class TQCPolicy(BasePolicy):
         self.actor = self.make_actor()
         self.actor.optimizer = self.optimizer_class(self.actor.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
 
-        self.critic = self.make_critic()
-        self.critic_target = self.make_critic()
+        if self.share_features_extractor:
+            self.critic = self.make_critic(features_extractor=self.actor.features_extractor)
+            # Do not optimize the shared features extractor with the critic loss
+            # otherwise, there are gradient computation issues
+            critic_parameters = [param for name, param in self.critic.named_parameters() if "features_extractor" not in name]
+        else:
+            # Create a separate features extractor for the critic
+            # this requires more memory and computation
+            self.critic = self.make_critic(features_extractor=None)
+            critic_parameters = self.critic.parameters()
+
         # Critic target should not share the feature extactor with critic
-        self.critic_target.features_extractor = self.features_extractor_class(
-            self.observation_space, **self.features_extractor_kwargs
-        )
+        self.critic_target = self.make_critic(features_extractor=None)
         self.critic_target.load_state_dict(self.critic.state_dict())
 
-        # Do not optimize the shared feature extractor with the critic loss
-        # otherwise, there are gradient computation issues
-        # Another solution: having duplicated features extractor but requires more memory and computation
-        critic_parameters = [param for name, param in self.critic.named_parameters() if "features_extractor" not in name]
         self.critic.optimizer = self.optimizer_class(critic_parameters, lr=lr_schedule(1), **self.optimizer_kwargs)
 
     def _get_data(self) -> Dict[str, Any]:
@@ -393,11 +403,13 @@ class TQCPolicy(BasePolicy):
         """
         self.actor.reset_noise(batch_size=batch_size)
 
-    def make_actor(self) -> Actor:
-        return Actor(**self.actor_kwargs).to(self.device)
+    def make_actor(self, features_extractor: Optional[BaseFeaturesExtractor] = None) -> Actor:
+        actor_kwargs = self._update_features_extractor(self.actor_kwargs, features_extractor)
+        return Actor(**actor_kwargs).to(self.device)
 
-    def make_critic(self) -> Critic:
-        return Critic(**self.critic_kwargs).to(self.device)
+    def make_critic(self, features_extractor: Optional[BaseFeaturesExtractor] = None) -> Critic:
+        critic_kwargs = self._update_features_extractor(self.critic_kwargs, features_extractor)
+        return Critic(**critic_kwargs).to(self.device)
 
     def forward(self, obs: th.Tensor, deterministic: bool = False) -> th.Tensor:
         return self._predict(obs, deterministic=deterministic)
@@ -434,6 +446,8 @@ class CnnPolicy(TQCPolicy):
         ``th.optim.Adam`` by default
     :param optimizer_kwargs: Additional keyword arguments,
         excluding the learning rate, to pass to the optimizer
+    :param share_features_extractor: Whether to share or not the features extractor
+        between the actor and the critic (this saves computation time)
     """
 
     def __init__(
@@ -455,6 +469,7 @@ class CnnPolicy(TQCPolicy):
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
         n_quantiles: int = 25,
         n_critics: int = 2,
+        share_features_extractor: bool = True,
     ):
         super(CnnPolicy, self).__init__(
             observation_space,
@@ -474,6 +489,7 @@ class CnnPolicy(TQCPolicy):
             optimizer_kwargs,
             n_quantiles,
             n_critics,
+            share_features_extractor,
         )
 
 
