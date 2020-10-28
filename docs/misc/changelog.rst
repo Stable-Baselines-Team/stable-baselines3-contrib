@@ -4,8 +4,10 @@ Changelog
 ==========
 
 
-Pre-Release 0.10.0a2 (WIP)
-------------------------------
+Pre-Release 0.10.0 (2020-10-28)
+-------------------------------
+
+**Truncated Quantiles Critic (TQC)**
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
@@ -16,7 +18,7 @@ New Features:
 
 Bug Fixes:
 ^^^^^^^^^^
-- Fixed feature extractor issue (``TQC`` with ``CnnPolicy``)
+- Fixed features extractor issue (``TQC`` with ``CnnPolicy``)
 
 Deprecations:
 ^^^^^^^^^^^^^
