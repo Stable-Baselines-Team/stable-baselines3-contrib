@@ -4,6 +4,30 @@ Changelog
 ==========
 
 
+Pre-Release 0.11.0a0 (WIP)
+-------------------------------
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+
+New Features:
+^^^^^^^^^^^^^
+- Added ``TimeFeatureWrapper`` to the wrappers
+
+Bug Fixes:
+^^^^^^^^^^
+
+Deprecations:
+^^^^^^^^^^^^^
+
+Others:
+^^^^^^^
+
+Documentation:
+^^^^^^^^^^^^^^
+
+
+
 Pre-Release 0.10.0 (2020-10-28)
 -------------------------------
 

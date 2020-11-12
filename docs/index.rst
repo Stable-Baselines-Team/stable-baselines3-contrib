@@ -33,11 +33,11 @@ RL Baselines3 Zoo also offers a simple interface to train, evaluate agents and d
 
   modules/tqc
 
-.. .. toctree::
-..   :maxdepth: 1
-..   :caption: Common
-..
-..   common/atari_wrappers
+.. toctree::
+  :maxdepth: 1
+  :caption: Common
+
+  common/wrappers
 
 .. toctree::
   :maxdepth: 1
