@@ -7,12 +7,12 @@ from stable_baselines3.common.type_aliases import GymObs, GymStepReturn
 
 class TimeFeatureWrapper(gym.Wrapper):
     """
-    Add remaining time to observation space for fixed length episodes.
+    Add remaining, normalized time to observation space for fixed length episodes.
     See https://arxiv.org/abs/1712.00378 and https://github.com/aravindr93/mjrl/issues/13.
 
     .. note::
 
-        Only ``gym.spaces.Box`` and ``gym.spaces.Dict`` (``gym.GoalEnv``) observation spaces
+        Only ``gym.spaces.Box`` and ``gym.spaces.Dict`` (``gym.GoalEnv``) 1D observation spaces
         are supported for now.
 
     :param env: Gym env to wrap.
@@ -38,6 +38,9 @@ class TimeFeatureWrapper(gym.Wrapper):
             obs_space = env.observation_space.spaces["observation"]
         else:
             obs_space = env.observation_space
+
+        assert len(obs_space.shape) == 1, "Only 1D observation spaces are supported"
+
         low, high = obs_space.low, obs_space.high
         low, high = np.concatenate((low, [0.0])), np.concatenate((high, [1.0]))
 
@@ -83,6 +86,6 @@ class TimeFeatureWrapper(gym.Wrapper):
             time_feature = 1.0
 
         if isinstance(obs, dict):
-            obs["observation"] = np.concatenate((obs["observation"], [time_feature]))
+            obs["observation"] = np.append(obs["observation"], time_feature)
             return obs
-        return np.concatenate((obs, [time_feature]))
+        return np.append(obs, time_feature)

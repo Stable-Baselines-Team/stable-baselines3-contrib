@@ -37,10 +37,16 @@ def test_time_feature():
     env = gym.make("Pendulum-v0")
     env = TimeFeatureWrapper(env)
     check_env(env, warn=False)
+    # Check for four episodes
+    max_timesteps = 200
     obs = env.reset()
-    check_time_feature(obs, timestep=0, max_timesteps=200)
-    obs, _, _, _ = env.step(env.action_space.sample())
-    check_time_feature(obs, timestep=1, max_timesteps=200)
+    for _ in range(4):
+        check_time_feature(obs, timestep=0, max_timesteps=max_timesteps)
+        for step in range(1, max_timesteps + 1):
+            obs, _, done, _ = env.step(env.action_space.sample())
+            check_time_feature(obs, timestep=step, max_timesteps=max_timesteps)
+        if done:
+            obs = env.reset()
 
     env = BitFlippingEnv()
     with pytest.raises(AssertionError):
