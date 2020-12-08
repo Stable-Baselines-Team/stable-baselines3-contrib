@@ -15,7 +15,7 @@ def quantile_huber_loss(current_quantile: th.Tensor, target_quantile: th.Tensor)
 
     if current_quantile.ndim == 3:
         # For TQC.
-        tau = tau.view(1, -1, 1, 1)
+        tau = tau.view(1, 1, -1, 1)
         pairwise_delta = target_quantile[:, None, None, :] - current_quantile[:, :, :, None]
     elif current_quantile.ndim == 2:
         # For QR-DQN.
