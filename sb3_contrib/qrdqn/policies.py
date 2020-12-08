@@ -154,7 +154,6 @@ class QRDQNPolicy(BasePolicy):
         :param lr_schedule: Learning rate schedule
             lr_schedule(1) is the initial learning rate
         """
-
         self.quantile_net = self.make_quantile_net()
         self.quantile_net_target = self.make_quantile_net()
         self.quantile_net_target.load_state_dict(self.quantile_net.state_dict())

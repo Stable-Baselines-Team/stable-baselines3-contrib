@@ -7,8 +7,8 @@ from stable_baselines3.common import logger
 from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import get_linear_fn, is_vectorized_observation, polyak_update
-from torch.nn import functional as F
 
+from sb3_contrib.common.utils import quantile_huber_loss
 from sb3_contrib.qrdqn.policies import QRDQNPolicy
 
 
@@ -168,7 +168,7 @@ class QRDQN(OffPolicyAlgorithm):
             current_quantile = th.gather(current_quantile, dim=2, index=actions).squeeze(2)
 
             # Compute Quantile Huber loss
-            loss = F.smooth_l1_loss(current_quantile, target_quantile)
+            loss = quantile_huber_loss(current_quantile, target_quantile) * self.n_quantiles
             losses.append(loss.item())
 
             # Optimize the policy
@@ -183,17 +183,6 @@ class QRDQN(OffPolicyAlgorithm):
 
         logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
         logger.record("train/loss", np.mean(losses))
-
-    @staticmethod
-    def quantile_huber_loss(current_quantile: th.Tensor, target_quantile: th.Tensor) -> th.Tensor:
-        pairwise_delta = target_quantile[:, None, :] - current_quantile[:, :, None]
-        abs_pairwise_delta = th.abs(pairwise_delta)
-        huber_loss = th.where(abs_pairwise_delta > 1, abs_pairwise_delta - 0.5, pairwise_delta ** 2 * 0.5)
-
-        n_quantiles = current_quantile.shape[1]
-        tau = th.arange(n_quantiles, device=current_quantile.device).float() / n_quantiles + 1 / 2 / n_quantiles
-        loss = (th.abs(tau[None, :, None] - (pairwise_delta.detach() < 0).float()) * huber_loss).sum(dim=1).mean()
-        return loss
 
     def predict(
         self,

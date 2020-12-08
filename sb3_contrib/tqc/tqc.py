@@ -8,6 +8,7 @@ from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback
 from stable_baselines3.common.utils import polyak_update
 
+from sb3_contrib.common.utils import quantile_huber_loss
 from sb3_contrib.tqc.policies import TQCPolicy
 
 
@@ -168,26 +169,6 @@ class TQC(OffPolicyAlgorithm):
         self.critic = self.policy.critic
         self.critic_target = self.policy.critic_target
 
-    @staticmethod
-    def quantile_huber_loss(quantiles: th.Tensor, samples: th.Tensor) -> th.Tensor:
-        """
-        The quantile-regression loss, as described in the QR-DQN and TQC papers.
-        Taken from https://github.com/bayesgroup/tqc_pytorch
-
-        :param quantiles:
-        :param samples:
-        :return: the loss
-        """
-        # batch x nets x quantiles x samples
-        pairwise_delta = samples[:, None, None, :] - quantiles[:, :, :, None]
-        abs_pairwise_delta = th.abs(pairwise_delta)
-        huber_loss = th.where(abs_pairwise_delta > 1, abs_pairwise_delta - 0.5, pairwise_delta ** 2 * 0.5)
-
-        n_quantiles = quantiles.shape[2]
-        tau = th.arange(n_quantiles, device=quantiles.device).float() / n_quantiles + 1 / 2 / n_quantiles
-        loss = (th.abs(tau[None, None, :, None] - (pairwise_delta < 0).float()) * huber_loss).mean()
-        return loss
-
     def train(self, gradient_steps: int, batch_size: int = 64) -> None:
         # Update optimizers learning rate
         optimizers = [self.actor.optimizer, self.critic.optimizer]
@@ -251,7 +232,7 @@ class TQC(OffPolicyAlgorithm):
             # using action from the replay buffer
             current_z = self.critic(replay_data.observations, replay_data.actions)
             # Compute critic loss
-            critic_loss = self.quantile_huber_loss(current_z, q_backup)
+            critic_loss = quantile_huber_loss(current_z, q_backup)
             critic_losses.append(critic_loss.item())
 
             # Optimize the critic
