@@ -9,6 +9,17 @@ from torch import nn
 
 
 class QuantileNetwork(BasePolicy):
+    """
+    Action-Quantile (Q-Value) network for QR-DQN
+    :param observation_space: Observation space
+    :param action_space: Action space
+    :param n_quantiles: Number of quantiles
+    :param net_arch: The specification of the policy and value networks.
+    :param activation_fn: Activation function
+    :param normalize_images: Whether to normalize images or not,
+         dividing by 255.0 (True by default)
+    """
+
     def __init__(
         self,
         observation_space: gym.spaces.Space,
@@ -42,9 +53,9 @@ class QuantileNetwork(BasePolicy):
 
     def forward(self, obs: th.Tensor) -> th.Tensor:
         """
-        Predict the q-values.
+        Predict the quantile-values.
         :param obs: Observation
-        :return: The estimated Q-Value for each action.
+        :return: The estimated Quantile-Value for each action.
         """
         quantile_values = self.quantile_net(self.extract_features(obs))
         return quantile_values.view(-1, self.n_quantiles, self.action_space.n)
@@ -72,6 +83,25 @@ class QuantileNetwork(BasePolicy):
 
 
 class QRDQNPolicy(BasePolicy):
+    """
+    Policy class with Q-Value Net and target net for DQN
+    :param observation_space: Observation space
+    :param action_space: Action space
+    :param lr_schedule: Learning rate schedule (could be constant)
+    :param n_quantiles: Number of quantiles
+    :param net_arch: The specification of the policy and value networks.
+    :param activation_fn: Activation function
+    :param features_extractor_class: Features extractor to use.
+    :param features_extractor_kwargs: Keyword arguments
+        to pass to the features extractor.
+    :param normalize_images: Whether to normalize images or not,
+         dividing by 255.0 (True by default)
+    :param optimizer_class: The optimizer to use,
+        ``th.optim.Adam`` by default
+    :param optimizer_kwargs: Additional keyword arguments,
+        excluding the learning rate, to pass to the optimizer
+    """
+
     def __init__(
         self,
         observation_space: gym.spaces.Space,
@@ -165,6 +195,23 @@ MlpPolicy = QRDQNPolicy
 
 
 class CnnPolicy(QRDQNPolicy):
+    """
+    Policy class for QR-DQN when using images as input.
+    :param observation_space: Observation space
+    :param action_space: Action space
+    :param lr_schedule: Learning rate schedule (could be constant)
+    :param n_quantiles: Number of quantiles
+    :param net_arch: The specification of the policy and value networks.
+    :param activation_fn: Activation function
+    :param features_extractor_class: Features extractor to use.
+    :param normalize_images: Whether to normalize images or not,
+         dividing by 255.0 (True by default)
+    :param optimizer_class: The optimizer to use,
+        ``th.optim.Adam`` by default
+    :param optimizer_kwargs: Additional keyword arguments,
+        excluding the learning rate, to pass to the optimizer
+    """
+
     def __init__(
         self,
         observation_space: gym.spaces.Space,

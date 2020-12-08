@@ -13,6 +13,46 @@ from sb3_contrib.qrdqn.policies import QRDQNPolicy
 
 
 class QRDQN(OffPolicyAlgorithm):
+    """
+    Quantile Regression Deep Q-Network (QR-DQN)
+    Paper: https://arxiv.org/abs/1710.10044
+    Default hyperparameters are taken from the paper
+    :param policy: The policy model to use (MlpPolicy, CnnPolicy, ...)
+    :param env: The environment to learn from (if registered in Gym, can be str)
+    :param learning_rate: The learning rate, it can be a function
+        of the current progress remaining (from 1 to 0)
+    :param buffer_size: size of the replay buffer
+    :param learning_starts: how many steps of the model to collect transitions for before learning starts
+    :param batch_size: Minibatch size for each gradient update
+    :param tau: the soft update coefficient ("Polyak update", between 0 and 1) default 1 for hard update
+    :param gamma: the discount factor
+    :param train_freq: Update the model every ``train_freq`` steps. Set to `-1` to disable.
+    :param gradient_steps: How many gradient steps to do after each rollout
+        (see ``train_freq`` and ``n_episodes_rollout``)
+        Set to ``-1`` means to do as many gradient steps as steps done in the environment
+        during the rollout.
+    :param n_episodes_rollout: Update the model every ``n_episodes_rollout`` episodes.
+        Note that this cannot be used at the same time as ``train_freq``. Set to `-1` to disable.
+    :param optimize_memory_usage: Enable a memory efficient variant of the replay buffer
+        at a cost of more complexity.
+        See https://github.com/DLR-RM/stable-baselines3/issues/37#issuecomment-637501195
+    :param target_update_interval: update the target network every ``target_update_interval``
+        environment steps.
+    :param exploration_fraction: fraction of entire training period over which the exploration rate is reduced
+    :param exploration_initial_eps: initial value of random action probability
+    :param exploration_final_eps: final value of random action probability
+    :param max_grad_norm: The maximum value for the gradient clipping
+    :param tensorboard_log: the log location for tensorboard (if None, no logging)
+    :param create_eval_env: Whether to create a second environment that will be
+        used for evaluating the agent periodically. (Only available when passing string for the environment)
+    :param policy_kwargs: additional arguments to be passed to the policy on creation
+    :param verbose: the verbosity level: 0 no output, 1 info, 2 debug
+    :param seed: Seed for the pseudo random generators
+    :param device: Device (cpu, cuda, ...) on which the code should be run.
+        Setting it to auto, the code will be run on the GPU if possible.
+    :param _init_setup_model: Whether or not to build the network at the creation of the instance
+    """
+
     def __init__(
         self,
         policy: Union[str, Type[QRDQNPolicy]],
