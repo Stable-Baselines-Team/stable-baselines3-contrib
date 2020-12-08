@@ -222,19 +222,18 @@ class TQC(OffPolicyAlgorithm):
                 next_actions, next_log_prob = self.actor.action_log_prob(replay_data.next_observations)
                 # Compute and cut quantiles at the next state
                 # batch x nets x quantiles
-                next_z = self.critic_target(replay_data.next_observations, next_actions)
-                sorted_z, _ = th.sort(next_z.reshape(batch_size, -1))
-                sorted_z_part = sorted_z[:, : self.critic.quantiles_total - top_quantiles_to_drop]
+                next_quantile = self.critic_target(replay_data.next_observations, next_actions)
+                sorted_quantile, _ = th.sort(next_quantile.reshape(batch_size, -1))
+                sorted_quantile_part = sorted_quantile[:, : self.critic.quantiles_total - top_quantiles_to_drop]
 
-                target_q = sorted_z_part - ent_coef * next_log_prob.reshape(-1, 1)
+                target_quantile = sorted_quantile_part - ent_coef * next_log_prob.reshape(-1, 1)
                 # td error + entropy term
-                q_backup = replay_data.rewards + (1 - replay_data.dones) * self.gamma * target_q
+                target_quantile = replay_data.rewards + (1 - replay_data.dones) * self.gamma * target_quantile
 
-            # Get current Q estimates
-            # using action from the replay buffer
-            current_z = self.critic(replay_data.observations, replay_data.actions)
+            # Get current Quantile estimates using action from the replay buffer
+            current_quantile = self.critic(replay_data.observations, replay_data.actions)
             # Compute critic loss
-            critic_loss = quantile_huber_loss(current_z, q_backup)
+            critic_loss = quantile_huber_loss(current_quantile, target_quantile)
             critic_losses.append(critic_loss.item())
 
             # Optimize the critic
