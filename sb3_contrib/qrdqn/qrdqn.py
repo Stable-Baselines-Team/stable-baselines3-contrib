@@ -1,0 +1,215 @@
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
+
+import gym
+import numpy as np
+import torch as th
+from stable_baselines3.common import logger
+from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
+from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
+from stable_baselines3.common.utils import get_linear_fn, is_vectorized_observation, polyak_update
+from torch.nn import functional as F
+
+from sb3_contrib.qrdqn.policies import QRDQNPolicy
+
+
+class QRDQN(OffPolicyAlgorithm):
+    def __init__(
+        self,
+        policy: Union[str, Type[QRDQNPolicy]],
+        env: Union[GymEnv, str],
+        learning_rate: Union[float, Schedule] = 5e-5,
+        buffer_size: int = 1000000,
+        learning_starts: int = 50000,
+        batch_size: Optional[int] = 32,
+        tau: float = 1.0,
+        gamma: float = 0.99,
+        train_freq: int = 4,
+        gradient_steps: int = 1,
+        n_episodes_rollout: int = -1,
+        optimize_memory_usage: bool = False,
+        target_update_interval: int = 10000,
+        exploration_fraction: float = 0.005,
+        exploration_initial_eps: float = 1.0,
+        exploration_final_eps: float = 0.01,
+        max_grad_norm: float = 10,
+        tensorboard_log: Optional[str] = None,
+        create_eval_env: bool = False,
+        policy_kwargs: Optional[Dict[str, Any]] = None,
+        verbose: int = 0,
+        seed: Optional[int] = None,
+        device: Union[th.device, str] = "auto",
+        _init_setup_model: bool = True,
+    ):
+
+        super(QRDQN, self).__init__(
+            policy,
+            env,
+            QRDQNPolicy,
+            learning_rate,
+            buffer_size,
+            learning_starts,
+            batch_size,
+            tau,
+            gamma,
+            train_freq,
+            gradient_steps,
+            n_episodes_rollout,
+            action_noise=None,  # No action noise
+            policy_kwargs=policy_kwargs,
+            tensorboard_log=tensorboard_log,
+            verbose=verbose,
+            device=device,
+            create_eval_env=create_eval_env,
+            seed=seed,
+            sde_support=False,
+            optimize_memory_usage=optimize_memory_usage,
+            supported_action_spaces=(gym.spaces.Discrete,),
+        )
+
+        self.exploration_initial_eps = exploration_initial_eps
+        self.exploration_final_eps = exploration_final_eps
+        self.exploration_fraction = exploration_fraction
+        self.target_update_interval = target_update_interval
+        self.max_grad_norm = max_grad_norm
+        # "epsilon" for the epsilon-greedy exploration
+        self.exploration_rate = 0.0
+        # Linear schedule will be defined in `_setup_model()`
+        self.exploration_schedule = None
+        self.quantile_net, self.quantile_net_target = None, None
+
+        if _init_setup_model:
+            self._setup_model()
+
+    def _setup_model(self) -> None:
+        super(QRDQN, self)._setup_model()
+        self._create_aliases()
+        self.exploration_schedule = get_linear_fn(
+            self.exploration_initial_eps, self.exploration_final_eps, self.exploration_fraction
+        )
+
+    def _create_aliases(self) -> None:
+        self.quantile_net = self.policy.quantile_net
+        self.quantile_net_target = self.policy.quantile_net_target
+        self.n_quantiles = self.policy.n_quantiles
+
+    def _on_step(self) -> None:
+        """
+        Update the exploration rate and target network if needed.
+        This method is called in ``collect_rollouts()`` after each step in the environment.
+        """
+        if self.num_timesteps % self.target_update_interval == 0:
+            polyak_update(self.quantile_net.parameters(), self.quantile_net_target.parameters(), self.tau)
+
+        self.exploration_rate = self.exploration_schedule(self._current_progress_remaining)
+        logger.record("rollout/exploration rate", self.exploration_rate)
+
+    def train(self, gradient_steps: int, batch_size: int = 100) -> None:
+        # Update learning rate according to schedule
+        self._update_learning_rate(self.policy.optimizer)
+
+        losses = []
+        for gradient_step in range(gradient_steps):
+            # Sample replay buffer
+            replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)
+
+            with th.no_grad():
+                # Compute the target quantile values
+                target_quantile = self.quantile_net_target(replay_data.next_observations)
+                # Follow greedy policy: use the one with the highest value
+                target_quantile, _ = target_quantile.max(dim=2)
+                # 1-step TD target
+                target_quantile = replay_data.rewards + (1 - replay_data.dones) * self.gamma * target_quantile
+
+            # Get current quantile estimates
+            current_quantile = self.quantile_net(replay_data.observations)
+
+            # Retrieve the quantile-values for the actions from the replay buffer
+            actions = replay_data.actions[..., None].long().expand(batch_size, self.n_quantiles, 1)
+            current_quantile = th.gather(current_quantile, dim=2, index=actions).squeeze(2)
+
+            # Compute Quantile Huber loss
+            loss = F.smooth_l1_loss(current_quantile, target_quantile)
+            losses.append(loss.item())
+
+            # Optimize the policy
+            self.policy.optimizer.zero_grad()
+            loss.backward()
+            # Clip gradient norm
+            th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
+            self.policy.optimizer.step()
+
+        # Increase update counter
+        self._n_updates += gradient_steps
+
+        logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
+        logger.record("train/loss", np.mean(losses))
+
+    @staticmethod
+    def quantile_huber_loss(current_quantile: th.Tensor, target_quantile: th.Tensor) -> th.Tensor:
+        pairwise_delta = target_quantile[:, None, :] - current_quantile[:, :, None]
+        abs_pairwise_delta = th.abs(pairwise_delta)
+        huber_loss = th.where(abs_pairwise_delta > 1, abs_pairwise_delta - 0.5, pairwise_delta ** 2 * 0.5)
+
+        n_quantiles = current_quantile.shape[1]
+        tau = th.arange(n_quantiles, device=current_quantile.device).float() / n_quantiles + 1 / 2 / n_quantiles
+        loss = (th.abs(tau[None, :, None] - (pairwise_delta.detach() < 0).float()) * huber_loss).sum(dim=1).mean()
+        return loss
+
+    def predict(
+        self,
+        observation: np.ndarray,
+        state: Optional[np.ndarray] = None,
+        mask: Optional[np.ndarray] = None,
+        deterministic: bool = False,
+    ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+        """
+        Overrides the base_class predict function to include epsilon-greedy exploration.
+        :param observation: the input observation
+        :param state: The last states (can be None, used in recurrent policies)
+        :param mask: The last masks (can be None, used in recurrent policies)
+        :param deterministic: Whether or not to return deterministic actions.
+        :return: the model's action and the next state
+            (used in recurrent policies)
+        """
+        if not deterministic and np.random.rand() < self.exploration_rate:
+            if is_vectorized_observation(observation, self.observation_space):
+                n_batch = observation.shape[0]
+                action = np.array([self.action_space.sample() for _ in range(n_batch)])
+            else:
+                action = np.array(self.action_space.sample())
+        else:
+            action, state = self.policy.predict(observation, state, mask, deterministic)
+        return action, state
+
+    def learn(
+        self,
+        total_timesteps: int,
+        callback: MaybeCallback = None,
+        log_interval: int = 4,
+        eval_env: Optional[GymEnv] = None,
+        eval_freq: int = -1,
+        n_eval_episodes: int = 5,
+        tb_log_name: str = "QRDQN",
+        eval_log_path: Optional[str] = None,
+        reset_num_timesteps: bool = True,
+    ) -> OffPolicyAlgorithm:
+
+        return super(QRDQN, self).learn(
+            total_timesteps=total_timesteps,
+            callback=callback,
+            log_interval=log_interval,
+            eval_env=eval_env,
+            eval_freq=eval_freq,
+            n_eval_episodes=n_eval_episodes,
+            tb_log_name=tb_log_name,
+            eval_log_path=eval_log_path,
+            reset_num_timesteps=reset_num_timesteps,
+        )
+
+    def _excluded_save_params(self) -> List[str]:
+        return super(QRDQN, self)._excluded_save_params() + ["quantile_net", "quantile_net_target"]
+
+    def _get_torch_save_params(self) -> Tuple[List[str], List[str]]:
+        state_dicts = ["policy", "policy.optimizer"]
+
+        return state_dicts, []
