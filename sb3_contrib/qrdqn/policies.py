@@ -114,8 +114,9 @@ class QRDQNPolicy(BasePolicy):
         features_extractor_kwargs: Optional[Dict[str, Any]] = None,
         normalize_images: bool = True,
         optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
-        optimizer_kwargs: Dict[str, Any] = {"eps": 0.01 / 32},
+        optimizer_kwargs: Optional[Dict[str, Any]] = None,
     ):
+
         super(QRDQNPolicy, self).__init__(
             observation_space,
             action_space,
@@ -144,6 +145,9 @@ class QRDQNPolicy(BasePolicy):
             "activation_fn": self.activation_fn,
             "normalize_images": normalize_images,
         }
+
+        if optimizer_class is th.optim.Adam and "eps" not in self.optimizer_kwargs:
+            self.optimizer_kwargs.update(eps=0.01 / 32)  # 32 is a minibatch size
 
         self.quantile_net, self.quantile_net_target = None, None
         self._build(lr_schedule)
