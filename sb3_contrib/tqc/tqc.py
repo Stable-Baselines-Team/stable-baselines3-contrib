@@ -218,25 +218,27 @@ class TQC(OffPolicyAlgorithm):
                 self.ent_coef_optimizer.step()
 
             with th.no_grad():
-                top_quantiles_to_drop = self.top_quantiles_to_drop_per_net * self.critic.n_critics
                 # Select action according to policy
                 next_actions, next_log_prob = self.actor.action_log_prob(replay_data.next_observations)
                 # Compute and cut quantiles at the next state
                 # batch x nets x quantiles
-                next_quantile = self.critic_target(replay_data.next_observations, next_actions)
-                sorted_quantile, _ = th.sort(next_quantile.reshape(batch_size, -1))
-                sorted_quantile_part = sorted_quantile[:, : self.critic.quantiles_total - top_quantiles_to_drop]
+                next_quantiles = self.critic_target(replay_data.next_observations, next_actions)
 
-                target_quantile = sorted_quantile_part - ent_coef * next_log_prob.reshape(-1, 1)
+                # Sort and drop top k quantiles to control overestimation.
+                n_target_quantiles = self.critic.quantiles_total - self.top_quantiles_to_drop_per_net * self.critic.n_critics
+                next_quantiles, _ = th.sort(next_quantiles.reshape(batch_size, -1))
+                next_quantiles = next_quantiles[:, :n_target_quantiles]
+
                 # td error + entropy term
-                target_quantile = replay_data.rewards + (1 - replay_data.dones) * self.gamma * target_quantile
-                # Make it compatible with (batch_size, n_critics, n_quantiles)
-                target_quantile.unsqueeze_(1)
+                target_quantiles = next_quantiles - ent_coef * next_log_prob.reshape(-1, 1)
+                target_quantiles = replay_data.rewards + (1 - replay_data.dones) * self.gamma * target_quantiles
+                # Make it briadcastable with current_quantiles
+                target_quantiles.unsqueeze_(1)
 
             # Get current Quantile estimates using action from the replay buffer
-            current_quantile = self.critic(replay_data.observations, replay_data.actions)
+            current_quantiles = self.critic(replay_data.observations, replay_data.actions)
             # Compute critic loss.
-            critic_loss = quantile_huber_loss(current_quantile, target_quantile)
+            critic_loss = quantile_huber_loss(current_quantiles, target_quantiles)
             critic_losses.append(critic_loss.item())
 
             # Optimize the critic

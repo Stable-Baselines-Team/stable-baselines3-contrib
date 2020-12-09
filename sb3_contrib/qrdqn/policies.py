@@ -10,7 +10,7 @@ from torch import nn
 
 class QuantileNetwork(BasePolicy):
     """
-    Action-Quantile (Quantile-Value) network for QR-DQN
+    Quantile network for QR-DQN
 
     :param observation_space: Observation space
     :param action_space: Action space
@@ -54,13 +54,13 @@ class QuantileNetwork(BasePolicy):
 
     def forward(self, obs: th.Tensor) -> th.Tensor:
         """
-        Predict the quantile-values.
+        Predict the quantiles.
 
         :param obs: Observation
-        :return: The estimated Quantile-Value for each action.
+        :return: The estimated quantiles for each action.
         """
-        quantile_values = self.quantile_net(self.extract_features(obs))
-        return quantile_values.view(-1, self.n_quantiles, self.action_space.n)
+        quantiles = self.quantile_net(self.extract_features(obs))
+        return quantiles.view(-1, self.n_quantiles, self.action_space.n)
 
     def _predict(self, observation: th.Tensor, deterministic: bool = True) -> th.Tensor:
         q_values = self.forward(observation).mean(dim=1)
@@ -86,7 +86,7 @@ class QuantileNetwork(BasePolicy):
 
 class QRDQNPolicy(BasePolicy):
     """
-    Policy class with Q-Value Net and target net for DQN
+    Policy class with Quantile Net and target net for QRDQN
 
     :param observation_space: Observation space
     :param action_space: Action space

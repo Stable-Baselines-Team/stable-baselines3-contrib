@@ -158,22 +158,22 @@ class QRDQN(OffPolicyAlgorithm):
             replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)
 
             with th.no_grad():
-                # Compute the target quantile values
-                target_quantile = self.quantile_net_target(replay_data.next_observations)
+                # Compute the quantiles of next observation
+                next_quantiles = self.quantile_net_target(replay_data.next_observations)
                 # Follow greedy policy: use the one with the highest value
-                target_quantile, _ = target_quantile.max(dim=2)
+                next_quantiles, _ = next_quantiles.max(dim=2)
                 # 1-step TD target
-                target_quantile = replay_data.rewards + (1 - replay_data.dones) * self.gamma * target_quantile
+                target_quantiles = replay_data.rewards + (1 - replay_data.dones) * self.gamma * next_quantiles
 
             # Get current quantile estimates
-            current_quantile = self.quantile_net(replay_data.observations)
+            current_quantiles = self.quantile_net(replay_data.observations)
 
-            # Retrieve the quantile-values for the actions from the replay buffer
+            # Retrieve the quantiles for the actions from the replay buffer
             actions = replay_data.actions[..., None].long().expand(batch_size, self.n_quantiles, 1)
-            current_quantile = th.gather(current_quantile, dim=2, index=actions).squeeze(2)
+            current_quantiles = th.gather(current_quantiles, dim=2, index=actions).squeeze(2)
 
             # Compute Quantile Huber loss
-            loss = quantile_huber_loss(current_quantile, target_quantile) * self.n_quantiles
+            loss = quantile_huber_loss(current_quantiles, target_quantiles) * self.n_quantiles
             losses.append(loss.item())
 
             # Optimize the policy
