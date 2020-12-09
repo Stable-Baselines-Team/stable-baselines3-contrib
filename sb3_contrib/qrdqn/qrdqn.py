@@ -17,6 +17,7 @@ class QRDQN(OffPolicyAlgorithm):
     Quantile Regression Deep Q-Network (QR-DQN)
     Paper: https://arxiv.org/abs/1710.10044
     Default hyperparameters are taken from the paper
+
     :param policy: The policy model to use (MlpPolicy, CnnPolicy, ...)
     :param env: The environment to learn from (if registered in Gym, can be str)
     :param learning_rate: The learning rate, it can be a function
@@ -117,6 +118,10 @@ class QRDQN(OffPolicyAlgorithm):
         self.exploration_schedule = None
         self.quantile_net, self.quantile_net_target = None, None
 
+        if "optimizer_class" not in self.policy_kwargs:
+            self.policy_kwargs["optimizer_class"] = th.optim.Adam
+            self.policy_kwargs["optimizer_kwargs"] = dict(eps=0.01 / batch_size)  # proposed in the QRDQN paper
+
         if _init_setup_model:
             self._setup_model()
 
@@ -193,6 +198,7 @@ class QRDQN(OffPolicyAlgorithm):
     ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
         """
         Overrides the base_class predict function to include epsilon-greedy exploration.
+
         :param observation: the input observation
         :param state: The last states (can be None, used in recurrent policies)
         :param mask: The last masks (can be None, used in recurrent policies)

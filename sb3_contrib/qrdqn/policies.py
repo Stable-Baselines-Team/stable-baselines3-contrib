@@ -10,7 +10,8 @@ from torch import nn
 
 class QuantileNetwork(BasePolicy):
     """
-    Action-Quantile (Q-Value) network for QR-DQN
+    Action-Quantile (Quantile-Value) network for QR-DQN
+
     :param observation_space: Observation space
     :param action_space: Action space
     :param n_quantiles: Number of quantiles
@@ -54,6 +55,7 @@ class QuantileNetwork(BasePolicy):
     def forward(self, obs: th.Tensor) -> th.Tensor:
         """
         Predict the quantile-values.
+
         :param obs: Observation
         :return: The estimated Quantile-Value for each action.
         """
@@ -85,6 +87,7 @@ class QuantileNetwork(BasePolicy):
 class QRDQNPolicy(BasePolicy):
     """
     Policy class with Q-Value Net and target net for DQN
+
     :param observation_space: Observation space
     :param action_space: Action space
     :param lr_schedule: Learning rate schedule (could be constant)
@@ -146,15 +149,13 @@ class QRDQNPolicy(BasePolicy):
             "normalize_images": normalize_images,
         }
 
-        if optimizer_class is th.optim.Adam and "eps" not in self.optimizer_kwargs:
-            self.optimizer_kwargs.update(eps=0.01 / 32)  # 32 is a minibatch size
-
         self.quantile_net, self.quantile_net_target = None, None
         self._build(lr_schedule)
 
     def _build(self, lr_schedule: Schedule) -> None:
         """
         Create the network and the optimizer.
+
         :param lr_schedule: Learning rate schedule
             lr_schedule(1) is the initial learning rate
         """
@@ -200,6 +201,7 @@ MlpPolicy = QRDQNPolicy
 class CnnPolicy(QRDQNPolicy):
     """
     Policy class for QR-DQN when using images as input.
+
     :param observation_space: Observation space
     :param action_space: Action space
     :param lr_schedule: Learning rate schedule (could be constant)
