@@ -229,10 +229,12 @@ class TQC(OffPolicyAlgorithm):
                 target_quantile = sorted_quantile_part - ent_coef * next_log_prob.reshape(-1, 1)
                 # td error + entropy term
                 target_quantile = replay_data.rewards + (1 - replay_data.dones) * self.gamma * target_quantile
+                # Make it compatible with (batch_size, n_critics, n_quantiles)
+                target_quantile.unsqueeze_(1)
 
             # Get current Quantile estimates using action from the replay buffer
             current_quantile = self.critic(replay_data.observations, replay_data.actions)
-            # Compute critic loss
+            # Compute critic loss.
             critic_loss = quantile_huber_loss(current_quantile, target_quantile)
             critic_losses.append(critic_loss.item())
 
