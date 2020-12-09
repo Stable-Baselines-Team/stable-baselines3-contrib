@@ -11,6 +11,14 @@ def quantile_huber_loss(current_quantile: th.Tensor, target_quantile: th.Tensor)
     :param target_quantile: target quantile value, must be the same shape with current_quantile
     :return: the loss
     """
+    if current_quantile.ndim != target_quantile.ndim:
+        raise ValueError(
+            f"Error: The dimension of curremt_quantile ({current_quantile.ndim}) needs to match "
+            + f"the dimension of target_quantile ({target_quantile.ndim})."
+        )
+    if current_quantile.ndim not in (2, 3):
+        raise ValueError(f"Error: The dimension of current_quantile ({current_quantile.ndim}) needs to be either 2 or 3.")
+
     n_quantiles = current_quantile.shape[-1]
 
     # Cumulative probabilities to calculate quantile values.
