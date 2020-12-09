@@ -7,22 +7,21 @@ import gym
 import numpy as np
 import pytest
 import torch as th
-from stable_baselines3 import DQN
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.identity_env import FakeImageEnv, IdentityEnv, IdentityEnvBox
 from stable_baselines3.common.utils import get_device
 from stable_baselines3.common.vec_env import DummyVecEnv
 
-from sb3_contrib import TQC
+from sb3_contrib import QRDQN, TQC
 
-MODEL_LIST = [TQC]
+MODEL_LIST = [TQC, QRDQN]
 
 
 def select_env(model_class: BaseAlgorithm) -> gym.Env:
     """
-    Selects an environment with the correct action space as DQN only supports discrete action space
+    Selects an environment with the correct action space as QRDQN only supports discrete action space
     """
-    if model_class == DQN:
+    if model_class == QRDQN:
         return IdentityEnv(10)
     else:
         return IdentityEnvBox(10)
@@ -167,13 +166,17 @@ def test_set_env(model_class):
     :param model_class: (BaseAlgorithm) A RL model
     """
 
-    # use discrete for DQN
+    # use discrete for QRDQN
     env = DummyVecEnv([lambda: select_env(model_class)])
     env2 = DummyVecEnv([lambda: select_env(model_class)])
     env3 = select_env(model_class)
 
+    kwargs = {}
+    if model_class in {TQC, QRDQN}:
+        kwargs = dict(learning_starts=100)
+
     # create model
-    model = model_class("MlpPolicy", env, policy_kwargs=dict(net_arch=[16]))
+    model = model_class("MlpPolicy", env, policy_kwargs=dict(net_arch=[16]), **kwargs)
     # learn
     model.learn(total_timesteps=300)
 
@@ -219,7 +222,7 @@ def test_exclude_include_saved_params(tmp_path, model_class):
     os.remove(tmp_path / "test_save.zip")
 
 
-@pytest.mark.parametrize("model_class", [TQC])
+@pytest.mark.parametrize("model_class", [TQC, QRDQN])
 def test_save_load_replay_buffer(tmp_path, model_class):
     path = pathlib.Path(tmp_path / "logs/replay_buffer.pkl")
     path.parent.mkdir(exist_ok=True, parents=True)  # to not raise a warning
@@ -254,20 +257,22 @@ def test_save_load_policy(tmp_path, model_class, policy_str):
     :param model_class: (BaseAlgorithm) A RL model
     :param policy_str: (str) Name of the policy.
     """
-    kwargs = {}
+    kwargs = dict(policy_kwargs=dict(net_arch=[16]))
     if policy_str == "MlpPolicy":
         env = select_env(model_class)
     else:
-        if model_class in [TQC]:
+        if model_class in [TQC, QRDQN]:
             # Avoid memory error when using replay buffer
             # Reduce the size of the features
-            kwargs = dict(buffer_size=250)
-        env = FakeImageEnv(screen_height=40, screen_width=40, n_channels=2, discrete=model_class == DQN)
+            kwargs = dict(
+                buffer_size=250, learning_starts=100, policy_kwargs=dict(features_extractor_kwargs=dict(features_dim=32))
+            )
+        env = FakeImageEnv(screen_height=40, screen_width=40, n_channels=2, discrete=model_class == QRDQN)
 
     env = DummyVecEnv([lambda: env])
 
     # create model
-    model = model_class(policy_str, env, policy_kwargs=dict(net_arch=[16]), verbose=1, **kwargs)
+    model = model_class(policy_str, env, verbose=1, **kwargs)
     model.learn(total_timesteps=300)
 
     env.reset()
