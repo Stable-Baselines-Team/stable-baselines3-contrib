@@ -45,6 +45,7 @@ class TQC(OffPolicyAlgorithm):
     :param target_update_interval: update the target network every ``target_network_update_freq``
         gradient steps.
     :param target_entropy: target entropy when learning ``ent_coef`` (``ent_coef = 'auto'``)
+    :param top_quantiles_to_drop_per_net: Number of quantiles to drop per network
     :param use_sde: Whether to use generalized State Dependent Exploration (gSDE)
         instead of action noise exploration (default: False)
     :param sde_sample_freq: Sample a new noise matrix every n steps when using gSDE
