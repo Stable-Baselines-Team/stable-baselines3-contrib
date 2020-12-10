@@ -44,7 +44,7 @@ def test_qrdqn():
     model = QRDQN(
         "MlpPolicy",
         "CartPole-v1",
-        policy_kwargs=dict(net_arch=[64, 64]),
+        policy_kwargs=dict(n_quantiles=25, net_arch=[64, 64]),
         learning_starts=100,
         buffer_size=500,
         learning_rate=3e-4,

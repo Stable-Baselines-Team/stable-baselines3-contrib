@@ -20,8 +20,11 @@ def test_cnn(tmp_path, model_class):
     kwargs = {}
     if model_class in {TQC, QRDQN}:
         # Avoid memory error when using replay buffer
-        # Reduce the size of the features
-        kwargs = dict(buffer_size=250, policy_kwargs=dict(features_extractor_kwargs=dict(features_dim=32)))
+        # Reduce the size of the features and the number of quantiles
+        kwargs = dict(
+            buffer_size=250,
+            policy_kwargs=dict(n_quantiles=25, features_extractor_kwargs=dict(features_dim=32)),
+        )
     model = model_class("CnnPolicy", env, **kwargs).learn(250)
 
     obs = env.reset()
@@ -56,16 +59,22 @@ def params_should_differ(params, other_params):
         assert not th.allclose(param, other_param)
 
 
-@pytest.mark.parametrize("model_class", [TQC])
+@pytest.mark.parametrize("model_class", [TQC, QRDQN])
 @pytest.mark.parametrize("share_features_extractor", [True, False])
 def test_feature_extractor_target_net(model_class, share_features_extractor):
     if model_class == QRDQN and share_features_extractor:
         pytest.skip()
 
     env = FakeImageEnv(screen_height=40, screen_width=40, n_channels=1, discrete=model_class not in {TQC})
-    # Avoid memory error when using replay buffer
-    # Reduce the size of the features
-    kwargs = dict(buffer_size=250, learning_starts=100, policy_kwargs=dict(features_extractor_kwargs=dict(features_dim=32)))
+
+    if model_class in {TQC, QRDQN}:
+        # Avoid memory error when using replay buffer
+        # Reduce the size of the features and the number of quantiles
+        kwargs = dict(
+            buffer_size=250,
+            learning_starts=100,
+            policy_kwargs=dict(n_quantiles=25, features_extractor_kwargs=dict(features_dim=32)),
+        )
     if model_class != QRDQN:
         kwargs["policy_kwargs"]["share_features_extractor"] = share_features_extractor
 
