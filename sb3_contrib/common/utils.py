@@ -6,10 +6,10 @@ def quantile_huber_loss(current_quantiles: th.Tensor, target_quantiles: th.Tenso
     The quantile-regression loss, as described in the QR-DQN and TQC papers.
     Partially taken from https://github.com/bayesgroup/tqc_pytorch
 
-    :param current_quantiles: current estimate of quantiles,
-        must be either (batch_size, n_quantiles) or (batch_size, n_critics, n_quantiles)
-    :param target_quantiles: target of quantiles,
-       must be either (batch_size, n_target_quantiles) or (batch_size, n_critics, n_target_quantiles)
+    :param current_quantiles: current estimate of quantiles, must be either
+        (batch_size, n_quantiles) or (batch_size, n_critics, n_quantiles)
+    :param target_quantiles: target of quantiles, must be either (batch_size, n_target_quantiles),
+        (batch_size, 1, n_target_quantiles), or (batch_size, n_critics, n_target_quantiles)
     :return: the loss
     """
     if current_quantiles.ndim != target_quantiles.ndim:
