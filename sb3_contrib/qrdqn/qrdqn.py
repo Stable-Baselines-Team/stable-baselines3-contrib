@@ -168,11 +168,12 @@ class QRDQN(OffPolicyAlgorithm):
             # Get current quantile estimates
             current_quantiles = self.quantile_net(replay_data.observations)
 
-            # Retrieve the quantiles for the actions from the replay buffer
+            # Make "n_quantiles" copies of actions, and reshape to (batch_size, n_quantiles, 1).
             actions = replay_data.actions[..., None].long().expand(batch_size, self.n_quantiles, 1)
-            current_quantiles = th.gather(current_quantiles, dim=2, index=actions).squeeze(2)
+            # Retrieve the quantiles for the actions from the replay buffer
+            current_quantiles = th.gather(current_quantiles, dim=2, index=actions).squeeze(dim=2)
 
-            # Compute Quantile Huber loss
+            # Compute Quantile Huber loss, summing over a quantile dimension as in the paper.
             loss = quantile_huber_loss(current_quantiles, target_quantiles) * self.n_quantiles
             losses.append(loss.item())
 

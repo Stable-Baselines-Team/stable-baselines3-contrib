@@ -6,9 +6,9 @@ def quantile_huber_loss(current_quantiles: th.Tensor, target_quantiles: th.Tenso
     The quantile-regression loss, as described in the QR-DQN and TQC papers.
     Partially taken from https://github.com/bayesgroup/tqc_pytorch
 
-    :param current_quantiles: current estimate of quantile value,
+    :param current_quantiles: current estimate of quantiles,
         must be either (batch_size, n_quantiles) or (batch_size, n_critics, n_quantiles)
-    :param target_quantiles: target quantile value,
+    :param target_quantiles: target of quantiles,
        must be either (batch_size, n_target_quantiles) or (batch_size, n_critics, n_target_quantiles)
     :return: the loss
     """
@@ -22,12 +22,16 @@ def quantile_huber_loss(current_quantiles: th.Tensor, target_quantiles: th.Tenso
 
     n_quantiles = current_quantiles.shape[-1]
 
-    # Cumulative probabilities to calculate quantile values.
+    # Cumulative probabilities to calculate quantiles.
     cum_prob = (th.arange(n_quantiles, device=current_quantiles.device, dtype=th.float) + 0.5) / n_quantiles
-    if current_quantiles.ndim == 3:
-        cum_prob = cum_prob.view(1, 1, -1, 1)  # For TQC
-    elif current_quantiles.ndim == 2:
-        cum_prob = cum_prob.view(1, -1, 1)  # For QR-DQN
+    if current_quantiles.ndim == 2:
+        # For QR-DQN, current_quantiles have a shape (batch_size, n_quantiles), and make cum_prob
+        # broadcastable to (batch_size, n_quantiles, n_target_quantiles)
+        cum_prob = cum_prob.view(1, -1, 1)
+    elif current_quantiles.ndim == 3:
+        # For TQC, current_quantiles have a shape (batch_size, n_critics, n_quantiles), and make cum_prob
+        # broadcastable to (batch_size, n_critics, n_quantiles, n_target_quantiles)
+        cum_prob = cum_prob.view(1, 1, -1, 1)
 
     pairwise_delta = target_quantiles.unsqueeze(-2) - current_quantiles.unsqueeze(-1)
     abs_pairwise_delta = th.abs(pairwise_delta)

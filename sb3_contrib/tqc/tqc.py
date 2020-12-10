@@ -232,8 +232,8 @@ class TQC(OffPolicyAlgorithm):
                 # td error + entropy term
                 target_quantiles = next_quantiles - ent_coef * next_log_prob.reshape(-1, 1)
                 target_quantiles = replay_data.rewards + (1 - replay_data.dones) * self.gamma * target_quantiles
-                # Make it briadcastable with current_quantiles
-                target_quantiles.unsqueeze_(1)
+                # Make target_quantiles broadcastable to (batch_size, n_critics, n_target_quantiles).
+                target_quantiles.unsqueeze_(dim=1)
 
             # Get current Quantile estimates using action from the replay buffer
             current_quantiles = self.critic(replay_data.observations, replay_data.actions)
