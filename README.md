@@ -25,6 +25,7 @@ See documentation for the full list of included features.
 
 **RL Algorithms**:
 - [Truncated Quantile Critics (TQC)](https://arxiv.org/abs/2005.04269)
+- [Quantile Regression DQN (QR-DQN)](https://arxiv.org/abs/1710.10044)
 
 **Gym Wrappers**:
 - [Time Feature Wrapper](https://arxiv.org/abs/1712.00378)

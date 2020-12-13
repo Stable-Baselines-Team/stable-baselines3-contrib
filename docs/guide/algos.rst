@@ -9,7 +9,7 @@ along with some useful characteristics: support for discrete/continuous actions,
 Name         ``Box``     ``Discrete`` ``MultiDiscrete`` ``MultiBinary`` Multi Processing
 ============ =========== ============ ================= =============== ================
 TQC          ✔️          ❌            ❌                ❌              ❌
-QRDQN        ️❌          ✔            ❌                ❌              ❌
+QR-DQN       ️❌          ️✔️            ❌                ❌              ❌
 ============ =========== ============ ================= =============== ================
 
 

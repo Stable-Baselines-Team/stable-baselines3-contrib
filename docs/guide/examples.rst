@@ -25,9 +25,7 @@ Train a Quantile Regression DQN (QR-DQN) agent on the CartPole environment.
 
   from sb3_contrib import QRDQN
 
-  env = gym.make("CartPole-v1")
-
-  model = QRDQN("MlpPolicy", "CartPole-v1", verbose=1)
+  model = QRDQN("MlpPolicy", "CartPole-v1", n_quantiles=50, verbose=1)
   model.learn(total_timesteps=10000, log_interval=4)
   model.save("qrdqn_cartpole")
 
