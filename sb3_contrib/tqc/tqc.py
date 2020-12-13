@@ -237,8 +237,8 @@ class TQC(OffPolicyAlgorithm):
 
             # Get current Quantile estimates using action from the replay buffer
             current_quantiles = self.critic(replay_data.observations, replay_data.actions)
-            # Compute critic loss.
-            critic_loss = quantile_huber_loss(current_quantiles, target_quantiles)
+            # Compute critic loss, not summing over the quantile dimension as in the paper.
+            critic_loss = quantile_huber_loss(current_quantiles, target_quantiles, sum_over_quantiles=False)
             critic_losses.append(critic_loss.item())
 
             # Optimize the critic

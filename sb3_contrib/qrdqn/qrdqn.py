@@ -42,7 +42,7 @@ class QRDQN(OffPolicyAlgorithm):
     :param exploration_fraction: fraction of entire training period over which the exploration rate is reduced
     :param exploration_initial_eps: initial value of random action probability
     :param exploration_final_eps: final value of random action probability
-    :param max_grad_norm: The maximum value for the gradient clipping
+    :param max_grad_norm: The maximum value for the gradient clipping (if None, no clipping)
     :param tensorboard_log: the log location for tensorboard (if None, no logging)
     :param create_eval_env: Whether to create a second environment that will be
         used for evaluating the agent periodically. (Only available when passing string for the environment)
@@ -72,7 +72,7 @@ class QRDQN(OffPolicyAlgorithm):
         exploration_fraction: float = 0.005,
         exploration_initial_eps: float = 1.0,
         exploration_final_eps: float = 0.01,
-        max_grad_norm: float = 10,
+        max_grad_norm: Optional[float] = None,
         tensorboard_log: Optional[str] = None,
         create_eval_env: bool = False,
         policy_kwargs: Optional[Dict[str, Any]] = None,
@@ -174,14 +174,15 @@ class QRDQN(OffPolicyAlgorithm):
             current_quantiles = th.gather(current_quantiles, dim=2, index=actions).squeeze(dim=2)
 
             # Compute Quantile Huber loss, summing over a quantile dimension as in the paper.
-            loss = quantile_huber_loss(current_quantiles, target_quantiles) * self.n_quantiles
+            loss = quantile_huber_loss(current_quantiles, target_quantiles)
             losses.append(loss.item())
 
             # Optimize the policy
             self.policy.optimizer.zero_grad()
             loss.backward()
             # Clip gradient norm
-            th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
+            if self.max_grad_norm is not None:
+                th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
             self.policy.optimizer.step()
 
         # Increase update counter
