@@ -1,6 +1,7 @@
+import numpy as np
 import pytest
 import torch as th
-import numpy as np
+
 from sb3_contrib.common.utils import quantile_huber_loss
 
 
