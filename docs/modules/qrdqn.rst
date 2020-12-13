@@ -55,8 +55,9 @@ Example
 
   env = gym.make("CartPole-v1")
 
-  model = QRDQN("MlpPolicy", env, verbose=1)
-  model.learn(total_timesteps=10000, n_quantiles=50, log_interval=4)
+  policy_kwargs = dict(n_quantiles=50)
+  model = QRDQN("MlpPolicy", env, policy_kwargs=policy_kwargs, verbose=1)
+  model.learn(total_timesteps=10000, log_interval=4)
   model.save("qrdqn_cartpole")
 
   del model # remove to demonstrate saving and loading
