@@ -4,7 +4,7 @@ Changelog
 ==========
 
 
-Pre-Release 0.11.0a2 (WIP)
+Pre-Release 0.11.0a3 (WIP)
 -------------------------------
 
 Breaking Changes:
@@ -23,6 +23,7 @@ Deprecations:
 Others:
 ^^^^^^^
 - Updated ``TQC`` to match new SB3 version
+- Updated SB3 min version
 
 Documentation:
 ^^^^^^^^^^^^^^
