@@ -16,6 +16,22 @@ Train a Truncated Quantile Critics (TQC) agent on the Pendulum environment.
   model.learn(total_timesteps=10000, log_interval=4)
   model.save("tqc_pendulum")
 
+QR-DQN
+------
+
+Train a Quantile Regression DQN (QR-DQN) agent on the CartPole environment.
+
+.. code-block:: python
+
+  from sb3_contrib import QRDQN
+
+  env = gym.make("CartPole-v1")
+
+  model = QRDQN("MlpPolicy", "CartPole-v1", verbose=1)
+  model.learn(total_timesteps=10000, log_interval=4)
+  model.save("qrdqn_cartpole")
+
+
 .. PyBullet: Normalizing input features
 .. ------------------------------------
 ..
