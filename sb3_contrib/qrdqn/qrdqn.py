@@ -16,7 +16,7 @@ class QRDQN(OffPolicyAlgorithm):
     """
     Quantile Regression Deep Q-Network (QR-DQN)
     Paper: https://arxiv.org/abs/1710.10044
-    Default hyperparameters are taken from the paper
+    Default hyperparameters are taken from the paper and are tuned for Atari games.
 
     :param policy: The policy model to use (MlpPolicy, CnnPolicy, ...)
     :param env: The environment to learn from (if registered in Gym, can be str)
@@ -120,7 +120,8 @@ class QRDQN(OffPolicyAlgorithm):
 
         if "optimizer_class" not in self.policy_kwargs:
             self.policy_kwargs["optimizer_class"] = th.optim.Adam
-            self.policy_kwargs["optimizer_kwargs"] = dict(eps=0.01 / batch_size)  # proposed in the QRDQN paper
+            # Proposed in the QR-DQN paper where `batch_size = 32`
+            self.policy_kwargs["optimizer_kwargs"] = dict(eps=0.01 / batch_size)
 
         if _init_setup_model:
             self._setup_model()
@@ -174,7 +175,7 @@ class QRDQN(OffPolicyAlgorithm):
             current_quantiles = th.gather(current_quantiles, dim=2, index=actions).squeeze(dim=2)
 
             # Compute Quantile Huber loss, summing over a quantile dimension as in the paper.
-            loss = quantile_huber_loss(current_quantiles, target_quantiles)
+            loss = quantile_huber_loss(current_quantiles, target_quantiles, sum_over_quantiles=True)
             losses.append(loss.item())
 
             # Optimize the policy

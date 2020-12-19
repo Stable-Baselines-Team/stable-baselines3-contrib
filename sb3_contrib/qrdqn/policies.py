@@ -15,7 +15,7 @@ class QuantileNetwork(BasePolicy):
     :param observation_space: Observation space
     :param action_space: Action space
     :param n_quantiles: Number of quantiles
-    :param net_arch: The specification of the policy and value networks.
+    :param net_arch: The specification of the network architecture.
     :param activation_fn: Activation function
     :param normalize_images: Whether to normalize images or not,
          dividing by 255.0 (True by default)
@@ -78,7 +78,6 @@ class QuantileNetwork(BasePolicy):
                 n_quantiles=self.n_quantiles,
                 activation_fn=self.activation_fn,
                 features_extractor=self.features_extractor,
-                epsilon=self.epsilon,
             )
         )
         return data
@@ -86,13 +85,13 @@ class QuantileNetwork(BasePolicy):
 
 class QRDQNPolicy(BasePolicy):
     """
-    Policy class with Quantile Net and target net for QRDQN
+    Policy class with quantile and target networks for QR-DQN.
 
     :param observation_space: Observation space
     :param action_space: Action space
     :param lr_schedule: Learning rate schedule (could be constant)
     :param n_quantiles: Number of quantiles
-    :param net_arch: The specification of the policy and value networks.
+    :param net_arch: The specification of the network architecture.
     :param activation_fn: Activation function
     :param features_extractor_class: Features extractor to use.
     :param features_extractor_kwargs: Keyword arguments
@@ -206,7 +205,7 @@ class CnnPolicy(QRDQNPolicy):
     :param action_space: Action space
     :param lr_schedule: Learning rate schedule (could be constant)
     :param n_quantiles: Number of quantiles
-    :param net_arch: The specification of the policy and value networks.
+    :param net_arch: The specification of the network architecture.
     :param activation_fn: Activation function
     :param features_extractor_class: Features extractor to use.
     :param normalize_images: Whether to normalize images or not,
