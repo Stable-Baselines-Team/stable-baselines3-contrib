@@ -17,8 +17,9 @@ def quantile_huber_loss(
         (batch_size, n_quantiles) or (batch_size, n_critics, n_quantiles)
     :param target_quantiles: target of quantiles, must be either (batch_size, n_target_quantiles),
         (batch_size, 1, n_target_quantiles), or (batch_size, n_critics, n_target_quantiles)
-    :param cum_prob: cumulative probabilities to calculate quantiles, must be either (batch_size, n_quantiles),
-        (batch_size, 1, n_quantiles), or (batch_size, n_critics, n_quantiles). (if None, calculating unit quantiles)
+    :param cum_prob: cumulative probabilities to calculate quantiles (also called midpoints in QR-DQN paper),
+        must be either (batch_size, n_quantiles), (batch_size, 1, n_quantiles), or (batch_size, n_critics, n_quantiles).
+        (if None, calculating unit quantiles)
     :param sum_over_quantiles: if summing over the quantile dimension or not
     :return: the loss
     """
