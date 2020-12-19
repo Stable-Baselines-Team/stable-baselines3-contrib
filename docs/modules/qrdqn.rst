@@ -7,7 +7,8 @@ QR-DQN
 ======
 
 `Quantile Regression DQN (QR-DQN) <https://arxiv.org/abs/1710.10044>`_ builds on `Deep Q-Network (DQN) <https://arxiv.org/abs/1312.5602>`_
-and make use of quantile regression to explicitly model the distribution over returns.
+and make use of quantile regression to explicitly model the `distribution over returns <https://arxiv.org/abs/1707.06887>`_,
+instead of predicting the mean return (DQN).
 
 
 .. rubric:: Available Policies
@@ -23,6 +24,7 @@ Notes
 -----
 
 - Original paper: https://arxiv.org/abs/1710.100442
+- Distributional RL (C51): https://arxiv.org/abs/1707.06887
 
 
 Can I use?
@@ -49,7 +51,6 @@ Example
 .. code-block:: python
 
   import gym
-  import numpy as np
 
   from sb3_contrib import QRDQN
 
