@@ -77,6 +77,47 @@ Example
 Results
 -------
 
+Result on Atari environments (10M steps, Pong and Breakout) and classic control tasks on using 3 and 5 seeds.
+
+The complete learning curves are available in the `associated PR <https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/pull/13>`_.
+
+
+============ ========== ===========
+Environments QR-DQN     DQN
+============ ========== ===========
+Breakout     413 +/- 21 ~300
+Pong         20 +/- 0   ~20
+CartPole     386 +/- 64 500 +/- 0
+MountainCar  -111 +/- 4 -107 +/- 4
+LunarLander  168 +/- 39 -111 +/- 65
+Acrobot      -73 +/- 2  -74 +/- 2
+============ ========== ===========
+
+How to replicate the results?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Clone RL-Zoo fork and checkout the branch ``feat/qrdqn``:
+
+.. code-block:: bash
+
+  git clone https://github.com/ku2482/rl-baselines3-zoo/
+  cd rl-baselines3-zoo/
+  git checkout feat/qrdqn
+
+Run the benchmark (replace ``$ENV_ID`` by the envs mentioned above):
+
+.. code-block:: bash
+
+  python train.py --algo qrdqn --env $ENV_ID --eval-episodes 10 --eval-freq 10000
+
+
+Plot the results:
+
+.. code-block:: bash
+
+  python scripts/all_plots.py -a qrdqn -e Breakout Pong -f logs/ -o logs/qrdqn_results
+  python scripts/plot_from_file.py -i logs/qrdqn_results.pkl -latex -l QR-DQN
+
 
 
 Parameters
