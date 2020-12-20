@@ -77,7 +77,7 @@ Example
 Results
 -------
 
-Result on Atari environments (10M steps, Pong and Breakout) and classic control tasks on using 3 and 5 seeds.
+Result on Atari environments (10M steps, Pong and Breakout) and classic control tasks using 3 and 5 seeds.
 
 The complete learning curves are available in the `associated PR <https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/pull/13>`_.
 
@@ -89,7 +89,7 @@ Breakout     413 +/- 21 ~300
 Pong         20 +/- 0   ~20
 CartPole     386 +/- 64 500 +/- 0
 MountainCar  -111 +/- 4 -107 +/- 4
-LunarLander  168 +/- 39 -111 +/- 65
+LunarLander  168 +/- 39 195 +/- 28
 Acrobot      -73 +/- 2  -74 +/- 2
 ============ ========== ===========
 
