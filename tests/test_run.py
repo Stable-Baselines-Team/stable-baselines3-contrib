@@ -21,7 +21,11 @@ def test_tqc(ent_coef):
 def test_n_critics(n_critics):
     # Test TQC with different number of critics
     model = TQC(
-        "MlpPolicy", "Pendulum-v0", policy_kwargs=dict(net_arch=[64], n_critics=n_critics), learning_starts=100, verbose=1
+        "MlpPolicy",
+        "Pendulum-v0",
+        policy_kwargs=dict(net_arch=[64], n_critics=n_critics),
+        learning_starts=100,
+        verbose=1,
     )
     model.learn(total_timesteps=300)
 

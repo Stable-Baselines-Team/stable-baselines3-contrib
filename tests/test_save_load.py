@@ -40,8 +40,13 @@ def test_save_load(tmp_path, model_class):
 
     env = DummyVecEnv([lambda: select_env(model_class)])
 
+    policy_kwargs = dict(net_arch=[16])
+
+    if model_class in {QRDQN, TQC}:
+        policy_kwargs.update(dict(n_quantiles=20))
+
     # create model
-    model = model_class("MlpPolicy", env, policy_kwargs=dict(net_arch=[16]), verbose=1)
+    model = model_class("MlpPolicy", env, verbose=1, policy_kwargs=policy_kwargs)
     model.learn(total_timesteps=300)
 
     env.reset()
@@ -171,12 +176,13 @@ def test_set_env(model_class):
     env2 = DummyVecEnv([lambda: select_env(model_class)])
     env3 = select_env(model_class)
 
-    kwargs = {}
+    kwargs = dict(policy_kwargs=dict(net_arch=[16]))
     if model_class in {TQC, QRDQN}:
-        kwargs = dict(learning_starts=100)
+        kwargs.update(dict(learning_starts=100))
+        kwargs["policy_kwargs"].update(dict(n_quantiles=20))
 
     # create model
-    model = model_class("MlpPolicy", env, policy_kwargs=dict(net_arch=[16]), **kwargs)
+    model = model_class("MlpPolicy", env, **kwargs)
     # learn
     model.learn(total_timesteps=300)
 
@@ -265,9 +271,15 @@ def test_save_load_policy(tmp_path, model_class, policy_str):
             # Avoid memory error when using replay buffer
             # Reduce the size of the features
             kwargs = dict(
-                buffer_size=250, learning_starts=100, policy_kwargs=dict(features_extractor_kwargs=dict(features_dim=32))
+                buffer_size=250,
+                learning_starts=100,
+                policy_kwargs=dict(features_extractor_kwargs=dict(features_dim=32)),
             )
         env = FakeImageEnv(screen_height=40, screen_width=40, n_channels=2, discrete=model_class == QRDQN)
+
+    # Reduce number of quantiles for faster tests
+    if model_class in [TQC, QRDQN]:
+        kwargs["policy_kwargs"].update(dict(n_quantiles=20))
 
     env = DummyVecEnv([lambda: env])
 
@@ -339,3 +351,83 @@ def test_save_load_policy(tmp_path, model_class, policy_str):
     os.remove(tmp_path / "policy.pkl")
     if actor_class is not None:
         os.remove(tmp_path / "actor.pkl")
+
+
+@pytest.mark.parametrize("model_class", [QRDQN])
+@pytest.mark.parametrize("policy_str", ["MlpPolicy", "CnnPolicy"])
+def test_save_load_q_net(tmp_path, model_class, policy_str):
+    """
+    Test saving and loading q-network/quantile net only.
+
+    :param model_class: (BaseAlgorithm) A RL model
+    :param policy_str: (str) Name of the policy.
+    """
+    kwargs = dict(policy_kwargs=dict(net_arch=[16]))
+    if policy_str == "MlpPolicy":
+        env = select_env(model_class)
+    else:
+        if model_class in [QRDQN]:
+            # Avoid memory error when using replay buffer
+            # Reduce the size of the features
+            kwargs = dict(
+                buffer_size=250,
+                learning_starts=100,
+                policy_kwargs=dict(features_extractor_kwargs=dict(features_dim=32)),
+            )
+        env = FakeImageEnv(screen_height=40, screen_width=40, n_channels=2, discrete=model_class == QRDQN)
+
+    # Reduce number of quantiles for faster tests
+    if model_class in [QRDQN]:
+        kwargs["policy_kwargs"].update(dict(n_quantiles=20))
+
+    env = DummyVecEnv([lambda: env])
+
+    # create model
+    model = model_class(policy_str, env, verbose=1, **kwargs)
+    model.learn(total_timesteps=300)
+
+    env.reset()
+    observations = np.concatenate([env.step([env.action_space.sample()])[0] for _ in range(10)], axis=0)
+
+    q_net = model.quantile_net
+    q_net_class = q_net.__class__
+
+    # Get dictionary of current parameters
+    params = deepcopy(q_net.state_dict())
+
+    # Modify all parameters to be random values
+    random_params = dict((param_name, th.rand_like(param)) for param_name, param in params.items())
+
+    # Update model parameters with the new random values
+    q_net.load_state_dict(random_params)
+
+    new_params = q_net.state_dict()
+    # Check that all params are different now
+    for k in params:
+        assert not th.allclose(params[k], new_params[k]), "Parameters did not change as expected."
+
+    params = new_params
+
+    # get selected actions
+    selected_actions, _ = q_net.predict(observations, deterministic=True)
+
+    # Save and load q_net
+    q_net.save(tmp_path / "q_net.pkl")
+
+    del q_net
+
+    q_net = q_net_class.load(tmp_path / "q_net.pkl")
+
+    # check if params are still the same after load
+    new_params = q_net.state_dict()
+
+    # Check that all params are the same as before save load procedure now
+    for key in params:
+        assert th.allclose(params[key], new_params[key]), "Policy parameters not the same after save and load."
+
+    # check if model still selects the same actions
+    new_selected_actions, _ = q_net.predict(observations, deterministic=True)
+    assert np.allclose(selected_actions, new_selected_actions, 1e-4)
+
+    # clear file from os
+    os.remove(tmp_path / "q_net.pkl")

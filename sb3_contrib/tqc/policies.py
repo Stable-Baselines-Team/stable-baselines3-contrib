@@ -391,6 +391,8 @@ class TQCPolicy(BasePolicy):
                 optimizer_kwargs=self.optimizer_kwargs,
                 features_extractor_class=self.features_extractor_class,
                 features_extractor_kwargs=self.features_extractor_kwargs,
+                n_quantiles=self.critic_kwargs["n_quantiles"],
+                n_critics=self.critic_kwargs["n_critics"],
             )
         )
         return data

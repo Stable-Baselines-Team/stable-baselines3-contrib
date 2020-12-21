@@ -17,6 +17,7 @@ New Features:
 
 Bug Fixes:
 ^^^^^^^^^^
+- Fixed bug in ``TQC`` when saving/loading the policy only with non-default number of quantiles
 
 Deprecations:
 ^^^^^^^^^^^^^
