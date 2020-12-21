@@ -1,6 +1,6 @@
 import os
 
-# from sb3_contrib.cmaes import CMAES
+from sb3_contrib.qrdqn import QRDQN
 from sb3_contrib.tqc import TQC
 
 # Read version from file

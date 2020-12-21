@@ -9,6 +9,7 @@ from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback
 from stable_baselines3.common.utils import polyak_update
 
+from sb3_contrib.common.utils import quantile_huber_loss
 from sb3_contrib.tqc.policies import TQCPolicy
 
 
@@ -171,26 +172,6 @@ class TQC(OffPolicyAlgorithm):
         self.critic = self.policy.critic
         self.critic_target = self.policy.critic_target
 
-    @staticmethod
-    def quantile_huber_loss(quantiles: th.Tensor, samples: th.Tensor) -> th.Tensor:
-        """
-        The quantile-regression loss, as described in the QR-DQN and TQC papers.
-        Taken from https://github.com/bayesgroup/tqc_pytorch
-
-        :param quantiles:
-        :param samples:
-        :return: the loss
-        """
-        # batch x nets x quantiles x samples
-        pairwise_delta = samples[:, None, None, :] - quantiles[:, :, :, None]
-        abs_pairwise_delta = th.abs(pairwise_delta)
-        huber_loss = th.where(abs_pairwise_delta > 1, abs_pairwise_delta - 0.5, pairwise_delta ** 2 * 0.5)
-
-        n_quantiles = quantiles.shape[2]
-        tau = th.arange(n_quantiles, device=quantiles.device).float() / n_quantiles + 1 / 2 / n_quantiles
-        loss = (th.abs(tau[None, None, :, None] - (pairwise_delta < 0).float()) * huber_loss).mean()
-        return loss
-
     def train(self, gradient_steps: int, batch_size: int = 64) -> None:
         # Update optimizers learning rate
         optimizers = [self.actor.optimizer, self.critic.optimizer]
@@ -237,24 +218,27 @@ class TQC(OffPolicyAlgorithm):
                 self.ent_coef_optimizer.step()
 
             with th.no_grad():
-                top_quantiles_to_drop = self.top_quantiles_to_drop_per_net * self.critic.n_critics
                 # Select action according to policy
                 next_actions, next_log_prob = self.actor.action_log_prob(replay_data.next_observations)
                 # Compute and cut quantiles at the next state
                 # batch x nets x quantiles
-                next_z = self.critic_target(replay_data.next_observations, next_actions)
-                sorted_z, _ = th.sort(next_z.reshape(batch_size, -1))
-                sorted_z_part = sorted_z[:, : self.critic.quantiles_total - top_quantiles_to_drop]
+                next_quantiles = self.critic_target(replay_data.next_observations, next_actions)
 
-                target_q = sorted_z_part - ent_coef * next_log_prob.reshape(-1, 1)
+                # Sort and drop top k quantiles to control overestimation.
+                n_target_quantiles = self.critic.quantiles_total - self.top_quantiles_to_drop_per_net * self.critic.n_critics
+                next_quantiles, _ = th.sort(next_quantiles.reshape(batch_size, -1))
+                next_quantiles = next_quantiles[:, :n_target_quantiles]
+
                 # td error + entropy term
-                q_backup = replay_data.rewards + (1 - replay_data.dones) * self.gamma * target_q
+                target_quantiles = next_quantiles - ent_coef * next_log_prob.reshape(-1, 1)
+                target_quantiles = replay_data.rewards + (1 - replay_data.dones) * self.gamma * target_quantiles
+                # Make target_quantiles broadcastable to (batch_size, n_critics, n_target_quantiles).
+                target_quantiles.unsqueeze_(dim=1)
 
-            # Get current Q estimates
-            # using action from the replay buffer
-            current_z = self.critic(replay_data.observations, replay_data.actions)
-            # Compute critic loss
-            critic_loss = self.quantile_huber_loss(current_z, q_backup)
+            # Get current Quantile estimates using action from the replay buffer
+            current_quantiles = self.critic(replay_data.observations, replay_data.actions)
+            # Compute critic loss, not summing over the quantile dimension as in the paper.
+            critic_loss = quantile_huber_loss(current_quantiles, target_quantiles, sum_over_quantiles=False)
             critic_losses.append(critic_loss.item())
 
             # Optimize the critic
