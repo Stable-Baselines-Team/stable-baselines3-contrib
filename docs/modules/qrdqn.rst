@@ -82,6 +82,12 @@ Result on Atari environments (10M steps, Pong and Breakout) and classic control 
 The complete learning curves are available in the `associated PR <https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/pull/13>`_.
 
 
+.. note::
+
+    QR-DQN implementation was validated against `Intel Coach <https://github.com/IntelLabs/coach/tree/master/benchmarks/qr_dqn>`_ one
+    which roughly compare to the original paper results (we trained the agent with a smaller budget).
+
+
 ============ ========== ===========
 Environments QR-DQN     DQN
 ============ ========== ===========
