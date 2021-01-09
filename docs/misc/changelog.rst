@@ -17,6 +17,7 @@ New Features:
 Bug Fixes:
 ^^^^^^^^^^
 - Fixed bug in ``TQC`` when saving/loading the policy only with non-default number of quantiles
+- Fixed bug in ``QR-DQN`` when calculating the target quantiles (@ku2482, @guyk1971)
 
 Deprecations:
 ^^^^^^^^^^^^^
@@ -75,6 +76,7 @@ Stable-Baselines3 is currently maintained by `Antonin Raffin`_ (aka `@araffin`_)
 .. _Anssi Kanervisto: https://github.com/Miffyli
 .. _@Miffyli: https://github.com/Miffyli
 .. _@ku2482: https://github.com/ku2482
+.. _@guyk1971: https://github.com/guyk1971
 
 Contributors:
 -------------
