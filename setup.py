@@ -21,8 +21,8 @@ A place for RL algorithms and tools that are considered experimental, e.g. imple
 
 Over the span of stable-baselines and stable-baselines3, the community has been eager to contribute in form of better logging utilities, environment wrappers, extended support (e.g. different action spaces) and learning algorithms.
 
-However sometimes these utilities were too niche to be considered for stable-baselines or
-proved to be too difficult to integrate well into existing code without a mess. sb3-contrib aims to fix this by not requiring the neatest code integration with existing code and not setting limits on what is too niche: almost everything remotely useful goes! We hope this allows to extend the known quality of stable-baselines style and documentation beyond the relatively small scope of utilities of the main repository.
+However sometimes these utilities were too niche to be considered for stable-baselines or proved to be too difficult to integrate well into the existing code without creating a mess. sb3-contrib aims to fix this by not requiring the neatest code integration with existing code and not setting limits on what is too niche: almost everything remotely useful goes!
+We hope this allows us to provide reliable implementations following stable-baselines usual standards (consistent style, documentation, etc) beyond the relatively small scope of utilities in the main repository.
 
 
 ## Features
@@ -50,7 +50,7 @@ To install Stable Baselines3 `master` version:
 pip install git+https://github.com/DLR-RM/stable-baselines3
 ```
 
-Install Stable Baselines3 - Contrib using pip:
+To install Stable Baselines3 contrib `master` version:
 ```
 pip install git+https://github.com/Stable-Baselines-Team/stable-baselines3-contrib
 
