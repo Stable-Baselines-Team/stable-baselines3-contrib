@@ -76,9 +76,8 @@ Stable-Baselines3 is currently maintained by `Antonin Raffin`_ (aka `@araffin`_)
 .. _Anssi Kanervisto: https://github.com/Miffyli
 .. _@Miffyli: https://github.com/Miffyli
 .. _@ku2482: https://github.com/ku2482
-.. _@guyk1971: https://github.com/guyk1971
 
 Contributors:
 -------------
 
-@ku2482
+@ku2482 @guyk1971
