@@ -3,7 +3,7 @@
 Changelog
 ==========
 
-Pre-Release 0.11.0a4 (WIP)
+Pre-Release 0.11.0a5 (WIP)
 -------------------------------
 
 Breaking Changes:
@@ -17,6 +17,7 @@ New Features:
 Bug Fixes:
 ^^^^^^^^^^
 - Fixed bug in ``TQC`` when saving/loading the policy only with non-default number of quantiles
+- Fixed bug in ``QR-DQN`` when calculating the target quantiles (@ku2482, @guyk1971)
 
 Deprecations:
 ^^^^^^^^^^^^^
@@ -79,4 +80,4 @@ Stable-Baselines3 is currently maintained by `Antonin Raffin`_ (aka `@araffin`_)
 Contributors:
 -------------
 
-@ku2482
+@ku2482 @guyk1971

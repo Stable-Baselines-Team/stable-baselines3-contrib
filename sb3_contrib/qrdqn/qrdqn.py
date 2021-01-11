@@ -161,8 +161,12 @@ class QRDQN(OffPolicyAlgorithm):
             with th.no_grad():
                 # Compute the quantiles of next observation
                 next_quantiles = self.quantile_net_target(replay_data.next_observations)
-                # Follow greedy policy: use the one with the highest value
-                next_quantiles, _ = next_quantiles.max(dim=2)
+                # Compute the greedy actions which maximize the next Q values
+                next_greedy_actions = next_quantiles.mean(dim=1, keepdim=True).argmax(dim=2, keepdim=True)
+                # Make "n_quantiles" copies of actions, and reshape to (batch_size, n_quantiles, 1)
+                next_greedy_actions = next_greedy_actions.expand(batch_size, self.n_quantiles, 1)
+                # Follow greedy policy: use the one with the highest Q values
+                next_quantiles = next_quantiles.gather(dim=2, index=next_greedy_actions).squeeze(dim=2)
                 # 1-step TD target
                 target_quantiles = replay_data.rewards + (1 - replay_data.dones) * self.gamma * next_quantiles
 
