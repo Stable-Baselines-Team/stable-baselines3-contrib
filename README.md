@@ -66,7 +66,7 @@ If you want to contribute, please read [**CONTRIBUTING.md**](./CONTRIBUTING.md) 
 
 To cite this repository in publications (please cite SB3 directly):
 
-```
+```bibtex
 @misc{stable-baselines3,
   author = {Raffin, Antonin and Hill, Ashley and Ernestus, Maximilian and Gleave, Adam and Kanervisto, Anssi and Dormann, Noah},
   title = {Stable Baselines3},
