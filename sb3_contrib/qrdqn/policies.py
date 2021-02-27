@@ -68,8 +68,8 @@ class QuantileNetwork(BasePolicy):
         action = q_values.argmax(dim=1).reshape(-1)
         return action
 
-    def _get_data(self) -> Dict[str, Any]:
-        data = super()._get_data()
+    def _get_constructor_parameters(self) -> Dict[str, Any]:
+        data = super()._get_constructor_parameters()
 
         data.update(
             dict(
@@ -176,8 +176,8 @@ class QRDQNPolicy(BasePolicy):
     def _predict(self, obs: th.Tensor, deterministic: bool = True) -> th.Tensor:
         return self.quantile_net._predict(obs, deterministic=deterministic)
 
-    def _get_data(self) -> Dict[str, Any]:
-        data = super()._get_data()
+    def _get_constructor_parameters(self) -> Dict[str, Any]:
+        data = super()._get_constructor_parameters()
 
         data.update(
             dict(
