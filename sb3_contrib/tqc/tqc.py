@@ -30,10 +30,9 @@ class TQC(OffPolicyAlgorithm):
     :param batch_size: Minibatch size for each gradient update
     :param tau: the soft update coefficient ("Polyak update", between 0 and 1)
     :param gamma: the discount factor
-    :param train_freq: Update the model every ``train_freq`` steps.
+    :param train_freq: Update the model every ``train_freq`` steps. Alternatively pass a tuple of frequency and unit
+        like ``(5, "step")`` or ``(2, "episode")``.
     :param gradient_steps: How many gradient update after each step
-    :param n_episodes_rollout: Update the model every ``n_episodes_rollout`` episodes.
-        Note that this cannot be used at the same time as ``train_freq``
     :param action_noise: the action noise type (None by default), this can help
         for hard exploration problem. Cf common.noise for the different action noise type.
     :param optimize_memory_usage: Enable a memory efficient variant of the replay buffer
@@ -74,7 +73,6 @@ class TQC(OffPolicyAlgorithm):
         gamma: float = 0.99,
         train_freq: int = 1,
         gradient_steps: int = 1,
-        n_episodes_rollout: int = -1,
         action_noise: Optional[ActionNoise] = None,
         optimize_memory_usage: bool = False,
         ent_coef: Union[str, float] = "auto",
@@ -105,7 +103,6 @@ class TQC(OffPolicyAlgorithm):
             gamma,
             train_freq,
             gradient_steps,
-            n_episodes_rollout,
             action_noise,
             policy_kwargs=policy_kwargs,
             tensorboard_log=tensorboard_log,

@@ -27,13 +27,12 @@ class QRDQN(OffPolicyAlgorithm):
     :param batch_size: Minibatch size for each gradient update
     :param tau: the soft update coefficient ("Polyak update", between 0 and 1) default 1 for hard update
     :param gamma: the discount factor
-    :param train_freq: Update the model every ``train_freq`` steps. Set to `-1` to disable.
+    :param train_freq: Update the model every ``train_freq`` steps. Alternatively pass a tuple of frequency and unit
+        like ``(5, "step")`` or ``(2, "episode")``.
     :param gradient_steps: How many gradient steps to do after each rollout
         (see ``train_freq`` and ``n_episodes_rollout``)
         Set to ``-1`` means to do as many gradient steps as steps done in the environment
         during the rollout.
-    :param n_episodes_rollout: Update the model every ``n_episodes_rollout`` episodes.
-        Note that this cannot be used at the same time as ``train_freq``. Set to `-1` to disable.
     :param optimize_memory_usage: Enable a memory efficient variant of the replay buffer
         at a cost of more complexity.
         See https://github.com/DLR-RM/stable-baselines3/issues/37#issuecomment-637501195
@@ -66,7 +65,6 @@ class QRDQN(OffPolicyAlgorithm):
         gamma: float = 0.99,
         train_freq: int = 4,
         gradient_steps: int = 1,
-        n_episodes_rollout: int = -1,
         optimize_memory_usage: bool = False,
         target_update_interval: int = 10000,
         exploration_fraction: float = 0.005,
@@ -94,7 +92,6 @@ class QRDQN(OffPolicyAlgorithm):
             gamma,
             train_freq,
             gradient_steps,
-            n_episodes_rollout,
             action_noise=None,  # No action noise
             policy_kwargs=policy_kwargs,
             tensorboard_log=tensorboard_log,
