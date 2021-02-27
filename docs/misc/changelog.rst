@@ -3,11 +3,12 @@
 Changelog
 ==========
 
-Pre-Release 0.11.0a5 (WIP)
+Pre-Release 0.11.0 (2021-02-27)
 -------------------------------
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
+- Upgraded to Stable-Baselines3 >= 0.11.0
 
 New Features:
 ^^^^^^^^^^^^^
