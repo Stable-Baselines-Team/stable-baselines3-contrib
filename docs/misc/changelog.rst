@@ -3,6 +3,14 @@
 Changelog
 ==========
 
+Release 1.0rc1 (WIP)
+-------------------------------
+
+Bug Fixes:
+^^^^^^^^^^
+- Fixed a bug with ``QR-DQN`` predict method when using ``deterministic=False`` with image space
+
+
 Pre-Release 0.11.1 (2021-02-27)
 -------------------------------
 

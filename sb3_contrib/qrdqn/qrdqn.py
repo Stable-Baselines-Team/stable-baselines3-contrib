@@ -5,6 +5,7 @@ import numpy as np
 import torch as th
 from stable_baselines3.common import logger
 from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
+from stable_baselines3.common.preprocessing import maybe_transpose
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import get_linear_fn, is_vectorized_observation, polyak_update
 
@@ -211,7 +212,7 @@ class QRDQN(OffPolicyAlgorithm):
             (used in recurrent policies)
         """
         if not deterministic and np.random.rand() < self.exploration_rate:
-            if is_vectorized_observation(observation, self.observation_space):
+            if is_vectorized_observation(maybe_transpose(observation, self.observation_space), self.observation_space):
                 n_batch = observation.shape[0]
                 action = np.array([self.action_space.sample() for _ in range(n_batch)])
             else:
