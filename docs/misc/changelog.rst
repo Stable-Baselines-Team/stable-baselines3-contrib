@@ -3,6 +3,18 @@
 Changelog
 ==========
 
+Release 1.0rc1 (WIP)
+-------------------------------
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Upgraded to Stable-Baselines3 >= 1.0rc1
+
+Bug Fixes:
+^^^^^^^^^^
+- Fixed a bug with ``QR-DQN`` predict method when using ``deterministic=False`` with image space
+
+
 Pre-Release 0.11.1 (2021-02-27)
 -------------------------------
 

@@ -6,6 +6,7 @@ import pytest
 import torch as th
 from stable_baselines3.common.identity_env import FakeImageEnv
 from stable_baselines3.common.utils import zip_strict
+from stable_baselines3.common.vec_env import VecTransposeImage, is_vecenv_wrapped
 
 from sb3_contrib import QRDQN, TQC
 
@@ -16,18 +17,36 @@ def test_cnn(tmp_path, model_class):
     # Fake grayscale with frameskip
     # Atari after preprocessing: 84x84x1, here we are using lower resolution
     # to check that the network handle it automatically
-    env = FakeImageEnv(screen_height=40, screen_width=40, n_channels=1, discrete=model_class not in {TQC})
+    env = FakeImageEnv(
+        screen_height=40,
+        screen_width=40,
+        n_channels=1,
+        discrete=model_class not in {TQC},
+    )
     kwargs = {}
     if model_class in {TQC, QRDQN}:
         # Avoid memory error when using replay buffer
         # Reduce the size of the features and the number of quantiles
         kwargs = dict(
             buffer_size=250,
-            policy_kwargs=dict(n_quantiles=25, features_extractor_kwargs=dict(features_dim=32)),
+            policy_kwargs=dict(
+                n_quantiles=25,
+                features_extractor_kwargs=dict(features_dim=32),
+            ),
         )
     model = model_class("CnnPolicy", env, **kwargs).learn(250)
 
     obs = env.reset()
+
+    # FakeImageEnv is channel last by default and should be wrapped
+    assert is_vecenv_wrapped(model.get_env(), VecTransposeImage)
+
+    # Test stochastic predict with channel last input
+    if model_class == QRDQN:
+        model.exploration_rate = 0.9
+
+    for _ in range(10):
+        model.predict(obs, deterministic=False)
 
     action, _ = model.predict(obs, deterministic=True)
 

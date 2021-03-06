@@ -184,17 +184,17 @@ def test_set_env(model_class):
     # create model
     model = model_class("MlpPolicy", env, **kwargs)
     # learn
-    model.learn(total_timesteps=300)
+    model.learn(total_timesteps=150)
 
     # change env
     model.set_env(env2)
     # learn again
-    model.learn(total_timesteps=300)
+    model.learn(total_timesteps=150)
 
     # change env test wrapping
     model.set_env(env3)
     # learn again
-    model.learn(total_timesteps=300)
+    model.learn(total_timesteps=150)
 
 
 @pytest.mark.parametrize("model_class", MODEL_LIST)
