@@ -129,10 +129,10 @@ class QRDQNPolicy(BasePolicy):
         )
 
         if net_arch is None:
-            if features_extractor_class == FlattenExtractor:
-                net_arch = [64, 64]
-            else:
+            if features_extractor_class == NatureCNN:
                 net_arch = []
+            else:
+                net_arch = [64, 64]
 
         self.n_quantiles = n_quantiles
         self.net_arch = net_arch
