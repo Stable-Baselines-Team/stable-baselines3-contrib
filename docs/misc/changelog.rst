@@ -3,12 +3,12 @@
 Changelog
 ==========
 
-Release 1.0rc1 (WIP)
+Release 1.0 (2021-03-17)
 -------------------------------
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
-- Upgraded to Stable-Baselines3 >= 1.0rc1
+- Upgraded to Stable-Baselines3 >= 1.0
 
 Bug Fixes:
 ^^^^^^^^^^
