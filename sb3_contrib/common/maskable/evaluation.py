@@ -4,18 +4,17 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import gym
 import numpy as np
 
-from stable_baselines3.common.base_class import BaseAlgorithm
+from stable_baselines3.common import base_class
 from stable_baselines3.common.env_util import is_wrapped
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import VecEnv, is_vecenv_wrapped
 
-from sb3_contrib.common.maskable.algorithms.base import MaskableAlgorithm
 from sb3_contrib.common.vec_env.wrappers import VecActionMasker
 from sb3_contrib.common.wrappers import ActionMasker
 
 
 def evaluate_policy(
-    model: BaseAlgorithm,
+    model: "base_class.BaseAlgorithm",
     env: Union[gym.Env, VecEnv],
     n_eval_episodes: int = 10,
     deterministic: bool = True,
@@ -56,6 +55,10 @@ def evaluate_policy(
         list containing per-episode rewards and second containing per-episode lengths
         (in number of steps).
     """
+
+    # Must be imported at runtime to avoid circular dependency
+    from sb3_contrib.common.maskable.algorithms.base import MaskableAlgorithm
+
     is_monitor_wrapped = False
     is_action_masked = False
 
@@ -78,7 +81,6 @@ def evaluate_policy(
         )
 
     episode_rewards, episode_lengths = [], []
-    real_rewards = []
     not_reseted = True
     while len(episode_rewards) < n_eval_episodes:
         # Number of loops here might differ from true episodes
@@ -90,10 +92,9 @@ def evaluate_policy(
         done, state = False, None
         episode_reward = 0.0
         episode_length = 0
-        real_reward = 0.0
         while not done:
             if isinstance(model, MaskableAlgorithm) and is_action_masked:
-                action_masks = env.valid_actions()
+                action_masks = env.valid_actions_tmp()
                 action, state = model.predict(
                     obs,
                     state=state,
@@ -106,7 +107,6 @@ def evaluate_policy(
                 )
             obs, reward, done, info = env.step(action)
             episode_reward += reward
-            real_reward += model.get_vec_normalize_env().get_original_reward()
             if callback is not None:
                 callback(locals(), globals())
             episode_length += 1
@@ -126,7 +126,6 @@ def evaluate_policy(
         else:
             episode_rewards.append(episode_reward)
             episode_lengths.append(episode_length)
-        real_rewards.append(real_reward)
 
     mean_reward = np.mean(episode_rewards)
     std_reward = np.std(episode_rewards)
