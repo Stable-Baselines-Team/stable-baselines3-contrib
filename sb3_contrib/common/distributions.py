@@ -1,10 +1,19 @@
 from __future__ import annotations
 
-from typing import Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
+import gym
 import numpy as np
 import torch as th
-from stable_baselines3.common.distributions import Distribution
+from gym import spaces
+from stable_baselines3.common.distributions import (
+    BernoulliDistribution,
+    DiagGaussianDistribution,
+    Distribution,
+    MultiCategoricalDistribution,
+    StateDependentNoiseDistribution,
+)
+from stable_baselines3.common.preprocessing import get_action_dim
 from torch import nn
 from torch.distributions import Categorical
 
@@ -61,7 +70,7 @@ class CategoricalDistribution(Distribution):
 
     def __init__(self, action_dim: int):
         super(CategoricalDistribution, self).__init__()
-        self.distribution = MaskableCategorical()
+        self.distribution: MaskableCategorical = None
         self.action_dim = action_dim
 
     def proba_distribution_net(self, latent_dim: int) -> nn.Module:
@@ -110,3 +119,36 @@ class CategoricalDistribution(Distribution):
         actions = self.actions_from_params(action_logits)
         log_prob = self.log_prob(actions)
         return actions, log_prob
+
+
+def make_proba_distribution(
+    action_space: gym.spaces.Space, use_sde: bool = False, dist_kwargs: Optional[Dict[str, Any]] = None
+) -> Distribution:
+    """
+    Return an instance of Distribution for the correct type of action space
+
+    :param action_space: the input action space
+    :param use_sde: Force the use of StateDependentNoiseDistribution
+        instead of DiagGaussianDistribution
+    :param dist_kwargs: Keyword arguments to pass to the probability distribution
+    :return: the appropriate Distribution object
+    """
+    if dist_kwargs is None:
+        dist_kwargs = {}
+
+    if isinstance(action_space, spaces.Box):
+        assert len(action_space.shape) == 1, "Error: the action space must be a vector"
+        cls = StateDependentNoiseDistribution if use_sde else DiagGaussianDistribution
+        return cls(get_action_dim(action_space), **dist_kwargs)
+    elif isinstance(action_space, spaces.Discrete):
+        return CategoricalDistribution(action_space.n)
+    elif isinstance(action_space, spaces.MultiDiscrete):
+        return MultiCategoricalDistribution(action_space.nvec)
+    elif isinstance(action_space, spaces.MultiBinary):
+        return BernoulliDistribution(action_space.n)
+    else:
+        raise NotImplementedError(
+            "Error: probability distribution, not implemented for action space"
+            f"of type {type(action_space)}."
+            " Must be of type Gym Spaces: Box, Discrete, MultiDiscrete or MultiBinary."
+        )
