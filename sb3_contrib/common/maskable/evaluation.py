@@ -94,7 +94,7 @@ def evaluate_policy(
         episode_length = 0
         while not done:
             if isinstance(model, MaskableAlgorithm) and is_action_masked:
-                action_masks = env.valid_actions_tmp()
+                action_masks = env.valid_actions()
                 action, state = model.predict(
                     obs,
                     state=state,
