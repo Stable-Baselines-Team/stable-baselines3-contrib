@@ -8,13 +8,25 @@ from stable_baselines3.common.callbacks import (
     ConvertCallback,
 )
 from stable_baselines3.common.type_aliases import MaybeCallback
-from stable_baselines3.common.vec_env import VecEnv
+from stable_baselines3.common.vec_env import VecEnv, is_vecenv_wrapped
 
 from sb3_contrib.common.maskable.callbacks import MaskableEvalCallback
 from sb3_contrib.common.maskable.policies import MaskablePolicy
+from sb3_contrib.common.vec_env.wrappers import VecActionMasker
+from sb3_contrib.common.wrappers import ActionMasker
 
 
 class MaskableAlgorithm(BaseAlgorithm):
+    @staticmethod
+    def _wrap_env(*args, **kwargs) -> VecEnv:
+        env = super(MaskableAlgorithm, MaskableAlgorithm)._wrap_env(*args, **kwargs)
+
+        # If env is wrapped with ActionMasker, wrap the VecEnv as well for convenience
+        if not is_vecenv_wrapped(env, VecActionMasker) and all(env.env_is_wrapped(ActionMasker)):
+            env = VecActionMasker(env)
+
+        return env
+
     def _init_callback(
         self,
         callback: MaybeCallback,
