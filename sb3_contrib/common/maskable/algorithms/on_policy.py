@@ -14,10 +14,6 @@ from sb3_contrib.common.vec_env.wrappers import VecActionMasker
 
 
 class MaskableOnPolicyAlgorithm(MaskableAlgorithm, OnPolicyAlgorithm):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.rollout_buffer: MaskableRolloutBuffer = None
-
     def _setup_model(self) -> None:
         super()._setup_model()
         self.rollout_buffer = MaskableRolloutBuffer(
@@ -126,7 +122,7 @@ class MaskableOnPolicyAlgorithm(MaskableAlgorithm, OnPolicyAlgorithm):
                 self._last_dones,
                 values,
                 log_probs,
-                action_masks,
+                action_masks=action_masks,
             )
             self._last_obs = new_obs
             self._last_dones = dones

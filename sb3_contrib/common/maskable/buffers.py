@@ -1,4 +1,4 @@
-from typing import Generator, Optional
+from typing import Generator, NamedTuple, Optional
 
 import numpy as np
 import torch as th
@@ -8,8 +8,17 @@ from stable_baselines3.common.type_aliases import RolloutBufferSamples
 from stable_baselines3.common.vec_env import VecNormalize
 
 
-class MaskableRolloutBufferSamples(RolloutBufferSamples):
-    action_masks: th.Tensor
+# NamedTuple doesn't support straightforward subclassing, but it can be
+# achieved with some hacks. TODO use dataclasses instead?
+# Based on https://stackoverflow.com/a/62160225
+# Depends on python 3.6+ to avoid field order changing.
+_sample_types = list(RolloutBufferSamples.__annotations__.items()) + [("action_masks", th.Tensor)]
+_maskable_samples = NamedTuple("_maskable_samples", _sample_types)  # mypy dislikes non-literal list
+
+
+# Mix the original NamedTuple in over again, in order to get desired issubclass() behavior
+class MaskableRolloutBufferSamples(_maskable_samples, RolloutBufferSamples):
+    pass
 
 
 class MaskableRolloutBuffer(RolloutBuffer):
@@ -52,11 +61,11 @@ class MaskableRolloutBuffer(RolloutBuffer):
             for tensor in [
                 "observations",
                 "actions",
-                "action_masks",
                 "values",
                 "log_probs",
                 "advantages",
                 "returns",
+                "action_masks",
             ]:
                 self.__dict__[tensor] = self.swap_and_flatten(self.__dict__[tensor])
             self.generator_ready = True
@@ -76,10 +85,10 @@ class MaskableRolloutBuffer(RolloutBuffer):
         data = (
             self.observations[batch_inds],
             self.actions[batch_inds],
-            self.action_masks[batch_inds].flatten(),
             self.values[batch_inds].flatten(),
             self.log_probs[batch_inds].flatten(),
             self.advantages[batch_inds].flatten(),
             self.returns[batch_inds].flatten(),
+            self.action_masks[batch_inds].flatten(),
         )
         return MaskableRolloutBufferSamples(*tuple(map(self.to_torch, data)))
