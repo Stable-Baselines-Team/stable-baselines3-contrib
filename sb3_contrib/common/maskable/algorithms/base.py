@@ -2,11 +2,7 @@ from typing import Optional, Tuple
 
 import numpy as np
 from stable_baselines3.common.base_class import BaseAlgorithm
-from stable_baselines3.common.callbacks import (
-    BaseCallback,
-    CallbackList,
-    ConvertCallback,
-)
+from stable_baselines3.common.callbacks import BaseCallback, CallbackList, ConvertCallback
 from stable_baselines3.common.type_aliases import MaybeCallback
 from stable_baselines3.common.vec_env import VecEnv, is_vecenv_wrapped
 

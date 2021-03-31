@@ -7,7 +7,6 @@ from stable_baselines3.common.buffers import RolloutBuffer
 from stable_baselines3.common.type_aliases import RolloutBufferSamples
 from stable_baselines3.common.vec_env import VecNormalize
 
-
 # NamedTuple doesn't support straightforward subclassing, but it can be
 # achieved with some hacks. TODO use dataclasses instead?
 # Based on https://stackoverflow.com/a/62160225
