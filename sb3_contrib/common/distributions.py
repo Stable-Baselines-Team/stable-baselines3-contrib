@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import Any, Dict, Optional, Tuple
 
 import gym
@@ -69,7 +67,7 @@ class CategoricalDistribution(Distribution):
     """
 
     def __init__(self, action_dim: int):
-        super(CategoricalDistribution, self).__init__()
+        super().__init__()
         self.distribution: MaskableCategorical = None
         self.action_dim = action_dim
 
@@ -86,7 +84,7 @@ class CategoricalDistribution(Distribution):
         action_logits = nn.Linear(latent_dim, self.action_dim)
         return action_logits
 
-    def proba_distribution(self, action_logits: th.Tensor) -> CategoricalDistribution:
+    def proba_distribution(self, action_logits: th.Tensor) -> "CategoricalDistribution":
         self.distribution = MaskableCategorical(logits=action_logits)
         return self
 
