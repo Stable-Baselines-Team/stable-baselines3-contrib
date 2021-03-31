@@ -1,5 +1,5 @@
 import collections
-from abc import abstractmethod
+from abc import ABCMeta, abstractmethod
 from functools import partial
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
@@ -25,7 +25,7 @@ from torch import nn
 from sb3_contrib.common.distributions import CategoricalDistribution, make_proba_distribution
 
 
-class MaskablePolicy(BasePolicy):
+class MaskablePolicy(BasePolicy, metaclass=ABCMeta):
     """The base policy object.
 
     Parameters are mostly the same as `BaseModel`; additions are documented below.
