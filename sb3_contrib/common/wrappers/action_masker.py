@@ -13,17 +13,13 @@ class ActionMasker(gym.Wrapper):
         or the name of such a method provided by the environment.
     """
 
-    def __init__(
-        self, env: gym.Env, action_mask_fn: Union[str, Callable[[gym.Env], np.ndarray]]
-    ):
+    def __init__(self, env: gym.Env, action_mask_fn: Union[str, Callable[[gym.Env], np.ndarray]]):
         super().__init__(env)
 
         if isinstance(action_mask_fn, str):
             found_method = getattr(self.env, action_mask_fn)
             if not callable(found_method):
-                raise ValueError(
-                    f"Environment attribute {action_mask_fn} is not a method"
-                )
+                raise ValueError(f"Environment attribute {action_mask_fn} is not a method")
 
             self.action_action_mask_fn = found_method
         else:

@@ -81,8 +81,6 @@ class MaskableAlgorithm(BaseAlgorithm):
         """
 
         if isinstance(self.policy, MaskablePolicy):
-            return self.policy.predict(
-                observation, state, mask, deterministic, action_masks=action_masks
-            )
+            return self.policy.predict(observation, state, mask, deterministic, action_masks=action_masks)
         else:
             return self.policy.predict(observation, state, mask, deterministic)

@@ -62,9 +62,7 @@ def evaluate_policy(
     is_action_masked = False
 
     if isinstance(env, VecEnv):
-        assert (
-            env.num_envs == 1
-        ), "You must pass only one environment when using this function"
+        assert env.num_envs == 1, "You must pass only one environment when using this function"
         is_monitor_wrapped = env.env_is_wrapped(Monitor)[0]
         is_action_masked = is_vecenv_wrapped(env, VecActionMasker)
     else:
@@ -101,9 +99,7 @@ def evaluate_policy(
                     action_masks=action_masks,
                 )
             else:
-                action, state = model.predict(
-                    obs, state=state, deterministic=deterministic
-                )
+                action, state = model.predict(obs, state=state, deterministic=deterministic)
             obs, reward, done, info = env.step(action)
             episode_reward += reward
             if callback is not None:
@@ -129,10 +125,7 @@ def evaluate_policy(
     mean_reward = np.mean(episode_rewards)
     std_reward = np.std(episode_rewards)
     if reward_threshold is not None:
-        assert mean_reward > reward_threshold, (
-            "Mean reward below threshold: "
-            f"{mean_reward:.2f} < {reward_threshold:.2f}"
-        )
+        assert mean_reward > reward_threshold, "Mean reward below threshold: " f"{mean_reward:.2f} < {reward_threshold:.2f}"
     if return_episode_rewards:
         return episode_rewards, episode_lengths
     return mean_reward, std_reward

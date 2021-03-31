@@ -29,9 +29,7 @@ class MaskableRolloutBuffer(RolloutBuffer):
         # TODO: need to handle different action_space attrs based on shape
         action_masks = np.array([], dtype=np.float32)
         if isinstance(self.action_space, spaces.Discrete):
-            action_masks = np.ones(
-                (self.buffer_size, self.n_envs, self.action_space.n), dtype=np.float32
-            )
+            action_masks = np.ones((self.buffer_size, self.n_envs, self.action_space.n), dtype=np.float32)
         elif isinstance(self.action_space, spaces.MultiDiscrete):
             action_masks = np.ones(
                 (self.buffer_size, self.n_envs, sum(self.action_space.nvec)),
@@ -50,9 +48,7 @@ class MaskableRolloutBuffer(RolloutBuffer):
 
         super().add(*args, **kwargs)
 
-    def get(
-        self, batch_size: Optional[int] = None
-    ) -> Generator[MaskableRolloutBufferSamples, None, None]:
+    def get(self, batch_size: Optional[int] = None) -> Generator[MaskableRolloutBufferSamples, None, None]:
         assert self.full, ""
         indices = np.random.permutation(self.buffer_size * self.n_envs)
         # Prepare the data
@@ -78,9 +74,7 @@ class MaskableRolloutBuffer(RolloutBuffer):
             yield self._get_samples(indices[start_idx : start_idx + batch_size])
             start_idx += batch_size
 
-    def _get_samples(
-        self, batch_inds: np.ndarray, env: Optional[VecNormalize] = None
-    ) -> MaskableRolloutBufferSamples:
+    def _get_samples(self, batch_inds: np.ndarray, env: Optional[VecNormalize] = None) -> MaskableRolloutBufferSamples:
         data = (
             self.observations[batch_inds],
             self.actions[batch_inds],

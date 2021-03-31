@@ -37,12 +37,7 @@ class MaskablePolicy(BasePolicy, metaclass=ABCMeta):
     """
 
     @abstractmethod
-    def _predict(
-        self,
-        observation: th.Tensor,
-        deterministic: bool = False,
-        action_masks: np.ndarray = None
-    ) -> th.Tensor:
+    def _predict(self, observation: th.Tensor, deterministic: bool = False, action_masks: np.ndarray = None) -> th.Tensor:
         """
         Get the action according to the policy for a given observation.
 
@@ -61,7 +56,7 @@ class MaskablePolicy(BasePolicy, metaclass=ABCMeta):
         state: Optional[np.ndarray] = None,
         mask: Optional[np.ndarray] = None,
         deterministic: bool = False,
-        action_masks: np.ndarray = None
+        action_masks: np.ndarray = None,
     ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
         """
         Get the policy action and state from an observation (and optional state).
@@ -405,12 +400,7 @@ class MaskableActorCriticPolicy(MaskablePolicy):
         else:
             raise ValueError("Invalid action distribution")
 
-    def _predict(
-        self,
-        observation: th.Tensor,
-        deterministic: bool = False,
-        action_masks: np.ndarray = None
-    ) -> th.Tensor:
+    def _predict(self, observation: th.Tensor, deterministic: bool = False, action_masks: np.ndarray = None) -> th.Tensor:
         """
         Get the action according to the policy for a given observation.
 

@@ -32,27 +32,18 @@ class MaskableEvalCallback(EvalCallback):
             if vec_action_mask_wrapper and not is_wrapped(self.eval_env, ActionMasker):
                 if self.verbose > 0:
                     print("Wrapping evaluation environment for action masking")
-                self.eval_env = ActionMasker(
-                    self.eval_env, vec_action_mask_wrapper.action_mask_fn
-                )
+                self.eval_env = ActionMasker(self.eval_env, vec_action_mask_wrapper.action_mask_fn)
 
             self.eval_env = DummyVecEnv([lambda: self.eval_env])
 
-        assert (
-            self.eval_env.num_envs == 1
-        ), "You must pass only one environment for evaluation"
+        assert self.eval_env.num_envs == 1, "You must pass only one environment for evaluation"
 
-        if vec_action_mask_wrapper and not is_vecenv_wrapped(
-            self.eval_env, VecActionMasker
-        ):
+        if vec_action_mask_wrapper and not is_vecenv_wrapped(self.eval_env, VecActionMasker):
             self.eval_env = VecActionMasker(self.eval_env)
 
         # Does not work in some corner cases, where the wrapper is not the same
         if not isinstance(self.training_env, type(self.eval_env)):
-            warnings.warn(
-                "Training and eval env are not of the same type"
-                f"{self.training_env} != {self.eval_env}"
-            )
+            warnings.warn("Training and eval env are not of the same type" f"{self.training_env} != {self.eval_env}")
 
         # Create folders if needed
         if self.best_model_save_path is not None:
@@ -100,16 +91,11 @@ class MaskableEvalCallback(EvalCallback):
                 )
 
             mean_reward, std_reward = np.mean(episode_rewards), np.std(episode_rewards)
-            mean_ep_length, std_ep_length = np.mean(episode_lengths), np.std(
-                episode_lengths
-            )
+            mean_ep_length, std_ep_length = np.mean(episode_lengths), np.std(episode_lengths)
             self.last_mean_reward = mean_reward
 
             if self.verbose > 0:
-                print(
-                    f"Eval num_timesteps={self.num_timesteps}, "
-                    f"episode_reward={mean_reward:.2f} +/- {std_reward:.2f}"
-                )
+                print(f"Eval num_timesteps={self.num_timesteps}, " f"episode_reward={mean_reward:.2f} +/- {std_reward:.2f}")
                 print(f"Episode length: {mean_ep_length:.2f} +/- {std_ep_length:.2f}")
             # Add to current Logger
             self.logger.record("eval/mean_reward", float(mean_reward))
@@ -125,9 +111,7 @@ class MaskableEvalCallback(EvalCallback):
                 if self.verbose > 0:
                     print("New best mean reward!")
                 if self.best_model_save_path is not None:
-                    self.model.save(
-                        os.path.join(self.best_model_save_path, "best_model")
-                    )
+                    self.model.save(os.path.join(self.best_model_save_path, "best_model"))
                 self.best_mean_reward = mean_reward
                 # Trigger callback if needed
                 if self.callback is not None:

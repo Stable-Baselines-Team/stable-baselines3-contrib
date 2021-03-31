@@ -52,9 +52,7 @@ class MaskableOnPolicyAlgorithm(MaskableAlgorithm, OnPolicyAlgorithm):
             collected, False if callback terminated rollout prematurely.
         """
 
-        assert isinstance(
-            rollout_buffer, MaskableRolloutBuffer
-        ), "RolloutBuffer doesn't support action masking"
+        assert isinstance(rollout_buffer, MaskableRolloutBuffer), "RolloutBuffer doesn't support action masking"
         assert self._last_obs is not None, "No previous observation was provided"
         n_steps = 0
         action_masks = None
@@ -66,11 +64,7 @@ class MaskableOnPolicyAlgorithm(MaskableAlgorithm, OnPolicyAlgorithm):
         callback.on_rollout_start()
 
         while n_steps < n_rollout_steps:
-            if (
-                self.use_sde
-                and self.sde_sample_freq > 0
-                and n_steps % self.sde_sample_freq == 0
-            ):
+            if self.use_sde and self.sde_sample_freq > 0 and n_steps % self.sde_sample_freq == 0:
                 # Sample a new noise matrix
                 self.policy.reset_noise(env.num_envs)
 
@@ -83,9 +77,7 @@ class MaskableOnPolicyAlgorithm(MaskableAlgorithm, OnPolicyAlgorithm):
                     action_masks = env.valid_actions()
 
                 if isinstance(self.policy, MaskablePolicy):
-                    actions, values, log_probs = self.policy.forward(
-                        obs_tensor, action_masks=action_masks
-                    )
+                    actions, values, log_probs = self.policy.forward(obs_tensor, action_masks=action_masks)
                 else:
                     actions, values, log_probs = self.policy.forward(obs_tensor)
 
@@ -95,9 +87,7 @@ class MaskableOnPolicyAlgorithm(MaskableAlgorithm, OnPolicyAlgorithm):
             clipped_actions = actions
             # Clip the actions to avoid out of bound error
             if isinstance(self.action_space, gym.spaces.Box):
-                clipped_actions = np.clip(
-                    actions, self.action_space.low, self.action_space.high
-                )
+                clipped_actions = np.clip(actions, self.action_space.low, self.action_space.high)
 
             new_obs, rewards, dones, infos = env.step(clipped_actions)
 

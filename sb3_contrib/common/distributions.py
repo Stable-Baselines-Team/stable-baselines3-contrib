@@ -33,9 +33,7 @@ class MaskableCategorical(Categorical):
     def apply_masking(self, masks: Optional[np.ndarray]) -> None:
         if masks is not None:
             device = self.logits.device
-            self.masks = th.as_tensor(masks, dtype=th.bool, device=device).reshape(
-                self.logits.shape
-            )
+            self.masks = th.as_tensor(masks, dtype=th.bool, device=device).reshape(self.logits.shape)
             HUGE_NEG = th.tensor(-1e8, dtype=self.logits.dtype, device=device)
 
             logits = th.where(self.masks, self.logits, HUGE_NEG)
@@ -104,16 +102,12 @@ class CategoricalDistribution(Distribution):
         assert self.distribution is not None, "Must set distribution parameters"
         return th.argmax(self.distribution.probs, dim=1)
 
-    def actions_from_params(
-        self, action_logits: th.Tensor, deterministic: bool = False
-    ) -> th.Tensor:
+    def actions_from_params(self, action_logits: th.Tensor, deterministic: bool = False) -> th.Tensor:
         # Update the proba distribution
         self.proba_distribution(action_logits)
         return self.get_actions(deterministic=deterministic)
 
-    def log_prob_from_params(
-        self, action_logits: th.Tensor
-    ) -> Tuple[th.Tensor, th.Tensor]:
+    def log_prob_from_params(self, action_logits: th.Tensor) -> Tuple[th.Tensor, th.Tensor]:
         actions = self.actions_from_params(action_logits)
         log_prob = self.log_prob(actions)
         return actions, log_prob
