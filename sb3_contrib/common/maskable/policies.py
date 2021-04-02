@@ -1,4 +1,3 @@
-import collections
 from abc import ABCMeta, abstractmethod
 from functools import partial
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
@@ -8,12 +7,10 @@ import numpy as np
 import torch as th
 from stable_baselines3.common.distributions import (
     BernoulliDistribution,
-    DiagGaussianDistribution,
     Distribution,
     MultiCategoricalDistribution,
-    StateDependentNoiseDistribution,
 )
-from stable_baselines3.common.policies import BasePolicy, create_sde_features_extractor
+from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.preprocessing import is_image_space
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor, FlattenExtractor, MlpExtractor
 from stable_baselines3.common.type_aliases import Schedule
@@ -22,7 +19,7 @@ from stable_baselines3.common.vec_env import VecTransposeImage
 from stable_baselines3.common.vec_env.obs_dict_wrapper import ObsDictWrapper
 from torch import nn
 
-from sb3_contrib.common.distributions import CategoricalDistribution, make_proba_distribution
+from sb3_contrib.common.distributions import CategoricalDistribution, make_masked_proba_distribution
 
 
 class MaskablePolicy(BasePolicy, metaclass=ABCMeta):
@@ -132,16 +129,6 @@ class MaskableActorCriticPolicy(MaskablePolicy):
     :param net_arch: The specification of the policy and value networks.
     :param activation_fn: Activation function
     :param ortho_init: Whether to use or not orthogonal initialization
-    :param use_sde: Whether to use State Dependent Exploration or not
-    :param log_std_init: Initial value for the log standard deviation
-    :param full_std: Whether to use (n_features x n_actions) parameters
-        for the std instead of only (n_features,) when using gSDE
-    :param sde_net_arch: Network architecture for extracting features
-        when using gSDE. If None, the latent features from the policy will be used.
-        Pass an empty list to use the states as features.
-    :param use_expln: Use ``expln()`` function instead of ``exp()`` to ensure
-        a positive standard deviation (cf paper). It allows to keep variance
-        above zero and prevent it from growing too fast. In practice, ``exp()`` is usually enough.
     :param squash_output: Whether to squash the output using a tanh function,
         this allows to ensure boundaries when using gSDE.
     :param features_extractor_class: Features extractor to use.
@@ -163,11 +150,6 @@ class MaskableActorCriticPolicy(MaskablePolicy):
         net_arch: Optional[List[Union[int, Dict[str, List[int]]]]] = None,
         activation_fn: Type[nn.Module] = nn.Tanh,
         ortho_init: bool = True,
-        use_sde: bool = False,
-        log_std_init: float = 0.0,
-        full_std: bool = True,
-        sde_net_arch: Optional[List[int]] = None,
-        use_expln: bool = False,
         squash_output: bool = False,
         features_extractor_class: Type[BaseFeaturesExtractor] = FlattenExtractor,
         features_extractor_kwargs: Optional[Dict[str, Any]] = None,
@@ -207,24 +189,9 @@ class MaskableActorCriticPolicy(MaskablePolicy):
         self.features_dim = self.features_extractor.features_dim
 
         self.normalize_images = normalize_images
-        self.log_std_init = log_std_init
-        dist_kwargs = None
-        # Keyword arguments for gSDE distribution
-        if use_sde:
-            dist_kwargs = {
-                "full_std": full_std,
-                "squash_output": squash_output,
-                "use_expln": use_expln,
-                "learn_features": sde_net_arch is not None,
-            }
-
-        self.sde_features_extractor = None
-        self.sde_net_arch = sde_net_arch
-        self.use_sde = use_sde
-        self.dist_kwargs = dist_kwargs
 
         # Action distribution
-        self.action_dist = make_proba_distribution(action_space, use_sde=use_sde, dist_kwargs=dist_kwargs)
+        self.action_dist = make_masked_proba_distribution(action_space)
 
         self._build(lr_schedule)
 
@@ -242,10 +209,10 @@ class MaskableActorCriticPolicy(MaskablePolicy):
         :param action_masks: Action masks to apply to the action distribution
         :return: action, value and log probability of the action
         """
-        latent_pi, latent_vf, latent_sde = self._get_latent(obs)
+        latent_pi, latent_vf = self._get_latent(obs)
         # Evaluate the values for the given observations
         values = self.value_net(latent_vf)
-        distribution = self._get_action_dist_from_latent(latent_pi, latent_sde=latent_sde)
+        distribution = self._get_action_dist_from_latent(latent_pi)
         if action_masks is not None:
             # Currently, only certain distributions support masking
             if isinstance(distribution, CategoricalDistribution):
@@ -257,18 +224,10 @@ class MaskableActorCriticPolicy(MaskablePolicy):
     def _get_data(self) -> Dict[str, Any]:
         data = super()._get_data()
 
-        default_none_kwargs = self.dist_kwargs or collections.defaultdict(lambda: None)
-
         data.update(
             dict(
                 net_arch=self.net_arch,
                 activation_fn=self.activation_fn,
-                use_sde=self.use_sde,
-                log_std_init=self.log_std_init,
-                squash_output=default_none_kwargs["squash_output"],
-                full_std=default_none_kwargs["full_std"],
-                sde_net_arch=default_none_kwargs["sde_net_arch"],
-                use_expln=default_none_kwargs["use_expln"],
                 lr_schedule=self._dummy_schedule,  # dummy lr schedule, not needed for loading policy alone
                 ortho_init=self.ortho_init,
                 optimizer_class=self.optimizer_class,
@@ -278,15 +237,6 @@ class MaskableActorCriticPolicy(MaskablePolicy):
             )
         )
         return data
-
-    def reset_noise(self, n_envs: int = 1) -> None:
-        """
-        Sample new weights for the exploration matrix.
-
-        :param n_envs:
-        """
-        assert isinstance(self.action_dist, StateDependentNoiseDistribution), "reset_noise() is only available when using gSDE"
-        self.action_dist.sample_weights(self.log_std, batch_size=n_envs)
 
     def _build_mlp_extractor(self) -> None:
         """
@@ -311,22 +261,7 @@ class MaskableActorCriticPolicy(MaskablePolicy):
 
         latent_dim_pi = self.mlp_extractor.latent_dim_pi
 
-        # Separate features extractor for gSDE
-        if self.sde_net_arch is not None:
-            self.sde_features_extractor, latent_sde_dim = create_sde_features_extractor(
-                self.features_dim, self.sde_net_arch, self.activation_fn
-            )
-
-        if isinstance(self.action_dist, DiagGaussianDistribution):
-            self.action_net, self.log_std = self.action_dist.proba_distribution_net(
-                latent_dim=latent_dim_pi, log_std_init=self.log_std_init
-            )
-        elif isinstance(self.action_dist, StateDependentNoiseDistribution):
-            latent_sde_dim = latent_dim_pi if self.sde_net_arch is None else latent_sde_dim
-            self.action_net, self.log_std = self.action_dist.proba_distribution_net(
-                latent_dim=latent_dim_pi, latent_sde_dim=latent_sde_dim, log_std_init=self.log_std_init
-            )
-        elif isinstance(self.action_dist, CategoricalDistribution):
+        if isinstance(self.action_dist, CategoricalDistribution):
             self.action_net = self.action_dist.proba_distribution_net(latent_dim=latent_dim_pi)
         elif isinstance(self.action_dist, MultiCategoricalDistribution):
             self.action_net = self.action_dist.proba_distribution_net(latent_dim=latent_dim_pi)
@@ -355,7 +290,7 @@ class MaskableActorCriticPolicy(MaskablePolicy):
         # Setup optimizer with initial learning rate
         self.optimizer = self.optimizer_class(self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
 
-    def _get_latent(self, obs: th.Tensor) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
+    def _get_latent(self, obs: th.Tensor) -> Tuple[th.Tensor, th.Tensor]:
         """
         Get the latent code (i.e., activations of the last layer of each network)
         for the different networks.
@@ -368,25 +303,18 @@ class MaskableActorCriticPolicy(MaskablePolicy):
         features = self.extract_features(obs)
         latent_pi, latent_vf = self.mlp_extractor(features)
 
-        # Features for sde
-        latent_sde = latent_pi
-        if self.sde_features_extractor is not None:
-            latent_sde = self.sde_features_extractor(features)
-        return latent_pi, latent_vf, latent_sde
+        return latent_pi, latent_vf
 
-    def _get_action_dist_from_latent(self, latent_pi: th.Tensor, latent_sde: Optional[th.Tensor] = None) -> Distribution:
+    def _get_action_dist_from_latent(self, latent_pi: th.Tensor) -> Distribution:
         """
         Retrieve action distribution given the latent codes.
 
         :param latent_pi: Latent code for the actor
-        :param latent_sde: Latent code for the gSDE exploration function
         :return: Action distribution
         """
         mean_actions = self.action_net(latent_pi)
 
-        if isinstance(self.action_dist, DiagGaussianDistribution):
-            return self.action_dist.proba_distribution(mean_actions, self.log_std)
-        elif isinstance(self.action_dist, CategoricalDistribution):
+        if isinstance(self.action_dist, CategoricalDistribution):
             # Here mean_actions are the logits before the softmax
             return self.action_dist.proba_distribution(action_logits=mean_actions)
         elif isinstance(self.action_dist, MultiCategoricalDistribution):
@@ -395,8 +323,6 @@ class MaskableActorCriticPolicy(MaskablePolicy):
         elif isinstance(self.action_dist, BernoulliDistribution):
             # Here mean_actions are the logits (before rounding to get the binary actions)
             return self.action_dist.proba_distribution(action_logits=mean_actions)
-        elif isinstance(self.action_dist, StateDependentNoiseDistribution):
-            return self.action_dist.proba_distribution(mean_actions, self.log_std, latent_sde)
         else:
             raise ValueError("Invalid action distribution")
 
@@ -409,8 +335,8 @@ class MaskableActorCriticPolicy(MaskablePolicy):
         :param action_masks: Action masks to apply to the action distribution
         :return: Taken action according to the policy
         """
-        latent_pi, _, latent_sde = self._get_latent(observation)
-        distribution = self._get_action_dist_from_latent(latent_pi, latent_sde)
+        latent_pi, _ = self._get_latent(observation)
+        distribution = self._get_action_dist_from_latent(latent_pi)
         if action_masks is not None:
             if isinstance(distribution, CategoricalDistribution):
                 distribution.distribution.apply_masking(action_masks)
@@ -428,8 +354,8 @@ class MaskableActorCriticPolicy(MaskablePolicy):
         :return: estimated value, log likelihood of taking those actions
             and entropy of the action distribution.
         """
-        latent_pi, latent_vf, latent_sde = self._get_latent(obs)
-        distribution = self._get_action_dist_from_latent(latent_pi, latent_sde)
+        latent_pi, latent_vf = self._get_latent(obs)
+        distribution = self._get_action_dist_from_latent(latent_pi)
         if action_masks is not None:
             if isinstance(distribution, CategoricalDistribution):
                 distribution.distribution.apply_masking(action_masks)
