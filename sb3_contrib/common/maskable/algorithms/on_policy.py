@@ -8,7 +8,7 @@ from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
 from stable_baselines3.common.vec_env import VecEnv, is_vecenv_wrapped
 
 from sb3_contrib.common.maskable.algorithms.base import MaskableAlgorithm
-from sb3_contrib.common.maskable.buffers import MaskableRolloutBuffer
+from sb3_contrib.common.maskable.buffers import MaskedRolloutBuffer
 from sb3_contrib.common.maskable.policies import MaskablePolicy
 from sb3_contrib.common.vec_env.wrappers import VecActionMasker
 
@@ -16,7 +16,7 @@ from sb3_contrib.common.vec_env.wrappers import VecActionMasker
 class MaskableOnPolicyAlgorithm(MaskableAlgorithm, OnPolicyAlgorithm):
     def _setup_model(self) -> None:
         super()._setup_model()
-        self.rollout_buffer = MaskableRolloutBuffer(
+        self.rollout_buffer = MaskedRolloutBuffer(
             self.n_steps,
             self.observation_space,
             self.action_space,
@@ -52,7 +52,7 @@ class MaskableOnPolicyAlgorithm(MaskableAlgorithm, OnPolicyAlgorithm):
             collected, False if callback terminated rollout prematurely.
         """
 
-        assert isinstance(rollout_buffer, MaskableRolloutBuffer), "RolloutBuffer doesn't support action masking"
+        assert isinstance(rollout_buffer, MaskedRolloutBuffer), "RolloutBuffer doesn't support action masking"
         assert self._last_obs is not None, "No previous observation was provided"
         n_steps = 0
         action_masks = None

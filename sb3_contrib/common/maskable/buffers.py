@@ -4,23 +4,21 @@ import numpy as np
 import torch as th
 from gym import spaces
 from stable_baselines3.common.buffers import RolloutBuffer
-from stable_baselines3.common.type_aliases import RolloutBufferSamples
 from stable_baselines3.common.vec_env import VecNormalize
 
-# NamedTuple doesn't support straightforward subclassing, but it can be
-# achieved with some hacks. TODO use dataclasses instead?
-# Based on https://stackoverflow.com/a/62160225
-# Depends on python 3.6+ to avoid field order changing.
-_sample_types = list(RolloutBufferSamples.__annotations__.items()) + [("action_masks", th.Tensor)]
-_maskable_samples = NamedTuple("_maskable_samples", _sample_types)  # mypy dislikes non-literal list
+
+# TODO use dataclass when Python 3.6 support is dropped
+class MaskedRolloutBufferSamples(NamedTuple):
+    observations: th.Tensor
+    actions: th.Tensor
+    old_values: th.Tensor
+    old_log_prob: th.Tensor
+    advantages: th.Tensor
+    returns: th.Tensor
+    action_masks: th.Tensor
 
 
-# Mix the original NamedTuple in over again, in order to get desired issubclass() behavior
-class MaskableRolloutBufferSamples(_maskable_samples, RolloutBufferSamples):
-    pass
-
-
-class MaskableRolloutBuffer(RolloutBuffer):
+class MaskedRolloutBuffer(RolloutBuffer):
     def __init__(self, *args, **kwargs):
         self.action_masks = None
         super().__init__(*args, **kwargs)
@@ -48,7 +46,7 @@ class MaskableRolloutBuffer(RolloutBuffer):
 
         super().add(*args, **kwargs)
 
-    def get(self, batch_size: Optional[int] = None) -> Generator[MaskableRolloutBufferSamples, None, None]:
+    def get(self, batch_size: Optional[int] = None) -> Generator[MaskedRolloutBufferSamples, None, None]:
         assert self.full, ""
         indices = np.random.permutation(self.buffer_size * self.n_envs)
         # Prepare the data
@@ -74,7 +72,7 @@ class MaskableRolloutBuffer(RolloutBuffer):
             yield self._get_samples(indices[start_idx : start_idx + batch_size])
             start_idx += batch_size
 
-    def _get_samples(self, batch_inds: np.ndarray, env: Optional[VecNormalize] = None) -> MaskableRolloutBufferSamples:
+    def _get_samples(self, batch_inds: np.ndarray, env: Optional[VecNormalize] = None) -> MaskedRolloutBufferSamples:
         data = (
             self.observations[batch_inds],
             self.actions[batch_inds],
@@ -84,4 +82,4 @@ class MaskableRolloutBuffer(RolloutBuffer):
             self.returns[batch_inds].flatten(),
             self.action_masks[batch_inds].flatten(),
         )
-        return MaskableRolloutBufferSamples(*tuple(map(self.to_torch, data)))
+        return MaskedRolloutBufferSamples(*map(self.to_torch, data))
