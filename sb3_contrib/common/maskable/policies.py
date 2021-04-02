@@ -5,11 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type, Union
 import gym
 import numpy as np
 import torch as th
-from stable_baselines3.common.distributions import (
-    BernoulliDistribution,
-    Distribution,
-    MultiCategoricalDistribution,
-)
+from stable_baselines3.common.distributions import BernoulliDistribution, Distribution, MultiCategoricalDistribution
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.preprocessing import is_image_space
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor, FlattenExtractor, MlpExtractor

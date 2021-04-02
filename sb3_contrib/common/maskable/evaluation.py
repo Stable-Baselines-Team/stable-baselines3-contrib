@@ -7,9 +7,9 @@ from stable_baselines3.common.env_util import is_wrapped
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import VecEnv, is_vecenv_wrapped
 
-from sb3_contrib.ppo_mask import MaskablePPO
 from sb3_contrib.common.vec_env.wrappers import VecActionMasker
 from sb3_contrib.common.wrappers import ActionMasker
+from sb3_contrib.ppo_mask import MaskablePPO
 
 
 def evaluate_policy(
