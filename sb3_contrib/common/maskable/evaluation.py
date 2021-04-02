@@ -3,17 +3,17 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import gym
 import numpy as np
-from stable_baselines3.common import base_class
 from stable_baselines3.common.env_util import is_wrapped
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import VecEnv, is_vecenv_wrapped
 
+from sb3_contrib.ppo_mask import MaskablePPO
 from sb3_contrib.common.vec_env.wrappers import VecActionMasker
 from sb3_contrib.common.wrappers import ActionMasker
 
 
 def evaluate_policy(
-    model: "base_class.BaseAlgorithm",
+    model: MaskablePPO,
     env: Union[gym.Env, VecEnv],
     n_eval_episodes: int = 10,
     deterministic: bool = True,
@@ -56,7 +56,6 @@ def evaluate_policy(
     """
 
     # Must be imported at runtime to avoid circular dependency
-    from sb3_contrib.common.maskable.algorithms.base import MaskableAlgorithm
 
     is_monitor_wrapped = False
     is_action_masked = False
@@ -90,7 +89,7 @@ def evaluate_policy(
         episode_reward = 0.0
         episode_length = 0
         while not done:
-            if isinstance(model, MaskableAlgorithm) and is_action_masked:
+            if is_action_masked:
                 action_masks = env.valid_actions()
                 action, state = model.predict(
                     obs,
