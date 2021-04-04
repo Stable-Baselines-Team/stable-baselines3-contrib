@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Type, Union
 
 import numpy as np
 import torch as th
@@ -6,24 +6,125 @@ from gym import spaces
 from stable_baselines3.common import logger
 from stable_baselines3.common.buffers import RolloutBuffer
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList, ConvertCallback
-from stable_baselines3.common.type_aliases import MaybeCallback
-from stable_baselines3.common.utils import explained_variance
+from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
+from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
+from stable_baselines3.common.utils import explained_variance, get_schedule_fn
 from stable_baselines3.common.vec_env import VecEnv, is_vecenv_wrapped
-from stable_baselines3.ppo import PPO
 from torch.nn import functional as F
 
 from sb3_contrib.common.maskable.buffers import MaskedRolloutBuffer
-from sb3_contrib.common.maskable.callbacks import MaskableEvalCallback
-from sb3_contrib.common.maskable.policies import MaskablePolicy
+from sb3_contrib.common.maskable.policies import MaskedActorCriticPolicy
 from sb3_contrib.common.vec_env.wrappers import VecActionMasker
 from sb3_contrib.common.wrappers import ActionMasker
 
 
-class MaskablePPO(PPO):
+class MaskedPPO(OnPolicyAlgorithm):
+    """
+    Proximal Policy Optimization algorithm (PPO) (clip version) with Invalid Action Masking.
+
+    Based on the original Stable Baselines 3 implementation.
+
+    Introduction to PPO: https://spinningup.openai.com/en/latest/algorithms/ppo.html
+    Background on Invalid Action Masking: https://arxiv.org/pdf/2006.14171.pdf
+
+    :param policy: The policy model to use (MlpPolicy, CnnPolicy, ...)
+    :param env: The environment to learn from (if registered in Gym, can be str)
+    :param learning_rate: The learning rate, it can be a function
+        of the current progress remaining (from 1 to 0)
+    :param n_steps: The number of steps to run for each environment per update
+        (i.e. batch size is n_steps * n_env where n_env is number of environment copies running in parallel)
+    :param batch_size: Minibatch size
+    :param n_epochs: Number of epoch when optimizing the surrogate loss
+    :param gamma: Discount factor
+    :param gae_lambda: Factor for trade-off of bias vs variance for Generalized Advantage Estimator
+    :param clip_range: Clipping parameter, it can be a function of the current progress
+        remaining (from 1 to 0).
+    :param clip_range_vf: Clipping parameter for the value function,
+        it can be a function of the current progress remaining (from 1 to 0).
+        This is a parameter specific to the OpenAI implementation. If None is passed (default),
+        no clipping will be done on the value function.
+        IMPORTANT: this clipping depends on the reward scaling.
+    :param ent_coef: Entropy coefficient for the loss calculation
+    :param vf_coef: Value function coefficient for the loss calculation
+    :param max_grad_norm: The maximum value for the gradient clipping
+    :param target_kl: Limit the KL divergence between updates,
+        because the clipping is not enough to prevent large update
+        see issue #213 (cf https://github.com/hill-a/stable-baselines/issues/213)
+        By default, there is no limit on the kl div.
+    :param tensorboard_log: the log location for tensorboard (if None, no logging)
+    :param create_eval_env: Whether to create a second environment that will be
+        used for evaluating the agent periodically. (Only available when passing string for the environment)
+    :param policy_kwargs: additional arguments to be passed to the policy on creation
+    :param verbose: the verbosity level: 0 no output, 1 info, 2 debug
+    :param seed: Seed for the pseudo random generators
+    :param device: Device (cpu, cuda, ...) on which the code should be run.
+        Setting it to auto, the code will be run on the GPU if possible.
+    :param _init_setup_model: Whether or not to build the network at the creation of the instance
+    """
+
+    def __init__(
+        self,
+        policy: Union[str, Type[MaskedActorCriticPolicy]],
+        env: Union[GymEnv, str],
+        learning_rate: Union[float, Schedule] = 3e-4,
+        n_steps: int = 2048,
+        batch_size: Optional[int] = 64,
+        n_epochs: int = 10,
+        gamma: float = 0.99,
+        gae_lambda: float = 0.95,
+        clip_range: Union[float, Schedule] = 0.2,
+        clip_range_vf: Union[None, float, Schedule] = None,
+        ent_coef: float = 0.0,
+        vf_coef: float = 0.5,
+        max_grad_norm: float = 0.5,
+        target_kl: Optional[float] = None,
+        tensorboard_log: Optional[str] = None,
+        create_eval_env: bool = False,
+        policy_kwargs: Optional[Dict[str, Any]] = None,
+        verbose: int = 0,
+        seed: Optional[int] = None,
+        device: Union[th.device, str] = "auto",
+        _init_setup_model: bool = True,
+    ):
+        super().__init__(
+            policy,
+            env,
+            learning_rate=learning_rate,
+            n_steps=n_steps,
+            gamma=gamma,
+            gae_lambda=gae_lambda,
+            ent_coef=ent_coef,
+            vf_coef=vf_coef,
+            max_grad_norm=max_grad_norm,
+            use_sde=False,
+            sde_sample_freq=-1,
+            tensorboard_log=tensorboard_log,
+            create_eval_env=create_eval_env,
+            policy_kwargs=policy_kwargs,
+            verbose=verbose,
+            seed=seed,
+            device=device,
+            _init_setup_model=False,
+            supported_action_spaces=(
+                spaces.Discrete,
+                spaces.MultiDiscrete,
+                spaces.MultiBinary,
+            ),
+        )
+
+        self.batch_size = batch_size
+        self.n_epochs = n_epochs
+        self.clip_range = clip_range
+        self.clip_range_vf = clip_range_vf
+        self.target_kl = target_kl
+
+        if _init_setup_model:
+            self._setup_model()
+
     # TODO eliminate
     @staticmethod
     def _wrap_env(*args, **kwargs) -> VecEnv:
-        env = super(MaskablePPO, MaskablePPO)._wrap_env(*args, **kwargs)
+        env = super(MaskedPPO, MaskedPPO)._wrap_env(*args, **kwargs)
 
         # If env is wrapped with ActionMasker, wrap the VecEnv as well for convenience
         if not is_vecenv_wrapped(env, VecActionMasker) and all(env.env_is_wrapped(ActionMasker)):
@@ -57,6 +158,9 @@ class MaskablePPO(PPO):
 
         # Create eval callback in charge of the evaluation
         if eval_env is not None:
+            # Avoid circular import error
+            from sb3_contrib.common.maskable.callbacks import MaskableEvalCallback
+
             eval_callback = MaskableEvalCallback(
                 eval_env,
                 best_model_save_path=log_path,
@@ -70,7 +174,20 @@ class MaskablePPO(PPO):
         return callback
 
     def _setup_model(self) -> None:
-        super()._setup_model()
+        self._setup_lr_schedule()
+        self.set_random_seed(self.seed)
+
+        self.policy = self.policy_class(
+            self.observation_space,
+            self.action_space,
+            self.lr_schedule,
+            **self.policy_kwargs  # pytype:disable=not-instantiable
+        )
+        self.policy = self.policy.to(self.device)
+
+        if not isinstance(self.policy, MaskedActorCriticPolicy):
+            raise ValueError("Policy must subclass MaskedActorCriticPolicy")
+
         self.rollout_buffer = MaskedRolloutBuffer(
             self.n_steps,
             self.observation_space,
@@ -81,8 +198,13 @@ class MaskablePPO(PPO):
             n_envs=self.n_envs,
         )
 
-        if not isinstance(self.policy, MaskablePolicy):
-            raise ValueError("Policy must subclass MaskablePolicy")
+        # Initialize schedules for policy/value clipping
+        self.clip_range = get_schedule_fn(self.clip_range)
+        if self.clip_range_vf is not None:
+            if isinstance(self.clip_range_vf, (float, int)):
+                assert self.clip_range_vf > 0, "`clip_range_vf` must be positive, " "pass `None` to deactivate vf clipping"
+
+            self.clip_range_vf = get_schedule_fn(self.clip_range_vf)
 
     def collect_rollouts(
         self,
@@ -107,6 +229,7 @@ class MaskablePPO(PPO):
             collected, False if callback terminated rollout prematurely.
         """
 
+        # TODO is this assert needed?
         assert isinstance(rollout_buffer, MaskedRolloutBuffer), "RolloutBuffer doesn't support action masking"
         assert self._last_obs is not None, "No previous observation was provided"
         n_steps = 0
@@ -216,14 +339,11 @@ class MaskablePPO(PPO):
                     # Convert discrete action from float to long
                     actions = rollout_data.actions.long().flatten()
 
-                if isinstance(self.policy, MaskablePolicy):
-                    values, log_prob, entropy = self.policy.evaluate_actions(
-                        rollout_data.observations,
-                        actions,
-                        action_masks=rollout_data.action_masks,
-                    )
-                else:
-                    values, log_prob, entropy = self.policy.evaluate_actions(rollout_data.observations, actions)
+                values, log_prob, entropy = self.policy.evaluate_actions(
+                    rollout_data.observations,
+                    actions,
+                    action_masks=rollout_data.action_masks,
+                )
 
                 values = values.flatten()
                 # Normalize advantage
@@ -292,10 +412,33 @@ class MaskablePPO(PPO):
         logger.record("train/clip_fraction", np.mean(clip_fractions))
         logger.record("train/loss", loss.item())
         logger.record("train/explained_variance", explained_var)
-        if hasattr(self.policy, "log_std"):
-            logger.record("train/std", th.exp(self.policy.log_std).mean().item())
-
         logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
         logger.record("train/clip_range", clip_range)
         if self.clip_range_vf is not None:
             logger.record("train/clip_range_vf", clip_range_vf)
+
+    def learn(
+        self,
+        total_timesteps: int,
+        callback: MaybeCallback = None,
+        log_interval: int = 1,
+        eval_env: Optional[GymEnv] = None,
+        eval_freq: int = -1,
+        n_eval_episodes: int = 5,
+        tb_log_name: str = "PPO",
+        eval_log_path: Optional[str] = None,
+        reset_num_timesteps: bool = True,
+    ) -> "MaskedPPO":
+        super().learn(
+            total_timesteps=total_timesteps,
+            callback=callback,
+            log_interval=log_interval,
+            eval_env=eval_env,
+            eval_freq=eval_freq,
+            n_eval_episodes=n_eval_episodes,
+            tb_log_name=tb_log_name,
+            eval_log_path=eval_log_path,
+            reset_num_timesteps=reset_num_timesteps,
+        )
+
+        return self

@@ -114,7 +114,7 @@ class MaskablePolicy(BasePolicy, metaclass=ABCMeta):
         return actions, state
 
 
-class MaskableActorCriticPolicy(MaskablePolicy):
+class MaskedActorCriticPolicy(MaskablePolicy):
     """
     Policy class for actor-critic algorithms (has both policy and value prediction).
     Used by A2C, PPO and the likes.
