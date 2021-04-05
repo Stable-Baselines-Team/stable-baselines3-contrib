@@ -181,7 +181,7 @@ class MaskedPPO(OnPolicyAlgorithm):
             self.observation_space,
             self.action_space,
             self.lr_schedule,
-            **self.policy_kwargs  # pytype:disable=not-instantiable
+            **self.policy_kwargs,  # pytype:disable=not-instantiable
         )
         self.policy = self.policy.to(self.device)
 
