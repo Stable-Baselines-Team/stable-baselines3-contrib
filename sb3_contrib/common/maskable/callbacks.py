@@ -3,17 +3,10 @@ import warnings
 
 import numpy as np
 from stable_baselines3.common.callbacks import EvalCallback
-from stable_baselines3.common.env_util import is_wrapped
-from stable_baselines3.common.vec_env import (
-    DummyVecEnv,
-    VecEnv,
-    is_vecenv_wrapped,
-    sync_envs_normalization,
-    unwrap_vec_wrapper,
-)
+from stable_baselines3.common.vec_env import DummyVecEnv, VecEnv, sync_envs_normalization
 
 from sb3_contrib.common.maskable.evaluation import evaluate_policy
-from sb3_contrib.common.vec_env.wrappers import VecActionMasker
+from sb3_contrib.common.maskable.utils import get_action_mask_fn
 from sb3_contrib.common.wrappers import ActionMasker
 
 
@@ -26,20 +19,17 @@ class MaskableEvalCallback(EvalCallback):
         # Used to over wrappers as necessary
         # TODO: sb3 assumes that training env and eval env have the same wrappers.
         # Make it simpler to port over wrappers.
-        vec_action_mask_wrapper = unwrap_vec_wrapper(self.training_env, VecActionMasker)
+        action_mask_fn = get_action_mask_fn(self.training_env)
 
         if not isinstance(self.eval_env, VecEnv):
-            if vec_action_mask_wrapper and not is_wrapped(self.eval_env, ActionMasker):
+            if action_mask_fn and get_action_mask_fn(self.eval_env) is None:
                 if self.verbose > 0:
                     print("Wrapping evaluation environment for action masking")
-                self.eval_env = ActionMasker(self.eval_env, vec_action_mask_wrapper.action_mask_fn)
+                self.eval_env = ActionMasker(self.eval_env, action_mask_fn)
 
             self.eval_env = DummyVecEnv([lambda: self.eval_env])
 
         assert self.eval_env.num_envs == 1, "You must pass only one environment for evaluation"
-
-        if vec_action_mask_wrapper and not is_vecenv_wrapped(self.eval_env, VecActionMasker):
-            self.eval_env = VecActionMasker(self.eval_env)
 
         # Does not work in some corner cases, where the wrapper is not the same
         if not isinstance(self.training_env, type(self.eval_env)):

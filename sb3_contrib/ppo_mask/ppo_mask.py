@@ -9,13 +9,12 @@ from stable_baselines3.common.callbacks import BaseCallback, CallbackList, Conve
 from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import explained_variance, get_schedule_fn
-from stable_baselines3.common.vec_env import VecEnv, is_vecenv_wrapped
+from stable_baselines3.common.vec_env import VecEnv
 from torch.nn import functional as F
 
 from sb3_contrib.common.maskable.buffers import MaskedRolloutBuffer
 from sb3_contrib.common.maskable.policies import MaskedActorCriticPolicy
-from sb3_contrib.common.vec_env.wrappers import VecActionMasker
-from sb3_contrib.common.wrappers import ActionMasker
+from sb3_contrib.common.maskable.utils import get_action_masks, is_masking_supported
 
 
 class MaskedPPO(OnPolicyAlgorithm):
@@ -85,6 +84,7 @@ class MaskedPPO(OnPolicyAlgorithm):
         seed: Optional[int] = None,
         device: Union[th.device, str] = "auto",
         _init_setup_model: bool = True,
+        use_masking = True,
     ):
         super().__init__(
             policy,
@@ -112,25 +112,19 @@ class MaskedPPO(OnPolicyAlgorithm):
             ),
         )
 
+        if use_masking and not is_masking_supported(self.env):
+            logger.warn("Environment does not support action masking. Consider using ActionMasker wrapper")
+            use_masking = False
+
         self.batch_size = batch_size
         self.n_epochs = n_epochs
         self.clip_range = clip_range
         self.clip_range_vf = clip_range_vf
         self.target_kl = target_kl
+        self.use_masking = use_masking
 
         if _init_setup_model:
             self._setup_model()
-
-    # TODO eliminate
-    @staticmethod
-    def _wrap_env(*args, **kwargs) -> VecEnv:
-        env = super(MaskedPPO, MaskedPPO)._wrap_env(*args, **kwargs)
-
-        # If env is wrapped with ActionMasker, wrap the VecEnv as well for convenience
-        if not is_vecenv_wrapped(env, VecActionMasker) and all(env.env_is_wrapped(ActionMasker)):
-            env = VecActionMasker(env)
-
-        return env
 
     def _init_callback(
         self,
@@ -244,8 +238,8 @@ class MaskedPPO(OnPolicyAlgorithm):
                 obs_tensor = th.as_tensor(self._last_obs).to(self.device)
 
                 # This is the only change related to invalid action masking
-                if is_vecenv_wrapped(env, VecActionMasker):
-                    action_masks = env.valid_actions()
+                if self.use_masking:
+                    action_masks = get_action_masks(env)
 
                 actions, values, log_probs = self.policy.forward(obs_tensor, action_masks=action_masks)
 

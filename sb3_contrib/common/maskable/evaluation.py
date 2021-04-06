@@ -5,10 +5,9 @@ import gym
 import numpy as np
 from stable_baselines3.common.env_util import is_wrapped
 from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.vec_env import VecEnv, is_vecenv_wrapped
+from stable_baselines3.common.vec_env import VecEnv
 
-from sb3_contrib.common.vec_env.wrappers import VecActionMasker
-from sb3_contrib.common.wrappers import ActionMasker
+from sb3_contrib.common.maskable.utils import get_action_masks, is_masking_supported
 from sb3_contrib.ppo_mask import MaskedPPO
 
 
@@ -55,18 +54,14 @@ def evaluate_policy(
         (in number of steps).
     """
 
-    # Must be imported at runtime to avoid circular dependency
-
+    masking_enabled = model.use_masking and is_masking_supported(env)
     is_monitor_wrapped = False
-    is_action_masked = False
 
     if isinstance(env, VecEnv):
         assert env.num_envs == 1, "You must pass only one environment when using this function"
         is_monitor_wrapped = env.env_is_wrapped(Monitor)[0]
-        is_action_masked = is_vecenv_wrapped(env, VecActionMasker)
     else:
         is_monitor_wrapped = is_wrapped(env, Monitor)
-        is_action_masked = is_wrapped(env, ActionMasker)
 
     if not is_monitor_wrapped and warn:
         warnings.warn(
@@ -89,8 +84,8 @@ def evaluate_policy(
         episode_reward = 0.0
         episode_length = 0
         while not done:
-            if is_action_masked:
-                action_masks = env.valid_actions()
+            if masking_enabled:
+                action_masks = get_action_masks(env)
                 action, state = model.predict(
                     obs,
                     state=state,
