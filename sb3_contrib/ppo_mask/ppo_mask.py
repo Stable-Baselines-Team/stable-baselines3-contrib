@@ -84,7 +84,7 @@ class MaskedPPO(OnPolicyAlgorithm):
         seed: Optional[int] = None,
         device: Union[th.device, str] = "auto",
         _init_setup_model: bool = True,
-        use_masking = True,
+        use_masking: bool = True,
     ):
         super().__init__(
             policy,
