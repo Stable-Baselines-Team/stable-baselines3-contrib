@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type, Union
 import gym
 import numpy as np
 import torch as th
-from stable_baselines3.common.distributions import BernoulliDistribution, Distribution, MultiCategoricalDistribution
+from stable_baselines3.common.distributions import BernoulliDistribution, Distribution
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.preprocessing import is_image_space
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor, FlattenExtractor, MlpExtractor
@@ -15,7 +15,11 @@ from stable_baselines3.common.vec_env import VecTransposeImage
 from stable_baselines3.common.vec_env.obs_dict_wrapper import ObsDictWrapper
 from torch import nn
 
-from sb3_contrib.common.distributions import CategoricalDistribution, make_masked_proba_distribution
+from sb3_contrib.common.distributions import (
+    MaskableCategoricalDistribution,
+    MaskableMultiCategoricalDistribution,
+    make_masked_proba_distribution,
+)
 
 
 class MaskablePolicy(BasePolicy, metaclass=ABCMeta):
@@ -211,8 +215,10 @@ class MaskedActorCriticPolicy(MaskablePolicy):
         distribution = self._get_action_dist_from_latent(latent_pi)
         if action_masks is not None:
             # Currently, only certain distributions support masking
-            if isinstance(distribution, CategoricalDistribution):
-                distribution.distribution.apply_masking(action_masks)
+            if isinstance(distribution, MaskableCategoricalDistribution) or isinstance(
+                distribution, MaskableMultiCategoricalDistribution
+            ):
+                distribution.apply_masking(action_masks)
         actions = distribution.get_actions(deterministic=deterministic)
         log_prob = distribution.log_prob(actions)
         return actions, values, log_prob
@@ -257,9 +263,9 @@ class MaskedActorCriticPolicy(MaskablePolicy):
 
         latent_dim_pi = self.mlp_extractor.latent_dim_pi
 
-        if isinstance(self.action_dist, CategoricalDistribution):
+        if isinstance(self.action_dist, MaskableCategoricalDistribution):
             self.action_net = self.action_dist.proba_distribution_net(latent_dim=latent_dim_pi)
-        elif isinstance(self.action_dist, MultiCategoricalDistribution):
+        elif isinstance(self.action_dist, MaskableMultiCategoricalDistribution):
             self.action_net = self.action_dist.proba_distribution_net(latent_dim=latent_dim_pi)
         elif isinstance(self.action_dist, BernoulliDistribution):
             self.action_net = self.action_dist.proba_distribution_net(latent_dim=latent_dim_pi)
@@ -310,10 +316,10 @@ class MaskedActorCriticPolicy(MaskablePolicy):
         """
         mean_actions = self.action_net(latent_pi)
 
-        if isinstance(self.action_dist, CategoricalDistribution):
+        if isinstance(self.action_dist, MaskableCategoricalDistribution):
             # Here mean_actions are the logits before the softmax
             return self.action_dist.proba_distribution(action_logits=mean_actions)
-        elif isinstance(self.action_dist, MultiCategoricalDistribution):
+        elif isinstance(self.action_dist, MaskableMultiCategoricalDistribution):
             # Here mean_actions are the flattened logits
             return self.action_dist.proba_distribution(action_logits=mean_actions)
         elif isinstance(self.action_dist, BernoulliDistribution):
@@ -334,8 +340,10 @@ class MaskedActorCriticPolicy(MaskablePolicy):
         latent_pi, _ = self._get_latent(observation)
         distribution = self._get_action_dist_from_latent(latent_pi)
         if action_masks is not None:
-            if isinstance(distribution, CategoricalDistribution):
-                distribution.distribution.apply_masking(action_masks)
+            if isinstance(distribution, MaskableCategoricalDistribution) or isinstance(
+                distribution, MaskableMultiCategoricalDistribution
+            ):
+                distribution.apply_masking(action_masks)
         return distribution.get_actions(deterministic=deterministic)
 
     def evaluate_actions(
@@ -353,8 +361,10 @@ class MaskedActorCriticPolicy(MaskablePolicy):
         latent_pi, latent_vf = self._get_latent(obs)
         distribution = self._get_action_dist_from_latent(latent_pi)
         if action_masks is not None:
-            if isinstance(distribution, CategoricalDistribution):
-                distribution.distribution.apply_masking(action_masks)
+            if isinstance(distribution, MaskableCategoricalDistribution) or isinstance(
+                distribution, MaskableMultiCategoricalDistribution
+            ):
+                distribution.apply_masking(action_masks)
         log_prob = distribution.log_prob(actions)
         values = self.value_net(latent_vf)
         return values, log_prob, distribution.entropy()

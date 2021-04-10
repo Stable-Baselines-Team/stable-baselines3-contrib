@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import gym
 import numpy as np
@@ -6,19 +6,13 @@ import torch as th
 from gym import spaces
 from stable_baselines3.common.distributions import (
     BernoulliDistribution,
-    DiagGaussianDistribution,
     Distribution,
-    MultiCategoricalDistribution,
-    StateDependentNoiseDistribution,
 )
-from stable_baselines3.common.preprocessing import get_action_dim
 from torch import nn
 from torch.distributions import Categorical
 
 
 class MaskableCategorical(Categorical):
-    # Adapted from https://github.com/vwxyzjn/invalid-action-masking
-
     def __init__(
         self,
         probs=None,
@@ -41,7 +35,7 @@ class MaskableCategorical(Categorical):
             self.masks = None
             logits = self.logits
 
-        # Reinitialize updated logits
+        # Reinitialize with updated logits
         super().__init__(logits=logits)
 
     def entropy(self):
@@ -57,7 +51,7 @@ class MaskableCategorical(Categorical):
         return -p_log_p.sum(-1)
 
 
-class CategoricalDistribution(Distribution):
+class MaskableCategoricalDistribution(Distribution):
     """
     Categorical distribution for discrete actions.
 
@@ -66,7 +60,7 @@ class CategoricalDistribution(Distribution):
 
     def __init__(self, action_dim: int):
         super().__init__()
-        self.distribution: MaskableCategorical = None
+        self.distribution: Optional[MaskableCategorical] = None
         self.action_dim = action_dim
 
     def proba_distribution_net(self, latent_dim: int) -> nn.Module:
@@ -82,7 +76,7 @@ class CategoricalDistribution(Distribution):
         action_logits = nn.Linear(latent_dim, self.action_dim)
         return action_logits
 
-    def proba_distribution(self, action_logits: th.Tensor) -> "CategoricalDistribution":
+    def proba_distribution(self, action_logits: th.Tensor) -> "MaskableCategoricalDistribution":
         self.distribution = MaskableCategorical(logits=action_logits)
         return self
 
@@ -112,6 +106,89 @@ class CategoricalDistribution(Distribution):
         log_prob = self.log_prob(actions)
         return actions, log_prob
 
+    def apply_masking(self, masks: Optional[np.ndarray]) -> None:
+        assert self.distribution is not None, "Must set distribution parameters"
+        self.distribution.apply_masking(masks)
+
+
+class MaskableMultiCategoricalDistribution(Distribution):
+    """
+    MultiCategorical distribution for multi discrete actions.
+
+    :param action_dims: List of sizes of discrete action spaces
+    """
+
+    def __init__(self, action_dims: List[int]):
+        super().__init__()
+        self.distributions: List[MaskableCategorical] = []
+        self.action_dims = action_dims
+
+    def proba_distribution_net(self, latent_dim: int) -> nn.Module:
+        """
+        Create the layer that represents the distribution:
+        it will be the logits (flattened) of the MultiCategorical distribution.
+        You can then get probabilities using a softmax on each sub-space.
+
+        :param latent_dim: Dimension of the last layer
+            of the policy network (before the action layer)
+        :return:
+        """
+
+        action_logits = nn.Linear(latent_dim, sum(self.action_dims))
+        return action_logits
+
+    def proba_distribution(self, action_logits: th.Tensor) -> "MaskableMultiCategoricalDistribution":
+        self.distributions = [
+            MaskableCategorical(logits=split) for split in th.split(action_logits, tuple(self.action_dims), dim=1)
+        ]
+        return self
+
+    def log_prob(self, actions: th.Tensor) -> th.Tensor:
+        assert len(self.distributions) > 0, "Must set distribution parameters"
+
+        # Extract each discrete action and compute log prob for their respective distributions
+        return th.stack(
+            [dist.log_prob(action) for dist, action in zip(self.distributions, th.unbind(actions, dim=1))], dim=1
+        ).sum(dim=1)
+
+    def entropy(self) -> th.Tensor:
+        assert len(self.distributions) > 0, "Must set distribution parameters"
+        return th.stack([dist.entropy() for dist in self.distributions], dim=1).sum(dim=1)
+
+    def sample(self) -> th.Tensor:
+        assert len(self.distributions) > 0, "Must set distribution parameters"
+        return th.stack([dist.sample() for dist in self.distributions], dim=1)
+
+    def mode(self) -> th.Tensor:
+        assert len(self.distributions) > 0, "Must set distribution parameters"
+        return th.stack([th.argmax(dist.probs, dim=1) for dist in self.distributions], dim=1)
+
+    def actions_from_params(self, action_logits: th.Tensor, deterministic: bool = False) -> th.Tensor:
+        # Update the proba distribution
+        self.proba_distribution(action_logits)
+        return self.get_actions(deterministic=deterministic)
+
+    def log_prob_from_params(self, action_logits: th.Tensor) -> Tuple[th.Tensor, th.Tensor]:
+        actions = self.actions_from_params(action_logits)
+        log_prob = self.log_prob(actions)
+        return actions, log_prob
+
+    def apply_masking(self, masks: Optional[np.ndarray]) -> None:
+        assert len(self.distributions) > 0, "Must set distribution parameters"
+
+        split_masks = [None] * len(self.distributions)
+        if masks is not None:
+            masks = th.as_tensor(masks)
+
+            # Restructure shape to align with logits
+            masks = masks.view(-1, sum(self.action_dims))
+
+            # Then split columnwise for each discrete action
+            split_masks = th.split(masks, tuple(self.action_dims), dim=1)
+
+        for distribution, mask in zip(self.distributions, split_masks):
+            distribution.apply_masking(mask)
+
 
 def make_masked_proba_distribution(action_space: gym.spaces.Space) -> Distribution:
     """
@@ -122,11 +199,11 @@ def make_masked_proba_distribution(action_space: gym.spaces.Space) -> Distributi
     """
 
     if isinstance(action_space, spaces.Discrete):
-        return CategoricalDistribution(action_space.n)
+        return MaskableCategoricalDistribution(action_space.n)
 
+    elif isinstance(action_space, spaces.MultiDiscrete):
+        return MaskableMultiCategoricalDistribution(action_space.nvec)
     # TODO add support for other discrete spaces
-    # elif isinstance(action_space, spaces.MultiDiscrete):
-    #     return MultiCategoricalDistribution(action_space.nvec)
     # elif isinstance(action_space, spaces.MultiBinary):
     #     return BernoulliDistribution(action_space.n)
 
