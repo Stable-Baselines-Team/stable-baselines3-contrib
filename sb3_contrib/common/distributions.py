@@ -4,10 +4,7 @@ import gym
 import numpy as np
 import torch as th
 from gym import spaces
-from stable_baselines3.common.distributions import (
-    BernoulliDistribution,
-    Distribution,
-)
+from stable_baselines3.common.distributions import BernoulliDistribution, Distribution
 from torch import nn
 from torch.distributions import Categorical
 
