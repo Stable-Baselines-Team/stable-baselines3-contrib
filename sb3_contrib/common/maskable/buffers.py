@@ -42,7 +42,7 @@ class MaskedRolloutBuffer(RolloutBuffer):
         :param action_masks: Masks applied to constrain the choice of possible actions.
         """
         if action_masks is not None:
-            self.action_masks[self.pos] = np.array(action_masks).copy()
+            self.action_masks[self.pos] = action_masks.flatten()
 
         super().add(*args, **kwargs)
 
