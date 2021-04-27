@@ -12,12 +12,12 @@ from stable_baselines3.common.utils import explained_variance, get_schedule_fn
 from stable_baselines3.common.vec_env import VecEnv
 from torch.nn import functional as F
 
-from sb3_contrib.common.maskable.buffers import MaskedRolloutBuffer
-from sb3_contrib.common.maskable.policies import MaskedActorCriticPolicy
+from sb3_contrib.common.maskable.buffers import MaskableRolloutBuffer
+from sb3_contrib.common.maskable.policies import MaskableActorCriticPolicy
 from sb3_contrib.common.maskable.utils import get_action_masks, is_masking_supported
 
 
-class MaskedPPO(OnPolicyAlgorithm):
+class MaskablePPO(OnPolicyAlgorithm):
     """
     Proximal Policy Optimization algorithm (PPO) (clip version) with Invalid Action Masking.
 
@@ -63,7 +63,7 @@ class MaskedPPO(OnPolicyAlgorithm):
 
     def __init__(
         self,
-        policy: Union[str, Type[MaskedActorCriticPolicy]],
+        policy: Union[str, Type[MaskableActorCriticPolicy]],
         env: Union[GymEnv, str],
         learning_rate: Union[float, Schedule] = 3e-4,
         n_steps: int = 2048,
@@ -179,10 +179,10 @@ class MaskedPPO(OnPolicyAlgorithm):
         )
         self.policy = self.policy.to(self.device)
 
-        if not isinstance(self.policy, MaskedActorCriticPolicy):
-            raise ValueError("Policy must subclass MaskedActorCriticPolicy")
+        if not isinstance(self.policy, MaskableActorCriticPolicy):
+            raise ValueError("Policy must subclass MaskableActorCriticPolicy")
 
-        self.rollout_buffer = MaskedRolloutBuffer(
+        self.rollout_buffer = MaskableRolloutBuffer(
             self.n_steps,
             self.observation_space,
             self.action_space,
@@ -224,7 +224,7 @@ class MaskedPPO(OnPolicyAlgorithm):
         """
 
         # TODO is this assert needed?
-        assert isinstance(rollout_buffer, MaskedRolloutBuffer), "RolloutBuffer doesn't support action masking"
+        assert isinstance(rollout_buffer, MaskableRolloutBuffer), "RolloutBuffer doesn't support action masking"
         assert self._last_obs is not None, "No previous observation was provided"
         n_steps = 0
         action_masks = None
@@ -422,7 +422,7 @@ class MaskedPPO(OnPolicyAlgorithm):
         tb_log_name: str = "PPO",
         eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
-    ) -> "MaskedPPO":
+    ) -> "MaskablePPO":
         super().learn(
             total_timesteps=total_timesteps,
             callback=callback,

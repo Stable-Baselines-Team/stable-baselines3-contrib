@@ -8,7 +8,7 @@ from stable_baselines3.common.vec_env import VecNormalize
 
 
 # TODO use dataclass when Python 3.6 support is dropped
-class MaskedRolloutBufferSamples(NamedTuple):
+class MaskableRolloutBufferSamples(NamedTuple):
     observations: th.Tensor
     actions: th.Tensor
     old_values: th.Tensor
@@ -18,7 +18,7 @@ class MaskedRolloutBufferSamples(NamedTuple):
     action_masks: th.Tensor
 
 
-class MaskedRolloutBuffer(RolloutBuffer):
+class MaskableRolloutBuffer(RolloutBuffer):
     def __init__(self, *args, **kwargs):
         self.action_masks = None
         super().__init__(*args, **kwargs)
@@ -46,7 +46,7 @@ class MaskedRolloutBuffer(RolloutBuffer):
 
         super().add(*args, **kwargs)
 
-    def get(self, batch_size: Optional[int] = None) -> Generator[MaskedRolloutBufferSamples, None, None]:
+    def get(self, batch_size: Optional[int] = None) -> Generator[MaskableRolloutBufferSamples, None, None]:
         assert self.full, ""
         indices = np.random.permutation(self.buffer_size * self.n_envs)
         # Prepare the data
@@ -72,7 +72,7 @@ class MaskedRolloutBuffer(RolloutBuffer):
             yield self._get_samples(indices[start_idx : start_idx + batch_size])
             start_idx += batch_size
 
-    def _get_samples(self, batch_inds: np.ndarray, env: Optional[VecNormalize] = None) -> MaskedRolloutBufferSamples:
+    def _get_samples(self, batch_inds: np.ndarray, env: Optional[VecNormalize] = None) -> MaskableRolloutBufferSamples:
         data = (
             self.observations[batch_inds],
             self.actions[batch_inds],
@@ -82,4 +82,4 @@ class MaskedRolloutBuffer(RolloutBuffer):
             self.returns[batch_inds].flatten(),
             self.action_masks[batch_inds].flatten(),
         )
-        return MaskedRolloutBufferSamples(*map(self.to_torch, data))
+        return MaskableRolloutBufferSamples(*map(self.to_torch, data))
