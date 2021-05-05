@@ -3,6 +3,27 @@
 Changelog
 ==========
 
+Release 1.1.0a5 (WIP)
+-------------------------------
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+
+Bug Fixes:
+^^^^^^^^^^
+- Removed unused code in ``TQC``
+
+Deprecations:
+^^^^^^^^^^^^^
+
+Others:
+^^^^^^^
+- SB3 docs and tests dependencies are no longer required for installing SB3 contrib
+
+Documentation:
+^^^^^^^^^^^^^^
+
+
 Release 1.0 (2021-03-17)
 -------------------------------
 

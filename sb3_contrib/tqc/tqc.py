@@ -137,8 +137,6 @@ class TQC(OffPolicyAlgorithm):
     def _setup_model(self) -> None:
         super(TQC, self)._setup_model()
         self._create_aliases()
-        self.replay_buffer.actor = self.actor
-        self.replay_buffer.ent_coef = 0.0
 
         # Target entropy is used when learning the entropy coefficient
         if self.target_entropy == "auto":
