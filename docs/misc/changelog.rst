@@ -18,6 +18,7 @@ Deprecations:
 
 Others:
 ^^^^^^^
+- SB3 docs and tests dependencies are no longer required for installing SB3 contrib
 
 Documentation:
 ^^^^^^^^^^^^^^
