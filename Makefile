@@ -24,7 +24,7 @@ check-codestyle:
 	# Sort imports
 	isort --check ${LINT_PATHS}
 	# Reformat using black
-	black --check -l 127 ${LINT_PATHS}
+	black --check ${LINT_PATHS}
 
 commit-checks: format type lint
 
