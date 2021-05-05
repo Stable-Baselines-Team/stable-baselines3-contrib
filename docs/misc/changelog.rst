@@ -3,6 +3,26 @@
 Changelog
 ==========
 
+Release 1.1.0a5 (WIP)
+-------------------------------
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+
+Bug Fixes:
+^^^^^^^^^^
+- Removed unused code in ``TQC``
+
+Deprecations:
+^^^^^^^^^^^^^
+
+Others:
+^^^^^^^
+
+Documentation:
+^^^^^^^^^^^^^^
+
+
 Release 1.0 (2021-03-17)
 -------------------------------
 
