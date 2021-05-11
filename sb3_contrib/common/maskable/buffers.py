@@ -37,7 +37,7 @@ class MaskableRolloutBuffer(RolloutBuffer):
 
         super().reset()
 
-    def add(self, *args, action_masks: np.ndarray = None, **kwargs) -> None:
+    def add(self, *args, action_masks: Optional[np.ndarray] = None, **kwargs) -> None:
         """
         :param action_masks: Masks applied to constrain the choice of possible actions.
         """
