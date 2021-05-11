@@ -19,9 +19,20 @@ class MaskableCategorical(Categorical):
     ):
         self.masks: Optional[th.Tensor] = None
         super().__init__(probs, logits, validate_args)
+        self._original_logits = self.logits
         self.apply_masking(masks)
 
     def apply_masking(self, masks: Optional[np.ndarray]) -> None:
+        """
+        Eliminate ("mask out") chosen categorical outcomes by setting their probability to 0.
+
+        :param masks: An optional boolean ndarray of compatible shape with the categorical
+            distribution. If True, the corresponding choice's logit value is preserved. If
+            False, it is set to a large negative value, resulting in near 0 probability. If
+            masks is None, any previously applied masking is removed, and the original
+            probabilities are restored.
+        """
+
         if masks is not None:
             device = self.logits.device
             self.masks = th.as_tensor(masks, dtype=th.bool, device=device).reshape(self.logits.shape)
@@ -30,12 +41,12 @@ class MaskableCategorical(Categorical):
             logits = th.where(self.masks, self.logits, HUGE_NEG)
         else:
             self.masks = None
-            logits = self.logits
+            logits = self._original_logits
 
         # Reinitialize with updated logits
         super().__init__(logits=logits)
 
-    def entropy(self):
+    def entropy(self) -> th.Tensor:
         if self.masks is None:
             return super().entropy()
 
@@ -208,5 +219,5 @@ def make_masked_proba_distribution(action_space: gym.spaces.Space) -> Distributi
         raise NotImplementedError(
             "Error: probability distribution, not implemented for action space"
             f"of type {type(action_space)}."
-            " Must be of type Gym Spaces: Discrete."
+            " Must be of type Gym Spaces: Discrete, MultiDiscrete."
         )
