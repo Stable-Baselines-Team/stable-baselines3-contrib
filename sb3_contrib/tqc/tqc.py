@@ -36,6 +36,9 @@ class TQC(OffPolicyAlgorithm):
     :param gradient_steps: How many gradient update after each step
     :param action_noise: the action noise type (None by default), this can help
         for hard exploration problem. Cf common.noise for the different action noise type.
+    :param replay_buffer_class: Replay buffer class to use (for instance ``HerReplayBuffer``).
+        If ``None``, it will be automatically selected.
+    :param replay_buffer_kwargs: Keyword arguments to pass to the replay buffer on creation.
     :param optimize_memory_usage: Enable a memory efficient variant of the replay buffer
         at a cost of more complexity.
         See https://github.com/DLR-RM/stable-baselines3/issues/37#issuecomment-637501195
@@ -67,7 +70,7 @@ class TQC(OffPolicyAlgorithm):
         policy: Union[str, Type[TQCPolicy]],
         env: Union[GymEnv, str],
         learning_rate: Union[float, Callable] = 3e-4,
-        buffer_size: int = int(1e6),
+        buffer_size: int = 1000000,  # 1e6
         learning_starts: int = 100,
         batch_size: int = 256,
         tau: float = 0.005,
@@ -106,7 +109,7 @@ class TQC(OffPolicyAlgorithm):
             gamma,
             train_freq,
             gradient_steps,
-            action_noise,
+            action_noise=action_noise,
             replay_buffer_class=replay_buffer_class,
             replay_buffer_kwargs=replay_buffer_kwargs,
             policy_kwargs=policy_kwargs,
