@@ -24,7 +24,7 @@ class MaskablePPO(OnPolicyAlgorithm):
     Based on the original Stable Baselines 3 implementation.
 
     Introduction to PPO: https://spinningup.openai.com/en/latest/algorithms/ppo.html
-    Background on Invalid Action Masking: https://arxiv.org/pdf/2006.14171.pdf
+    Background on Invalid Action Masking: https://arxiv.org/abs/2006.14171
 
     :param policy: The policy model to use (MlpPolicy, CnnPolicy, ...)
     :param env: The environment to learn from (if registered in Gym, can be str)
