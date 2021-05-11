@@ -221,7 +221,10 @@ class QRDQN(OffPolicyAlgorithm):
         """
         if not deterministic and np.random.rand() < self.exploration_rate:
             if is_vectorized_observation(maybe_transpose(observation, self.observation_space), self.observation_space):
-                n_batch = observation.shape[0]
+                if isinstance(self.observation_space, gym.spaces.Dict):
+                    n_batch = observation[list(observation.keys())[0]].shape[0]
+                else:
+                    n_batch = observation.shape[0]
                 action = np.array([self.action_space.sample() for _ in range(n_batch)])
             else:
                 action = np.array(self.action_space.sample())
