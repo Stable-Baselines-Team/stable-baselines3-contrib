@@ -4,7 +4,7 @@ from copy import deepcopy
 import numpy as np
 import pytest
 import torch as th
-from stable_baselines3.common.identity_env import FakeImageEnv
+from stable_baselines3.common.envs import FakeImageEnv
 from stable_baselines3.common.utils import zip_strict
 from stable_baselines3.common.vec_env import VecTransposeImage, is_vecenv_wrapped
 
