@@ -7,7 +7,6 @@ from stable_baselines3.common.buffers import RolloutBuffer
 from stable_baselines3.common.vec_env import VecNormalize
 
 
-# TODO use dataclass when Python 3.6 support is dropped
 class MaskableRolloutBufferSamples(NamedTuple):
     observations: th.Tensor
     actions: th.Tensor
@@ -19,6 +18,19 @@ class MaskableRolloutBufferSamples(NamedTuple):
 
 
 class MaskableRolloutBuffer(RolloutBuffer):
+    """
+    Rollout buffer that also stores the invalid action masks associated with each observation.
+
+    :param buffer_size: Max number of element in the buffer
+    :param observation_space: Observation space
+    :param action_space: Action space
+    :param device:
+    :param gae_lambda: Factor for trade-off of bias vs variance for Generalized Advantage Estimator
+        Equivalent to classic advantage when set to 1.
+    :param gamma: Discount factor
+    :param n_envs: Number of parallel environments
+    """
+
     def __init__(self, *args, **kwargs):
         self.action_masks = None
         super().__init__(*args, **kwargs)
