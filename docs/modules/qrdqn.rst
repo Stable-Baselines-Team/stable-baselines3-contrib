@@ -18,6 +18,7 @@ instead of predicting the mean return (DQN).
 
     MlpPolicy
     CnnPolicy
+    MultiInputPolicy
 
 
 Notes
@@ -43,6 +44,7 @@ Discrete      ✔      ✔
 Box           ❌      ✔
 MultiDiscrete ❌      ✔
 MultiBinary   ❌      ✔
+Dict          ❌     ✔️
 ============= ====== ===========
 
 
@@ -148,4 +150,7 @@ QR-DQN Policies
   :noindex:
 
 .. autoclass:: CnnPolicy
+  :members:
+
+.. autoclass:: MultiInputPolicy
   :members:

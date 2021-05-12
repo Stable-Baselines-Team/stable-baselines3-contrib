@@ -18,6 +18,7 @@ It truncates the quantiles predicted by different networks (a bit as it is done 
 
     MlpPolicy
     CnnPolicy
+    MultiInputPolicy
 
 
 Notes
@@ -42,6 +43,7 @@ Discrete      ❌      ✔️
 Box           ✔️       ✔️
 MultiDiscrete ❌      ✔️
 MultiBinary   ❌      ✔️
+Dict          ❌     ✔️
 ============= ====== ===========
 
 

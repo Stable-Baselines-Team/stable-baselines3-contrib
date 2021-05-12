@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 import torch as th
 from stable_baselines3.common.base_class import BaseAlgorithm
-from stable_baselines3.common.identity_env import FakeImageEnv, IdentityEnv, IdentityEnvBox
+from stable_baselines3.common.envs import FakeImageEnv, IdentityEnv, IdentityEnvBox
 from stable_baselines3.common.utils import get_device
 from stable_baselines3.common.vec_env import DummyVecEnv
 
@@ -243,6 +243,7 @@ def test_save_load_replay_buffer(tmp_path, model_class):
     assert np.allclose(old_replay_buffer.actions, model.replay_buffer.actions)
     assert np.allclose(old_replay_buffer.rewards, model.replay_buffer.rewards)
     assert np.allclose(old_replay_buffer.dones, model.replay_buffer.dones)
+    infos = [[{"TimeLimit.truncated": truncated}] for truncated in old_replay_buffer.timeouts]
 
     # test extending replay buffer
     model.replay_buffer.extend(
@@ -251,6 +252,7 @@ def test_save_load_replay_buffer(tmp_path, model_class):
         old_replay_buffer.actions,
         old_replay_buffer.rewards,
         old_replay_buffer.dones,
+        infos,
     )
 
 
