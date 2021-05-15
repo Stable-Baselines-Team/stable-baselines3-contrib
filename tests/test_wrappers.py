@@ -2,15 +2,13 @@ import gym
 import numpy as np
 import pytest
 from gym import spaces
-from stable_baselines3.common.bit_flipping_env import BitFlippingEnv
 from stable_baselines3.common.env_checker import check_env
+from stable_baselines3.common.envs import BitFlippingEnv
 
 from sb3_contrib.common.wrappers import TimeFeatureWrapper
 
 
 class CustomGoalEnv(gym.GoalEnv):
-    """docstring for CustomGoalEnv."""
-
     def __init__(self):
         super(CustomGoalEnv, self).__init__()
         self.observation_space = spaces.Dict(

@@ -4,6 +4,7 @@ import gym
 import numpy as np
 import torch as th
 from stable_baselines3.common import logger
+from stable_baselines3.common.buffers import ReplayBuffer
 from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
 from stable_baselines3.common.preprocessing import maybe_transpose
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
@@ -34,6 +35,9 @@ class QRDQN(OffPolicyAlgorithm):
         (see ``train_freq`` and ``n_episodes_rollout``)
         Set to ``-1`` means to do as many gradient steps as steps done in the environment
         during the rollout.
+    :param replay_buffer_class: Replay buffer class to use (for instance ``HerReplayBuffer``).
+        If ``None``, it will be automatically selected.
+    :param replay_buffer_kwargs: Keyword arguments to pass to the replay buffer on creation.
     :param optimize_memory_usage: Enable a memory efficient variant of the replay buffer
         at a cost of more complexity.
         See https://github.com/DLR-RM/stable-baselines3/issues/37#issuecomment-637501195
@@ -59,13 +63,15 @@ class QRDQN(OffPolicyAlgorithm):
         policy: Union[str, Type[QRDQNPolicy]],
         env: Union[GymEnv, str],
         learning_rate: Union[float, Schedule] = 5e-5,
-        buffer_size: int = 1000000,
+        buffer_size: int = 1000000,  # 1e6
         learning_starts: int = 50000,
         batch_size: Optional[int] = 32,
         tau: float = 1.0,
         gamma: float = 0.99,
         train_freq: int = 4,
         gradient_steps: int = 1,
+        replay_buffer_class: Optional[ReplayBuffer] = None,
+        replay_buffer_kwargs: Optional[Dict[str, Any]] = None,
         optimize_memory_usage: bool = False,
         target_update_interval: int = 10000,
         exploration_fraction: float = 0.005,
@@ -94,6 +100,8 @@ class QRDQN(OffPolicyAlgorithm):
             train_freq,
             gradient_steps,
             action_noise=None,  # No action noise
+            replay_buffer_class=replay_buffer_class,
+            replay_buffer_kwargs=replay_buffer_kwargs,
             policy_kwargs=policy_kwargs,
             tensorboard_log=tensorboard_log,
             verbose=verbose,
@@ -152,7 +160,7 @@ class QRDQN(OffPolicyAlgorithm):
         self._update_learning_rate(self.policy.optimizer)
 
         losses = []
-        for gradient_step in range(gradient_steps):
+        for _ in range(gradient_steps):
             # Sample replay buffer
             replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)
 
@@ -213,7 +221,10 @@ class QRDQN(OffPolicyAlgorithm):
         """
         if not deterministic and np.random.rand() < self.exploration_rate:
             if is_vectorized_observation(maybe_transpose(observation, self.observation_space), self.observation_space):
-                n_batch = observation.shape[0]
+                if isinstance(self.observation_space, gym.spaces.Dict):
+                    n_batch = observation[list(observation.keys())[0]].shape[0]
+                else:
+                    n_batch = observation.shape[0]
                 action = np.array([self.action_space.sample() for _ in range(n_batch)])
             else:
                 action = np.array(self.action_space.sample())

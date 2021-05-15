@@ -3,11 +3,14 @@
 Changelog
 ==========
 
-Release 1.1.0a5 (WIP)
+Release 1.1.0a7 (WIP)
 -------------------------------
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
+- Added support for Dictionary observation spaces (cf SB3 doc)
+- Upgraded to Stable-Baselines3 >= 1.1.0
+- Added proper handling of timeouts for off-policy algorithms (cf SB3 doc)
 
 Bug Fixes:
 ^^^^^^^^^^

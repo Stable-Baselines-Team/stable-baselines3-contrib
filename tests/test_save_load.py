@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 import torch as th
 from stable_baselines3.common.base_class import BaseAlgorithm
-from stable_baselines3.common.identity_env import FakeImageEnv, IdentityEnv, IdentityEnvBox
+from stable_baselines3.common.envs import FakeImageEnv, IdentityEnv, IdentityEnvBox
 from stable_baselines3.common.utils import get_device
 from stable_baselines3.common.vec_env import DummyVecEnv
 
@@ -243,6 +243,7 @@ def test_save_load_replay_buffer(tmp_path, model_class):
     assert np.allclose(old_replay_buffer.actions, model.replay_buffer.actions)
     assert np.allclose(old_replay_buffer.rewards, model.replay_buffer.rewards)
     assert np.allclose(old_replay_buffer.dones, model.replay_buffer.dones)
+    infos = [[{"TimeLimit.truncated": truncated}] for truncated in old_replay_buffer.timeouts]
 
     # test extending replay buffer
     model.replay_buffer.extend(
@@ -251,6 +252,7 @@ def test_save_load_replay_buffer(tmp_path, model_class):
         old_replay_buffer.actions,
         old_replay_buffer.rewards,
         old_replay_buffer.dones,
+        infos,
     )
 
 
@@ -431,3 +433,40 @@ def test_save_load_q_net(tmp_path, model_class, policy_str):
 
     # clear file from os
     os.remove(tmp_path / "q_net.pkl")
+
+
+def test_save_load_pytorch_var(tmp_path):
+    model = TQC("MlpPolicy", "Pendulum-v0", seed=3, policy_kwargs=dict(net_arch=[64], n_critics=1))
+    model.learn(200)
+    save_path = str(tmp_path / "tqc_pendulum")
+    model.save(save_path)
+    env = model.get_env()
+    log_ent_coef_before = model.log_ent_coef
+
+    del model
+
+    model = TQC.load(save_path, env=env)
+    assert th.allclose(log_ent_coef_before, model.log_ent_coef)
+    model.learn(200)
+    log_ent_coef_after = model.log_ent_coef
+    # Check that the entropy coefficient is still optimized
+    assert not th.allclose(log_ent_coef_before, log_ent_coef_after)
+
+    # With a fixed entropy coef
+    model = TQC("MlpPolicy", "Pendulum-v0", seed=3, ent_coef=0.01, policy_kwargs=dict(net_arch=[64], n_critics=1))
+    model.learn(200)
+    save_path = str(tmp_path / "tqc_pendulum")
+    model.save(save_path)
+    env = model.get_env()
+    assert model.log_ent_coef is None
+    ent_coef_before = model.ent_coef_tensor
+
+    del model
+
+    model = TQC.load(save_path, env=env)
+    assert th.allclose(ent_coef_before, model.ent_coef_tensor)
+    model.learn(200)
+    ent_coef_after = model.ent_coef_tensor
+    assert model.log_ent_coef is None
+    # Check that the entropy coefficient is still the same
+    assert th.allclose(ent_coef_before, ent_coef_after)
