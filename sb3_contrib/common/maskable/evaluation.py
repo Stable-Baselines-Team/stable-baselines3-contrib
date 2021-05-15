@@ -21,6 +21,7 @@ def evaluate_policy(
     reward_threshold: Optional[float] = None,
     return_episode_rewards: bool = False,
     warn: bool = True,
+    use_masking: bool = True,
 ) -> Union[Tuple[float, float], Tuple[List[float], List[int]]]:
     """
     Runs policy for ``n_eval_episodes`` episodes and returns average reward.
@@ -48,13 +49,16 @@ def evaluate_policy(
         per episode will be returned instead of the mean.
     :param warn: If True (default), warns user about lack of a Monitor wrapper in the
         evaluation environment.
+    :param use_masking: Whether or not to use invalid action masks during evaluation
     :return: Mean reward per episode, std of reward per episode.
         Returns ([float], [int]) when ``return_episode_rewards`` is True, first
         list containing per-episode rewards and second containing per-episode lengths
         (in number of steps).
     """
 
-    masking_enabled = model.use_masking and is_masking_supported(env)
+    if use_masking and not is_masking_supported(env):
+        raise ValueError("Environment does not support action masking. Consider using ActionMasker wrapper")
+
     is_monitor_wrapped = False
 
     if isinstance(env, VecEnv):
@@ -84,7 +88,7 @@ def evaluate_policy(
         episode_reward = 0.0
         episode_length = 0
         while not done:
-            if masking_enabled:
+            if use_masking:
                 action_masks = get_action_masks(env)
                 action, state = model.predict(
                     obs,

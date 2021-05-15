@@ -1,14 +1,16 @@
+import time
+from collections import deque
 from typing import Any, Dict, Optional, Tuple, Type, Union
 
 import numpy as np
 import torch as th
 from gym import spaces
-from stable_baselines3.common import logger
+from stable_baselines3.common import logger, utils
 from stable_baselines3.common.buffers import RolloutBuffer
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList, ConvertCallback
 from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
-from stable_baselines3.common.utils import explained_variance, get_schedule_fn
+from stable_baselines3.common.utils import explained_variance, get_schedule_fn, safe_mean
 from stable_baselines3.common.vec_env import VecEnv
 from torch.nn import functional as F
 
@@ -84,7 +86,6 @@ class MaskablePPO(OnPolicyAlgorithm):
         seed: Optional[int] = None,
         device: Union[th.device, str] = "auto",
         _init_setup_model: bool = True,
-        use_masking: bool = True,
     ):
         super().__init__(
             policy,
@@ -112,60 +113,14 @@ class MaskablePPO(OnPolicyAlgorithm):
             ),
         )
 
-        if use_masking and not is_masking_supported(self.env):
-            logger.warn("Environment does not support action masking. Consider using ActionMasker wrapper")
-            use_masking = False
-
         self.batch_size = batch_size
         self.n_epochs = n_epochs
         self.clip_range = clip_range
         self.clip_range_vf = clip_range_vf
         self.target_kl = target_kl
-        self.use_masking = use_masking
 
         if _init_setup_model:
             self._setup_model()
-
-    def _init_callback(
-        self,
-        callback: MaybeCallback,
-        eval_env: Optional[VecEnv] = None,
-        eval_freq: int = 10000,
-        n_eval_episodes: int = 5,
-        log_path: Optional[str] = None,
-    ) -> BaseCallback:
-        """
-        :param callback: Callback(s) called at every step with state of the algorithm.
-        :param eval_freq: How many steps between evaluations; if None, do not evaluate.
-        :param n_eval_episodes: How many episodes to play per evaluation
-        :param n_eval_episodes: Number of episodes to rollout during evaluation.
-        :param log_path: Path to a folder where the evaluations will be saved
-        :return: A hybrid callback calling `callback` and performing evaluation.
-        """
-        # Convert a list of callbacks into a callback
-        if isinstance(callback, list):
-            callback = CallbackList(callback)
-
-        # Convert functional callback to object
-        if not isinstance(callback, BaseCallback):
-            callback = ConvertCallback(callback)
-
-        # Create eval callback in charge of the evaluation
-        if eval_env is not None:
-            # Avoid circular import error
-            from sb3_contrib.common.maskable.callbacks import MaskableEvalCallback
-
-            eval_callback = MaskableEvalCallback(
-                eval_env,
-                best_model_save_path=log_path,
-                log_path=log_path,
-                eval_freq=eval_freq,
-                n_eval_episodes=n_eval_episodes,
-            )
-            callback = CallbackList([callback, eval_callback])
-
-        callback.init_callback(self)
-        return callback
 
     def _setup_model(self) -> None:
         self._setup_lr_schedule()
@@ -200,12 +155,122 @@ class MaskablePPO(OnPolicyAlgorithm):
 
             self.clip_range_vf = get_schedule_fn(self.clip_range_vf)
 
+    def _init_callback(
+        self,
+        callback: MaybeCallback,
+        eval_env: Optional[VecEnv] = None,
+        eval_freq: int = 10000,
+        n_eval_episodes: int = 5,
+        log_path: Optional[str] = None,
+        use_masking: bool = True,
+    ) -> BaseCallback:
+        """
+        :param callback: Callback(s) called at every step with state of the algorithm.
+        :param eval_freq: How many steps between evaluations; if None, do not evaluate.
+        :param n_eval_episodes: How many episodes to play per evaluation
+        :param n_eval_episodes: Number of episodes to rollout during evaluation.
+        :param log_path: Path to a folder where the evaluations will be saved
+        :param use_masking: Whether or not to use invalid action masks during evaluation
+        :return: A hybrid callback calling `callback` and performing evaluation.
+        """
+        # Convert a list of callbacks into a callback
+        if isinstance(callback, list):
+            callback = CallbackList(callback)
+
+        # Convert functional callback to object
+        if not isinstance(callback, BaseCallback):
+            callback = ConvertCallback(callback)
+
+        # Create eval callback in charge of the evaluation
+        if eval_env is not None:
+            # Avoid circular import error
+            from sb3_contrib.common.maskable.callbacks import MaskableEvalCallback
+
+            eval_callback = MaskableEvalCallback(
+                eval_env,
+                best_model_save_path=log_path,
+                log_path=log_path,
+                eval_freq=eval_freq,
+                n_eval_episodes=n_eval_episodes,
+                use_masking=use_masking,
+            )
+            callback = CallbackList([callback, eval_callback])
+
+        callback.init_callback(self)
+        return callback
+
+    def _setup_learn(
+        self,
+        total_timesteps: int,
+        eval_env: Optional[GymEnv],
+        callback: MaybeCallback = None,
+        eval_freq: int = 10000,
+        n_eval_episodes: int = 5,
+        log_path: Optional[str] = None,
+        reset_num_timesteps: bool = True,
+        tb_log_name: str = "run",
+        use_masking: bool = True,
+    ) -> Tuple[int, BaseCallback]:
+        """
+        Initialize different variables needed for training.
+
+        :param total_timesteps: The total number of samples (env steps) to train on
+        :param eval_env: Environment to use for evaluation.
+        :param callback: Callback(s) called at every step with state of the algorithm.
+        :param eval_freq: How many steps between evaluations
+        :param n_eval_episodes: How many episodes to play per evaluation
+        :param log_path: Path to a folder where the evaluations will be saved
+        :param reset_num_timesteps: Whether to reset or not the ``num_timesteps`` attribute
+        :param tb_log_name: the name of the run for tensorboard log
+        :param use_masking: Whether or not to use invalid action masks during training
+        :return:
+        """
+
+        self.start_time = time.time()
+        if self.ep_info_buffer is None or reset_num_timesteps:
+            # Initialize buffers if they don't exist, or reinitialize if resetting counters
+            self.ep_info_buffer = deque(maxlen=100)
+            self.ep_success_buffer = deque(maxlen=100)
+
+        if self.action_noise is not None:
+            self.action_noise.reset()
+
+        if reset_num_timesteps:
+            self.num_timesteps = 0
+            self._episode_num = 0
+        else:
+            # Make sure training timesteps are ahead of the internal counter
+            total_timesteps += self.num_timesteps
+        self._total_timesteps = total_timesteps
+
+        # Avoid resetting the environment when calling ``.learn()`` consecutive times
+        if reset_num_timesteps or self._last_obs is None:
+            self._last_obs = self.env.reset()
+            self._last_episode_starts = np.ones((self.env.num_envs,), dtype=bool)
+            # Retrieve unnormalized observation for saving into the buffer
+            if self._vec_normalize_env is not None:
+                self._last_original_obs = self._vec_normalize_env.get_original_obs()
+
+        if eval_env is not None and self.seed is not None:
+            eval_env.seed(self.seed)
+
+        eval_env = self._get_eval_env(eval_env)
+
+        # Configure logger's outputs
+        utils.configure_logger(self.verbose, self.tensorboard_log, tb_log_name, reset_num_timesteps)
+
+        # Create eval callback if needed
+        callback = self._init_callback(callback, eval_env, eval_freq, n_eval_episodes, log_path, use_masking)
+
+        return total_timesteps, callback
+
     def collect_rollouts(
         self,
         env: VecEnv,
         callback: BaseCallback,
         rollout_buffer: RolloutBuffer,
         n_rollout_steps: int,
+        use_masking: bool = True,
     ) -> bool:
         """
         Collect experiences using the current policy and fill a ``RolloutBuffer``.
@@ -219,6 +284,7 @@ class MaskablePPO(OnPolicyAlgorithm):
             (and at the beginning and end of the rollout)
         :param rollout_buffer: Buffer to fill with rollouts
         :param n_steps: Number of experiences to collect per environment
+        :param use_masking: Whether or not to use invalid action masks during training
         :return: True if function returned with at least `n_rollout_steps`
             collected, False if callback terminated rollout prematurely.
         """
@@ -230,6 +296,9 @@ class MaskablePPO(OnPolicyAlgorithm):
         action_masks = None
         rollout_buffer.reset()
 
+        if use_masking and not is_masking_supported(env):
+            raise ValueError("Environment does not support action masking. Consider using ActionMasker wrapper")
+
         callback.on_rollout_start()
 
         while n_steps < n_rollout_steps:
@@ -238,7 +307,7 @@ class MaskablePPO(OnPolicyAlgorithm):
                 obs_tensor = th.as_tensor(self._last_obs).to(self.device)
 
                 # This is the only change related to invalid action masking
-                if self.use_masking:
+                if use_masking:
                     action_masks = get_action_masks(env)
 
                 actions, values, log_probs = self.policy.forward(obs_tensor, action_masks=action_masks)
@@ -422,17 +491,39 @@ class MaskablePPO(OnPolicyAlgorithm):
         tb_log_name: str = "PPO",
         eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
+        use_masking: bool = True,
     ) -> "MaskablePPO":
-        super().learn(
-            total_timesteps=total_timesteps,
-            callback=callback,
-            log_interval=log_interval,
-            eval_env=eval_env,
-            eval_freq=eval_freq,
-            n_eval_episodes=n_eval_episodes,
-            tb_log_name=tb_log_name,
-            eval_log_path=eval_log_path,
-            reset_num_timesteps=reset_num_timesteps,
+        iteration = 0
+
+        total_timesteps, callback = self._setup_learn(
+            total_timesteps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name, use_masking,
         )
+
+        callback.on_training_start(locals(), globals())
+
+        while self.num_timesteps < total_timesteps:
+            continue_training = self.collect_rollouts(self.env, callback, self.rollout_buffer, self.n_steps, use_masking)
+
+            if continue_training is False:
+                break
+
+            iteration += 1
+            self._update_current_progress_remaining(self.num_timesteps, total_timesteps)
+
+            # Display training infos
+            if log_interval is not None and iteration % log_interval == 0:
+                fps = int(self.num_timesteps / (time.time() - self.start_time))
+                logger.record("time/iterations", iteration, exclude="tensorboard")
+                if len(self.ep_info_buffer) > 0 and len(self.ep_info_buffer[0]) > 0:
+                    logger.record("rollout/ep_rew_mean", safe_mean([ep_info["r"] for ep_info in self.ep_info_buffer]))
+                    logger.record("rollout/ep_len_mean", safe_mean([ep_info["l"] for ep_info in self.ep_info_buffer]))
+                logger.record("time/fps", fps)
+                logger.record("time/time_elapsed", int(time.time() - self.start_time), exclude="tensorboard")
+                logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
+                logger.dump(step=self.num_timesteps)
+
+            self.train()
+
+        callback.on_training_end()
 
         return self

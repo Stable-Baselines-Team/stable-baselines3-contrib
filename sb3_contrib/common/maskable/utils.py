@@ -1,31 +1,40 @@
-from typing import Callable, Optional
-
 import gym
 import numpy as np
 from stable_baselines3.common.type_aliases import GymEnv
 from stable_baselines3.common.vec_env import VecEnv
 
 
+EXPECTED_METHOD_NAME = "action_masks"
+
+
 def get_action_masks(env: GymEnv) -> np.ndarray:
-    method_name = "action_masks"
+    """
+    Checks whether gym env exposes a method returning invalid action masks
+
+    :param env: the Gym environment to get masks from
+    :return: A numpy array of the masks
+    """
 
     if isinstance(env, VecEnv):
-        return np.stack(env.env_method(method_name))
+        return np.stack(env.env_method(EXPECTED_METHOD_NAME))
     else:
-        return getattr(env, method_name)()
-
-
-def get_action_mask_fn(env: GymEnv) -> Optional[Callable[[gym.Env], np.ndarray]]:
-    attr_name = "action_mask_fn"
-
-    try:
-        if isinstance(env, VecEnv):
-            return env.get_attr(attr_name)[0]
-        else:
-            return getattr(env, attr_name)
-    except AttributeError:
-        return None
+        return getattr(env, EXPECTED_METHOD_NAME)()
 
 
 def is_masking_supported(env: GymEnv) -> bool:
-    return get_action_mask_fn(env) is not None
+    """
+    Checks whether gym env exposes a method returning invalid action masks
+
+    :param env: the Gym environment to check
+    :return: True if the method is found, False otherwise
+    """
+
+    if isinstance(env, VecEnv):
+        try:
+            # TODO: add VecEnv.has_attr()
+            env.get_attr(EXPECTED_METHOD_NAME)
+            return True
+        except AttributeError:
+            return False
+    else:
+        return hasattr(env, EXPECTED_METHOD_NAME)

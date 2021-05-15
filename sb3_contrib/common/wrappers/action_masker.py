@@ -6,14 +6,10 @@ import numpy as np
 
 class ActionMasker(gym.Wrapper):
     """
-    Env wrapper to provide attributes/methods required to support masking.
+    Env wrapper providing the method required to support masking.
 
-    Summary of the exposed attributes/methods:
-
-    action_mask_fn: attribute exposing a function that takes an env and returns the action mask
-    action_masks(): method that calls action_mask_fn with the wrapped env
-
-    This wrapper is not needed if the env exposes the expected attributes/methods itself.
+    Exposes a method called action_masks(), which returns masks for the wrapped env.
+    This wrapper is not needed if the env exposes the expected method itself.
 
     :param env: the Gym environment to wrap
     :param action_mask_fn: A function that takes a Gym environment and returns an action mask,
@@ -28,9 +24,9 @@ class ActionMasker(gym.Wrapper):
             if not callable(found_method):
                 raise ValueError(f"Environment attribute {action_mask_fn} is not a method")
 
-            self.action_mask_fn = found_method
+            self._action_mask_fn = found_method
         else:
-            self.action_mask_fn = action_mask_fn
+            self._action_mask_fn = action_mask_fn
 
     def action_masks(self) -> np.ndarray:
-        return self.action_mask_fn(self.env)
+        return self._action_mask_fn(self.env)

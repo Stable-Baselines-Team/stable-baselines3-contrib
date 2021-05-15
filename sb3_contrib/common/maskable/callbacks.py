@@ -1,45 +1,37 @@
 import os
-import warnings
 
 import numpy as np
 from stable_baselines3.common.callbacks import EvalCallback
-from stable_baselines3.common.vec_env import DummyVecEnv, VecEnv, sync_envs_normalization
+from stable_baselines3.common.vec_env import sync_envs_normalization
 
 from sb3_contrib.common.maskable.evaluation import evaluate_policy
-from sb3_contrib.common.maskable.utils import get_action_mask_fn
-from sb3_contrib.common.wrappers import ActionMasker
 
 
 class MaskableEvalCallback(EvalCallback):
     """
-    Callback for evaluating an agent.
+    Callback for evaluating an agent. Supports invalid action masking.
+
+    :param eval_env: The environment used for initialization
+    :param callback_on_new_best: Callback to trigger
+        when there is a new best model according to the ``mean_reward``
+    :param n_eval_episodes: The number of episodes to test the agent
+    :param eval_freq: Evaluate the agent every eval_freq call of the callback.
+    :param log_path: Path to a folder where the evaluations (``evaluations.npz``)
+        will be saved. It will be updated at each evaluation.
+    :param best_model_save_path: Path to a folder where the best model
+        according to performance on the eval env will be saved.
+    :param deterministic: Whether the evaluation should
+        use a stochastic or deterministic actions.
+    :param render: Whether to render or not the environment during evaluation
+    :param verbose:
+    :param warn: Passed to ``evaluate_policy`` (warns if ``eval_env`` has not been
+        wrapped with a Monitor wrapper)
+    :param use_masking: Whether or not to use invalid action masks during evaluation
     """
 
-    def _init_callback(self) -> None:
-        # Used to over wrappers as necessary
-        # TODO: sb3 assumes that training env and eval env have the same wrappers.
-        # Make it simpler to port over wrappers.
-        action_mask_fn = get_action_mask_fn(self.training_env)
-
-        if not isinstance(self.eval_env, VecEnv):
-            if action_mask_fn and get_action_mask_fn(self.eval_env) is None:
-                if self.verbose > 0:
-                    print("Wrapping evaluation environment for action masking")
-                self.eval_env = ActionMasker(self.eval_env, action_mask_fn)
-
-            self.eval_env = DummyVecEnv([lambda: self.eval_env])
-
-        assert self.eval_env.num_envs == 1, "You must pass only one environment for evaluation"
-
-        # Does not work in some corner cases, where the wrapper is not the same
-        if not isinstance(self.training_env, type(self.eval_env)):
-            warnings.warn("Training and eval env are not of the same type" f"{self.training_env} != {self.eval_env}")
-
-        # Create folders if needed
-        if self.best_model_save_path is not None:
-            os.makedirs(self.best_model_save_path, exist_ok=True)
-        if self.log_path is not None:
-            os.makedirs(os.path.dirname(self.log_path), exist_ok=True)
+    def __init__(self, *args, use_masking: bool = True, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.use_masking = use_masking
 
     def _on_step(self) -> bool:
         if self.eval_freq > 0 and self.n_calls % self.eval_freq == 0:
@@ -59,6 +51,7 @@ class MaskableEvalCallback(EvalCallback):
                 return_episode_rewards=True,
                 warn=self.warn,
                 callback=self._log_success_callback,
+                use_masking=self.use_masking,
             )
 
             if self.log_path is not None:
