@@ -1,3 +1,4 @@
+import copy
 from abc import ABCMeta, abstractmethod
 from functools import partial
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
@@ -7,12 +8,10 @@ import numpy as np
 import torch as th
 from stable_baselines3.common.distributions import BernoulliDistribution, Distribution
 from stable_baselines3.common.policies import BasePolicy
-from stable_baselines3.common.preprocessing import is_image_space
-from stable_baselines3.common.torch_layers import BaseFeaturesExtractor, FlattenExtractor, MlpExtractor
+from stable_baselines3.common.preprocessing import is_image_space, maybe_transpose
+from stable_baselines3.common.torch_layers import BaseFeaturesExtractor, FlattenExtractor, MlpExtractor, NatureCNN
 from stable_baselines3.common.type_aliases import Schedule
-from stable_baselines3.common.utils import is_vectorized_observation
-from stable_baselines3.common.vec_env import VecTransposeImage
-from stable_baselines3.common.vec_env.obs_dict_wrapper import ObsDictWrapper
+from stable_baselines3.common.utils import is_vectorized_observation, obs_as_tensor
 from torch import nn
 
 from sb3_contrib.common.distributions import (
@@ -49,7 +48,7 @@ class MaskablePolicy(BasePolicy, metaclass=ABCMeta):
 
     def predict(
         self,
-        observation: np.ndarray,
+        observation: Union[np.ndarray, Dict[str, np.ndarray]],
         state: Optional[np.ndarray] = None,
         mask: Optional[np.ndarray] = None,
         deterministic: bool = False,
@@ -72,34 +71,42 @@ class MaskablePolicy(BasePolicy, metaclass=ABCMeta):
         #     state = self.initial_state
         # if mask is None:
         #     mask = [False for _ in range(self.n_envs)]
+
+        vectorized_env = False
+
         if isinstance(observation, dict):
-            observation = ObsDictWrapper.convert_dict(observation)
+            # need to copy the dict as the dict in VecFrameStack will become a torch tensor
+            observation = copy.deepcopy(observation)
+            for key, obs in observation.items():
+                obs_space = self.observation_space.spaces[key]
+                if is_image_space(obs_space):
+                    obs_ = maybe_transpose(obs, obs_space)
+                else:
+                    obs_ = np.array(obs)
+                vectorized_env = vectorized_env or is_vectorized_observation(obs_, obs_space)
+                # Add batch dimension if needed
+                observation[key] = obs_.reshape((-1,) + self.observation_space[key].shape)
+
+        elif is_image_space(self.observation_space):
+            # Handle the different cases for images
+            # as PyTorch use channel first format
+            observation = maybe_transpose(observation, self.observation_space)
+
         else:
             observation = np.array(observation)
 
-        # Handle the different cases for images
-        # as PyTorch use channel first format
-        if is_image_space(self.observation_space):
-            if not (
-                observation.shape == self.observation_space.shape or observation.shape[1:] == self.observation_space.shape
-            ):
-                # Try to re-order the channels
-                transpose_obs = VecTransposeImage.transpose_image(observation)
-                if (
-                    transpose_obs.shape == self.observation_space.shape
-                    or transpose_obs.shape[1:] == self.observation_space.shape
-                ):
-                    observation = transpose_obs
+        if not isinstance(observation, dict):
+            # Dict obs need to be handled separately
+            vectorized_env = is_vectorized_observation(observation, self.observation_space)
+            # Add batch dimension if needed
+            observation = observation.reshape((-1,) + self.observation_space.shape)
 
-        vectorized_env = is_vectorized_observation(observation, self.observation_space)
+        observation = obs_as_tensor(observation, self.device)
 
-        observation = observation.reshape((-1,) + self.observation_space.shape)
-
-        obs_tensor = th.as_tensor(observation).to(self.device)
         with th.no_grad():
-            actions = self._predict(obs_tensor, deterministic=deterministic, action_masks=action_masks)
+            actions = self._predict(observation, deterministic=deterministic, action_masks=action_masks)
             # Convert to numpy
-            actions: np.ndarray = actions.cpu().numpy()
+            actions = actions.cpu().numpy()
 
         if isinstance(self.action_space, gym.spaces.Box):
             if self.squash_output:
@@ -176,10 +183,10 @@ class MaskableActorCriticPolicy(MaskablePolicy):
 
         # Default network architecture, from stable-baselines
         if net_arch is None:
-            if features_extractor_class == FlattenExtractor:
-                net_arch = [dict(pi=[64, 64], vf=[64, 64])]
-            else:
+            if features_extractor_class == NatureCNN:
                 net_arch = []
+            else:
+                net_arch = [dict(pi=[64, 64], vf=[64, 64])]
 
         self.net_arch = net_arch
         self.activation_fn = activation_fn
@@ -223,8 +230,8 @@ class MaskableActorCriticPolicy(MaskablePolicy):
         log_prob = distribution.log_prob(actions)
         return actions, values, log_prob
 
-    def _get_data(self) -> Dict[str, Any]:
-        data = super()._get_data()
+    def _get_constructor_parameters(self) -> Dict[str, Any]:
+        data = super()._get_constructor_parameters()
 
         data.update(
             dict(
@@ -249,7 +256,10 @@ class MaskableActorCriticPolicy(MaskablePolicy):
         #       net_arch here is an empty list and mlp_extractor does not
         #       really contain any layers (acts like an identity module).
         self.mlp_extractor = MlpExtractor(
-            self.features_dim, net_arch=self.net_arch, activation_fn=self.activation_fn, device=self.device
+            self.features_dim,
+            net_arch=self.net_arch,
+            activation_fn=self.activation_fn,
+            device=self.device,
         )
 
     def _build(self, lr_schedule: Schedule) -> None:

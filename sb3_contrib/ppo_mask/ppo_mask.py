@@ -10,7 +10,7 @@ from stable_baselines3.common.buffers import RolloutBuffer
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList, ConvertCallback
 from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
-from stable_baselines3.common.utils import explained_variance, get_schedule_fn, safe_mean
+from stable_baselines3.common.utils import explained_variance, get_schedule_fn, obs_as_tensor, safe_mean
 from stable_baselines3.common.vec_env import VecEnv
 from torch.nn import functional as F
 
@@ -303,8 +303,8 @@ class MaskablePPO(OnPolicyAlgorithm):
 
         while n_steps < n_rollout_steps:
             with th.no_grad():
-                # Convert to pytorch tensor
-                obs_tensor = th.as_tensor(self._last_obs).to(self.device)
+                # Convert to pytorch tensor or to TensorDict
+                obs_tensor = obs_as_tensor(self._last_obs, self.device)
 
                 # This is the only change related to invalid action masking
                 if use_masking:
@@ -333,17 +333,17 @@ class MaskablePPO(OnPolicyAlgorithm):
                 self._last_obs,
                 actions,
                 rewards,
-                self._last_dones,
+                self._last_episode_starts,
                 values,
                 log_probs,
                 action_masks=action_masks,
             )
             self._last_obs = new_obs
-            self._last_dones = dones
+            self._last_episode_starts = dones
 
         with th.no_grad():
             # Compute value for the last timestep
-            obs_tensor = th.as_tensor(new_obs).to(self.device)
+            obs_tensor = obs_as_tensor(new_obs, self.device)
 
             # Masking is not needed here, the choice of action doesn't matter.
             # We only want the value of the current observation.
