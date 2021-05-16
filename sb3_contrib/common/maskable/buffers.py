@@ -36,16 +36,13 @@ class MaskableRolloutBuffer(RolloutBuffer):
         super().__init__(*args, **kwargs)
 
     def reset(self) -> None:
-        # TODO: need to handle different action_space attrs based on shape
-        action_masks = np.array([], dtype=np.float32)
         if isinstance(self.action_space, spaces.Discrete):
-            action_masks = np.ones((self.buffer_size, self.n_envs, self.action_space.n), dtype=np.float32)
+            action_space_size = self.action_space.n
         elif isinstance(self.action_space, spaces.MultiDiscrete):
-            action_masks = np.ones(
-                (self.buffer_size, self.n_envs, sum(self.action_space.nvec)),
-                dtype=np.float32,
-            )
-        self.action_masks = action_masks
+            action_space_size = sum(self.action_space.nvec)
+        # TODO handle multibinary
+
+        self.action_masks = np.ones((self.buffer_size, self.n_envs, action_space_size), dtype=np.float32)
 
         super().reset()
 
