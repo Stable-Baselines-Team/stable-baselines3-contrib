@@ -10,11 +10,12 @@ from stable_baselines3.common.torch_layers import (
     CombinedExtractor,
     FlattenExtractor,
     NatureCNN,
-    create_mlp,
     get_actor_critic_arch,
 )
 from stable_baselines3.common.type_aliases import Schedule
 from torch import nn as nn
+
+from sb3_contrib.common.torch_layers import create_mlp
 
 # CAP the standard deviation of the actor
 LOG_STD_MAX = 2
@@ -45,6 +46,7 @@ class Actor(BasePolicy):
     :param clip_mean: Clip the mean output when using gSDE to avoid numerical instability.
     :param normalize_images: Whether to normalize images or not,
          dividing by 255.0 (True by default)
+    :param layer_norm: Whether to use layer normalization or not.
     """
 
     def __init__(
@@ -62,6 +64,7 @@ class Actor(BasePolicy):
         use_expln: bool = False,
         clip_mean: float = 2.0,
         normalize_images: bool = True,
+        layer_norm: bool = False,
     ):
         super(Actor, self).__init__(
             observation_space,
@@ -83,9 +86,10 @@ class Actor(BasePolicy):
         self.use_expln = use_expln
         self.full_std = full_std
         self.clip_mean = clip_mean
+        self.layer_norm = layer_norm
 
         action_dim = get_action_dim(self.action_space)
-        latent_pi_net = create_mlp(features_dim, -1, net_arch, activation_fn)
+        latent_pi_net = create_mlp(features_dim, -1, net_arch, activation_fn, layer_norm=layer_norm)
         self.latent_pi = nn.Sequential(*latent_pi_net)
         last_layer_dim = net_arch[-1] if len(net_arch) > 0 else features_dim
 
@@ -127,6 +131,7 @@ class Actor(BasePolicy):
                 use_expln=self.use_expln,
                 features_extractor=self.features_extractor,
                 clip_mean=self.clip_mean,
+                layer_norm=self.layer_norm,
             )
         )
         return data
@@ -284,6 +289,7 @@ class TQCPolicy(BasePolicy):
     :param n_critics: Number of critic networks to create.
     :param share_features_extractor: Whether to share or not the features extractor
         between the actor and the critic (this saves computation time)
+    :param layer_norm: Whether to use layer normalization for the actor or not.
     """
 
     def __init__(
@@ -306,6 +312,7 @@ class TQCPolicy(BasePolicy):
         n_quantiles: int = 25,
         n_critics: int = 2,
         share_features_extractor: bool = True,
+        layer_norm: bool = False,
     ):
         super(TQCPolicy, self).__init__(
             observation_space,
@@ -341,6 +348,7 @@ class TQCPolicy(BasePolicy):
             "sde_net_arch": sde_net_arch,
             "use_expln": use_expln,
             "clip_mean": clip_mean,
+            "layer_norm": layer_norm,
         }
         self.actor_kwargs.update(sde_kwargs)
         self.critic_kwargs = self.net_args.copy()
@@ -456,6 +464,7 @@ class CnnPolicy(TQCPolicy):
     :param n_critics: Number of critic networks to create.
     :param share_features_extractor: Whether to share or not the features extractor
         between the actor and the critic (this saves computation time)
+    :param layer_norm: Whether to use layer normalization for the actor or not.
     """
 
     def __init__(
@@ -478,6 +487,7 @@ class CnnPolicy(TQCPolicy):
         n_quantiles: int = 25,
         n_critics: int = 2,
         share_features_extractor: bool = True,
+        layer_norm: bool = False,
     ):
         super(CnnPolicy, self).__init__(
             observation_space,
@@ -498,6 +508,7 @@ class CnnPolicy(TQCPolicy):
             n_quantiles,
             n_critics,
             share_features_extractor,
+            layer_norm,
         )
 
 
@@ -530,6 +541,7 @@ class MultiInputPolicy(TQCPolicy):
     :param n_critics: Number of critic networks to create.
     :param share_features_extractor: Whether to share or not the features extractor
         between the actor and the critic (this saves computation time)
+    :param layer_norm: Whether to use layer normalization for the actor or not.
     """
 
     def __init__(
@@ -552,6 +564,7 @@ class MultiInputPolicy(TQCPolicy):
         n_quantiles: int = 25,
         n_critics: int = 2,
         share_features_extractor: bool = True,
+        layer_norm: bool = False,
     ):
         super(MultiInputPolicy, self).__init__(
             observation_space,
@@ -572,6 +585,7 @@ class MultiInputPolicy(TQCPolicy):
             n_quantiles,
             n_critics,
             share_features_extractor,
+            layer_norm,
         )
 
 
