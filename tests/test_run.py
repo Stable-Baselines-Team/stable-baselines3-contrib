@@ -17,6 +17,18 @@ def test_tqc(ent_coef):
     model.learn(total_timesteps=300, eval_freq=250)
 
 
+def test_tqc_layer_norm():
+    model = TQC(
+        "MlpPolicy",
+        "Pendulum-v0",
+        policy_kwargs=dict(net_arch=[64, 64], layer_norm=True),
+        learning_starts=100,
+        verbose=1,
+        create_eval_env=True,
+    )
+    model.learn(total_timesteps=300, eval_freq=250)
+
+
 @pytest.mark.parametrize("n_critics", [1, 3])
 def test_n_critics(n_critics):
     # Test TQC with different number of critics
