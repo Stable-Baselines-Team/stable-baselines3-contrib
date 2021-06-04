@@ -464,7 +464,6 @@ class CnnPolicy(TQCPolicy):
     :param n_critics: Number of critic networks to create.
     :param share_features_extractor: Whether to share or not the features extractor
         between the actor and the critic (this saves computation time)
-    :param layer_norm: Whether to use layer normalization for the actor or not.
     """
 
     def __init__(
@@ -487,7 +486,6 @@ class CnnPolicy(TQCPolicy):
         n_quantiles: int = 25,
         n_critics: int = 2,
         share_features_extractor: bool = True,
-        layer_norm: bool = False,
     ):
         super(CnnPolicy, self).__init__(
             observation_space,
@@ -508,7 +506,6 @@ class CnnPolicy(TQCPolicy):
             n_quantiles,
             n_critics,
             share_features_extractor,
-            layer_norm,
         )
 
 
@@ -541,7 +538,6 @@ class MultiInputPolicy(TQCPolicy):
     :param n_critics: Number of critic networks to create.
     :param share_features_extractor: Whether to share or not the features extractor
         between the actor and the critic (this saves computation time)
-    :param layer_norm: Whether to use layer normalization for the actor or not.
     """
 
     def __init__(
@@ -564,7 +560,6 @@ class MultiInputPolicy(TQCPolicy):
         n_quantiles: int = 25,
         n_critics: int = 2,
         share_features_extractor: bool = True,
-        layer_norm: bool = False,
     ):
         super(MultiInputPolicy, self).__init__(
             observation_space,
@@ -585,7 +580,6 @@ class MultiInputPolicy(TQCPolicy):
             n_quantiles,
             n_critics,
             share_features_extractor,
-            layer_norm,
         )
 
 
