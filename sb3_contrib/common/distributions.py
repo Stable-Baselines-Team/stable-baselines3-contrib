@@ -10,11 +10,26 @@ from torch.distributions import Categorical
 
 
 class MaskableCategorical(Categorical):
+    """
+    Modified PyTorch Categorical distribution with support for invalid action masking.
+
+    To instantiate, must provide either probs or logits, but not both.
+
+    :param probs: Tensor containing finite non-negative values, which will be renormalized
+        to sum to 1 along the last dimension.
+    :param logits: Tensor of unnormalized log probabilities.
+    :param validate_args: Whether or not to validate that arguments to methods like lob_prob()
+        and icdf() match the distribution's shape, support, etc.
+    :param masks: An optional boolean ndarray of compatible shape with the distribution.
+        If True, the corresponding choice's logit value is preserved. If False, it is set to a
+        large negative value, resulting in near 0 probability.
+    """
+
     def __init__(
         self,
-        probs=None,
-        logits=None,
-        validate_args=None,
+        probs: Optional[th.Tensor] = None,
+        logits: Optional[th.Tensor] = None,
+        validate_args: Optional[bool] = None,
         masks: Optional[np.ndarray] = None,
     ):
         self.masks: Optional[th.Tensor] = None
@@ -26,11 +41,10 @@ class MaskableCategorical(Categorical):
         """
         Eliminate ("mask out") chosen categorical outcomes by setting their probability to 0.
 
-        :param masks: An optional boolean ndarray of compatible shape with the categorical
-            distribution. If True, the corresponding choice's logit value is preserved. If
-            False, it is set to a large negative value, resulting in near 0 probability. If
-            masks is None, any previously applied masking is removed, and the original
-            probabilities are restored.
+        :param masks: An optional boolean ndarray of compatible shape with the distribution.
+            If True, the corresponding choice's logit value is preserved. If False, it is set
+            to a large negative value, resulting in near 0 probability. If masks is None, any
+            previously applied masking is removed, and the original logits are restored.
         """
 
         if masks is not None:
