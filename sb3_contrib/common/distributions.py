@@ -7,6 +7,7 @@ from gym import spaces
 from stable_baselines3.common.distributions import BernoulliDistribution, Distribution
 from torch import nn
 from torch.distributions import Categorical
+from torch.distributions.utils import logits_to_probs
 
 
 class MaskableCategorical(Categorical):
@@ -59,6 +60,9 @@ class MaskableCategorical(Categorical):
 
         # Reinitialize with updated logits
         super().__init__(logits=logits)
+
+        # self.probs may already be cached, so we must force an update
+        self.probs = logits_to_probs(self.logits)
 
     def entropy(self) -> th.Tensor:
         if self.masks is None:
