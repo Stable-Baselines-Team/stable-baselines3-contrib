@@ -3,7 +3,6 @@ from typing import Any, Dict, List, Optional, Tuple, Type, Union
 import gym
 import numpy as np
 import torch as th
-from stable_baselines3.common import logger
 from stable_baselines3.common.buffers import ReplayBuffer
 from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
 from stable_baselines3.common.preprocessing import maybe_transpose
@@ -153,7 +152,7 @@ class QRDQN(OffPolicyAlgorithm):
             polyak_update(self.quantile_net.parameters(), self.quantile_net_target.parameters(), self.tau)
 
         self.exploration_rate = self.exploration_schedule(self._current_progress_remaining)
-        logger.record("rollout/exploration rate", self.exploration_rate)
+        self.logger.record("rollout/exploration rate", self.exploration_rate)
 
     def train(self, gradient_steps: int, batch_size: int = 100) -> None:
         # Update learning rate according to schedule
@@ -199,8 +198,8 @@ class QRDQN(OffPolicyAlgorithm):
         # Increase update counter
         self._n_updates += gradient_steps
 
-        logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
-        logger.record("train/loss", np.mean(losses))
+        self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
+        self.logger.record("train/loss", np.mean(losses))
 
     def predict(
         self,
