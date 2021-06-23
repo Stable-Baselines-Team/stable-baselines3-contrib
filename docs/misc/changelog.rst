@@ -27,6 +27,7 @@ Others:
 Documentation:
 ^^^^^^^^^^^^^^
 
+- 2021-06-23: update QR-DQN docs checkmark typo
 
 Release 1.0 (2021-03-17)
 -------------------------------
