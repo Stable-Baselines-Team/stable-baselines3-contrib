@@ -127,4 +127,4 @@ Stable-Baselines3 is currently maintained by `Antonin Raffin`_ (aka `@araffin`_)
 Contributors:
 -------------
 
-@ku2482 @guyk1971
+@ku2482 @guyk1971 @minhlong94
