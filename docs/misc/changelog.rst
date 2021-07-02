@@ -3,8 +3,10 @@
 Changelog
 ==========
 
-Release 1.1.0a11 (WIP)
+Release 1.1.0 (2021-07-01)
 -------------------------------
+
+**Dictionary observation support and timeout handling**
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
