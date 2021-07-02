@@ -10,11 +10,12 @@ Name         ``Box``     ``Discrete`` ``MultiDiscrete`` ``MultiBinary`` Multi Pr
 ============ =========== ============ ================= =============== ================
 TQC          ✔️          ❌            ❌                ❌              ❌
 QR-DQN       ️❌          ️✔️            ❌                ❌              ❌
+BDPI         ❌          ✔️            ❌                ❌              ✔️
 ============ =========== ============ ================= =============== ================
 
 
 .. note::
-    Non-array spaces such as ``Dict`` or ``Tuple`` are not currently supported by any algorithm.
+    Non-array spaces such as ``Dict`` or ``Tuple`` are only supported by BDPI, using ``MultiInputPolicy`` instead of ``MlpPolicy`` as the policy.
 
 Actions ``gym.spaces``:
 

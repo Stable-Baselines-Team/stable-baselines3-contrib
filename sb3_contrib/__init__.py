@@ -1,5 +1,6 @@
 import os
 
+from sb3_contrib.bdpi import BDPI
 from sb3_contrib.qrdqn import QRDQN
 from sb3_contrib.tqc import TQC
 

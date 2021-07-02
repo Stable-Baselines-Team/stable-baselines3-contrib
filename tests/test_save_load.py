@@ -12,16 +12,16 @@ from stable_baselines3.common.envs import FakeImageEnv, IdentityEnv, IdentityEnv
 from stable_baselines3.common.utils import get_device
 from stable_baselines3.common.vec_env import DummyVecEnv
 
-from sb3_contrib import QRDQN, TQC
+from sb3_contrib import BDPI, QRDQN, TQC
 
-MODEL_LIST = [TQC, QRDQN]
+MODEL_LIST = [TQC, QRDQN, BDPI]
 
 
 def select_env(model_class: BaseAlgorithm) -> gym.Env:
     """
-    Selects an environment with the correct action space as QRDQN only supports discrete action space
+    Selects an environment with the correct action space as QRDQN and BDPI only support discrete action space
     """
-    if model_class == QRDQN:
+    if model_class in [QRDQN, BDPI]:
         return IdentityEnv(10)
     else:
         return IdentityEnvBox(10)
@@ -228,7 +228,7 @@ def test_exclude_include_saved_params(tmp_path, model_class):
     os.remove(tmp_path / "test_save.zip")
 
 
-@pytest.mark.parametrize("model_class", [TQC, QRDQN])
+@pytest.mark.parametrize("model_class", [TQC, QRDQN, BDPI])
 def test_save_load_replay_buffer(tmp_path, model_class):
     path = pathlib.Path(tmp_path / "logs/replay_buffer.pkl")
     path.parent.mkdir(exist_ok=True, parents=True)  # to not raise a warning
@@ -277,7 +277,7 @@ def test_save_load_policy(tmp_path, model_class, policy_str):
                 learning_starts=100,
                 policy_kwargs=dict(features_extractor_kwargs=dict(features_dim=32)),
             )
-        env = FakeImageEnv(screen_height=40, screen_width=40, n_channels=2, discrete=model_class == QRDQN)
+        env = FakeImageEnv(screen_height=40, screen_width=40, n_channels=2, discrete=(model_class in [QRDQN, BDPI]))
 
     # Reduce number of quantiles for faster tests
     if model_class in [TQC, QRDQN]:
