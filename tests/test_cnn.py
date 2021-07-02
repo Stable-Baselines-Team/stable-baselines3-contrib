@@ -24,7 +24,15 @@ def test_cnn(tmp_path, model_class):
         discrete=model_class not in {TQC},
     )
     kwargs = {}
-    if model_class in {TQC, QRDQN}:
+
+    if model_class in [BDPI]:
+        kwargs = dict(
+            buffer_size=250,
+            policy_kwargs=dict(
+                features_extractor_kwargs=dict(features_dim=32),
+            ),
+        )
+    elif model_class in [TQC, QRDQN]:
         # Avoid memory error when using replay buffer
         # Reduce the size of the features and the number of quantiles
         kwargs = dict(
@@ -34,6 +42,7 @@ def test_cnn(tmp_path, model_class):
                 features_extractor_kwargs=dict(features_dim=32),
             ),
         )
+
     model = model_class("CnnPolicy", env, **kwargs).learn(250)
 
     obs = env.reset()
@@ -94,6 +103,7 @@ def test_feature_extractor_target_net(model_class, share_features_extractor):
             learning_starts=100,
             policy_kwargs=dict(n_quantiles=25, features_extractor_kwargs=dict(features_dim=32)),
         )
+
     if model_class != QRDQN:
         kwargs["policy_kwargs"]["share_features_extractor"] = share_features_extractor
 

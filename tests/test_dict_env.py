@@ -140,6 +140,7 @@ def test_dict_spaces(model_class, channel_last):
 
     if model_class in [BDPI]:
         kwargs = dict(
+            buffer_size=250,
             policy_kwargs=dict(
                 net_arch=[32],
                 features_extractor_kwargs=dict(cnn_output_dim=32),
@@ -188,6 +189,7 @@ def test_dict_vec_framestack(model_class, channel_last):
 
     if model_class in [BDPI]:
         kwargs = dict(
+            buffer_size=250,
             policy_kwargs=dict(
                 net_arch=[32],
                 features_extractor_kwargs=dict(cnn_output_dim=32),
@@ -232,6 +234,7 @@ def test_vec_normalize(model_class):
     if model_class in {}:
         kwargs = dict(
             n_steps=128,
+            buffer_size=250,
             policy_kwargs=dict(
                 net_arch=[32],
             ),

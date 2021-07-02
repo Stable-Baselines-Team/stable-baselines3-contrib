@@ -269,7 +269,7 @@ def test_save_load_policy(tmp_path, model_class, policy_str):
     if policy_str == "MlpPolicy":
         env = select_env(model_class)
     else:
-        if model_class in [TQC, QRDQN]:
+        if model_class in [TQC, QRDQN, BDPI]:
             # Avoid memory error when using replay buffer
             # Reduce the size of the features
             kwargs = dict(
@@ -368,7 +368,7 @@ def test_save_load_q_net(tmp_path, model_class, policy_str):
     if policy_str == "MlpPolicy":
         env = select_env(model_class)
     else:
-        if model_class in [QRDQN]:
+        if model_class in [QRDQN, BDPI]:
             # Avoid memory error when using replay buffer
             # Reduce the size of the features
             kwargs = dict(
