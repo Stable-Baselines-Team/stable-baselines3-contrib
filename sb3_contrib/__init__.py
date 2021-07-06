@@ -1,6 +1,7 @@
 import os
 
 from sb3_contrib.qrdqn import QRDQN
+from sb3_contrib.sac_lambda import SAC as SACLambda
 from sb3_contrib.tqc import TQC
 
 # Read version from file

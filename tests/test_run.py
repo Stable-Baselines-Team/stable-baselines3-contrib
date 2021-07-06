@@ -1,6 +1,6 @@
 import pytest
 
-from sb3_contrib import QRDQN, TQC
+from sb3_contrib import QRDQN, TQC, SACLambda
 
 
 @pytest.mark.parametrize("ent_coef", ["auto", 0.01, "auto_0.01"])
@@ -56,3 +56,19 @@ def test_qrdqn():
         create_eval_env=True,
     )
     model.learn(total_timesteps=500, eval_freq=250)
+
+
+def test_q_lambda():
+    model = SACLambda(
+        "MlpPolicy",
+        "Pendulum-v0",
+        buffer_size=20000,
+        replay_buffer_kwargs=dict(n_steps=2),
+        policy_kwargs=dict(net_arch=[64, 64]),
+        learning_starts=200,
+        learning_rate=1e-3,
+        seed=1,
+        verbose=1,
+        create_eval_env=True,
+    )
+    model.learn(500, eval_freq=250)
