@@ -1,4 +1,3 @@
-import gym
 import numpy as np
 from stable_baselines3.common.type_aliases import GymEnv
 from stable_baselines3.common.vec_env import VecEnv

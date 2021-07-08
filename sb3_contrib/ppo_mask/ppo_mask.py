@@ -15,10 +15,11 @@ from stable_baselines3.common.vec_env import VecEnv
 from torch.nn import functional as F
 
 from sb3_contrib.common.maskable.buffers import MaskableRolloutBuffer
-from sb3_contrib.common.maskable.policies import MaskableActorCriticPolicy
+from sb3_contrib.common.maskable.policies import MaskableActorCriticPolicy, MaskablePolicy
 from sb3_contrib.common.maskable.utils import get_action_masks, is_masking_supported
 
 
+# TODO(antonin): update kl div estimator
 class MaskablePPO(OnPolicyAlgorithm):
     """
     Proximal Policy Optimization algorithm (PPO) (clip version) with Invalid Action Masking.
@@ -102,6 +103,7 @@ class MaskablePPO(OnPolicyAlgorithm):
             tensorboard_log=tensorboard_log,
             create_eval_env=create_eval_env,
             policy_kwargs=policy_kwargs,
+            policy_base=MaskablePolicy,  # see NOTE in ppo_mask.policies
             verbose=verbose,
             seed=seed,
             device=device,
