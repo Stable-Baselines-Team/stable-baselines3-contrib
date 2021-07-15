@@ -127,12 +127,12 @@ class QLambdaReplayBuffer(ReplayBuffer):
         transitions = {key: self._buffer[key][episode_indices, transitions_indices].copy() for key in self._buffer.keys()}
 
         # TODO: SAC add entropy term
-        peng_targets = np.zeros((batch_size, self.n_steps), dtype=np.float32)
+        # n-steps + bootstrap
+        peng_targets = np.zeros((batch_size, self.n_steps + 1), dtype=np.float32)
 
         with th.no_grad():
             # TODO: add ent coeff
-            # TODO: better handle last step
-            # n_step=1 does not do the proper thing
+            # TODO: check handling of last step and n_steps=1
             valid_indices = np.where(transitions_indices + self.n_steps <= ep_lengths)
             next_obs = self._buffer["next_obs"][
                 episode_indices[valid_indices], transitions_indices[valid_indices] + self.n_steps - 1
@@ -142,7 +142,7 @@ class QLambdaReplayBuffer(ReplayBuffer):
             next_q_values, _ = th.min(next_q_values, dim=1, keepdim=True)
             peng_targets[valid_indices, -1] = next_q_values.cpu().numpy().flatten()
 
-            for t in reversed(range(self.n_steps - 1)):
+            for t in reversed(range(self.n_steps)):
                 valid_indices = np.where(transitions_indices + t < ep_lengths)
 
                 rewards = self._buffer["reward"][episode_indices[valid_indices], transitions_indices[valid_indices] + t]
@@ -162,33 +162,6 @@ class QLambdaReplayBuffer(ReplayBuffer):
                     * (1 - dones).flatten()
                     * (peng_targets[valid_indices, t + 1] - next_q_values)
                 )
-
-            # last_td_lam = 0.0
-            # for t in reversed(range(self.n_steps)):
-            #     valid_indices = np.where(transitions_indices + t <= ep_lengths)
-            #     if t == self.n_steps - 1:
-            #         next_non_terminal = (1.0 - dones).flatten()
-            #         # peng_targets[valid_indices, -1] = next_q_values.cpu().numpy().flatten()
-            #     else:
-            #         dones = self._buffer["done"][episode_indices[valid_indices], transitions_indices[valid_indices] + t]
-            #         episode_starts = dones.flatten()
-            #         next_non_terminal = 1.0 - episode_starts[step + 1]
-            #         rewards = self._buffer["reward"][episode_indices[valid_indices], transitions_indices[valid_indices] + t]
-            #
-            #     next_obs = self._buffer["next_obs"][episode_indices[valid_indices], transitions_indices[valid_indices] + t]
-            #     next_obs = self.to_torch(next_obs)
-            #     next_q_values = th.cat(self.critic_target(next_obs, self.actor(next_obs)), dim=1)
-            #     next_q_values, _ = th.min(next_q_values, dim=1, keepdim=True)
-            #     next_q_values = next_q_values.cpu().numpy().flatten()
-            #
-            #     peng_targets[valid_indices, t] = (
-            #         rewards.flatten()
-            #         + self.gamma * next_q_values * (1 - dones).flatten()
-            #         + self.gamma
-            #         * self.peng_lambda
-            #         * (1 - dones).flatten()
-            #         * (peng_targets[valid_indices, t + 1] - next_q_values)
-            #     )
 
         return ReplayBufferSamples(
             observations=self.to_torch(transitions["observation"]),
