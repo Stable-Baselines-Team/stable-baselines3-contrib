@@ -77,8 +77,7 @@ class QLambdaReplayBuffer(ReplayBuffer):
             "action": (self.action_dim,),
             "reward": (1,),
             "next_obs": (self.n_envs,) + self.obs_shape,
-            "done": (1,),
-            # "timeout": (1,),
+            "done": (1,),  # timeout is handled when storing the episode
         }
         self._buffer = {
             key: np.zeros((self.max_episode_stored, self.max_episode_length, *dim), dtype=np.float32)
@@ -113,13 +112,13 @@ class QLambdaReplayBuffer(ReplayBuffer):
         maybe_vec_env = env
         assert maybe_vec_env is None, "Normalization not supported yet"
         # Do not sample the episode with index `self.pos` as the episode is invalid
+        # TODO: can we lift this restriction if we consider current_episode_idx=length of current episode?
         if self.full:
             episode_indices = (np.random.randint(1, self.n_episodes_stored, batch_size) + self.pos) % self.n_episodes_stored
         else:
             episode_indices = np.random.randint(0, self.n_episodes_stored, batch_size)
 
         ep_lengths = self.episode_lengths[episode_indices]
-        # transitions_indices = np.random.randint(self.episode_lengths[her_episode_indices])
         # Select which transitions to use
         transitions_indices = np.random.randint(ep_lengths)
 
@@ -127,6 +126,7 @@ class QLambdaReplayBuffer(ReplayBuffer):
         transitions = {key: self._buffer[key][episode_indices, transitions_indices].copy() for key in self._buffer.keys()}
 
         # TODO: SAC add entropy term
+        # TODO: add one index to handle both critics at the same time
         peng_targets = np.zeros((batch_size, self.n_steps), dtype=np.float32)
 
         with th.no_grad():
@@ -142,21 +142,11 @@ class QLambdaReplayBuffer(ReplayBuffer):
             next_q_values = th.cat(self.critic_target(next_obs, next_actions), dim=1)
             next_q_values, _ = th.min(next_q_values, dim=1, keepdim=True)
             # TODO: add ent coeff
-            # next_q_values = next_q_values - self.ent_coef * next_log_prob.reshape(-1, 1)
+            next_q_values = next_q_values - self.ent_coef * next_log_prob.reshape(-1, 1)
             next_q_values = next_q_values.cpu().numpy().flatten()
 
             # TODO: td error + entropy term
-            # q1_lambda = tf.stop_gradient(r_phs[-1] + gamma*(1-d_ph)*q1_targ_pi_final)
             peng_targets[valid_indices, -1] = rewards + (1 - dones) * self.gamma * next_q_values
-
-            # # recursive update
-            # Note: dones not taken into account...
-            # for i in range(2, nstep):
-            #     with tf.variable_scope('target', reuse=True):
-            #         pi_targ_i, q1_targ_a_i, _, _  = actor_critic(x_phs[-i], a_phs[-i], **ac_kwargs)
-            #         _, q1_targ_pi_i, _, _ = actor_critic(x_phs[-i], pi_targ_i, **ac_kwargs)
-            #     # recurvively compute the target values
-            #     q1_lambda = r_phs[-i] + gamma * (1-lambda_) * q1_targ_pi_i + gamma * lambda_ * q1_lambda
 
             for t in reversed(range(self.n_steps - 1)):
                 valid_indices = np.where(transitions_indices + t < ep_lengths)
