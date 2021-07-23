@@ -127,40 +127,55 @@ class QLambdaReplayBuffer(ReplayBuffer):
         transitions = {key: self._buffer[key][episode_indices, transitions_indices].copy() for key in self._buffer.keys()}
 
         # TODO: SAC add entropy term
-        # n-steps + bootstrap
-        peng_targets = np.zeros((batch_size, self.n_steps + 1), dtype=np.float32)
+        peng_targets = np.zeros((batch_size, self.n_steps), dtype=np.float32)
 
         with th.no_grad():
-            # TODO: add ent coeff
             # TODO: check handling of last step and n_steps=1
             valid_indices = np.where(transitions_indices + self.n_steps <= ep_lengths)
-            next_obs = self._buffer["next_obs"][
-                episode_indices[valid_indices], transitions_indices[valid_indices] + self.n_steps - 1
-            ]
-            next_obs = self.to_torch(next_obs)
-            next_q_values = th.cat(self.critic_target(next_obs, self.actor(next_obs)), dim=1)
+            indices = (episode_indices[valid_indices], transitions_indices[valid_indices] + self.n_steps - 1)
+
+            dones = self._buffer["done"][indices].flatten()
+            rewards = self._buffer["reward"][indices].flatten()
+            next_obs = self.to_torch(self._buffer["next_obs"][indices])
+            next_actions, next_log_prob = self.actor.action_log_prob(next_obs)
+
+            next_q_values = th.cat(self.critic_target(next_obs, next_actions), dim=1)
             next_q_values, _ = th.min(next_q_values, dim=1, keepdim=True)
-            peng_targets[valid_indices, -1] = next_q_values.cpu().numpy().flatten()
+            # TODO: add ent coeff
+            # next_q_values = next_q_values - self.ent_coef * next_log_prob.reshape(-1, 1)
+            next_q_values = next_q_values.cpu().numpy().flatten()
 
-            for t in reversed(range(self.n_steps)):
+            # TODO: td error + entropy term
+            # q1_lambda = tf.stop_gradient(r_phs[-1] + gamma*(1-d_ph)*q1_targ_pi_final)
+            peng_targets[valid_indices, -1] = rewards + (1 - dones) * self.gamma * next_q_values
+
+            # # recursive update
+            # Note: dones not taken into account...
+            # for i in range(2, nstep):
+            #     with tf.variable_scope('target', reuse=True):
+            #         pi_targ_i, q1_targ_a_i, _, _  = actor_critic(x_phs[-i], a_phs[-i], **ac_kwargs)
+            #         _, q1_targ_pi_i, _, _ = actor_critic(x_phs[-i], pi_targ_i, **ac_kwargs)
+            #     # recurvively compute the target values
+            #     q1_lambda = r_phs[-i] + gamma * (1-lambda_) * q1_targ_pi_i + gamma * lambda_ * q1_lambda
+
+            for t in reversed(range(self.n_steps - 1)):
                 valid_indices = np.where(transitions_indices + t < ep_lengths)
+                indices = (episode_indices[valid_indices], transitions_indices[valid_indices] + t)
 
-                rewards = self._buffer["reward"][episode_indices[valid_indices], transitions_indices[valid_indices] + t]
-                next_obs = self._buffer["next_obs"][episode_indices[valid_indices], transitions_indices[valid_indices] + t]
-                dones = self._buffer["done"][episode_indices[valid_indices], transitions_indices[valid_indices] + t]
-                next_obs = self.to_torch(next_obs)
+                rewards = self._buffer["reward"][indices].flatten()
+                dones = self._buffer["done"][indices].flatten()
+                next_obs = self.to_torch(self._buffer["next_obs"][indices])
 
                 next_q_values = th.cat(self.critic_target(next_obs, self.actor(next_obs)), dim=1)
+                # TODO: do the min at the very end
                 next_q_values, _ = th.min(next_q_values, dim=1, keepdim=True)
                 next_q_values = next_q_values.cpu().numpy().flatten()
 
+                # from ref implementation https://github.com/robintyh1/icml2021-pengqlambda
                 peng_targets[valid_indices, t] = (
-                    rewards.flatten()
-                    + self.gamma * next_q_values * (1 - dones).flatten()
-                    + self.gamma
-                    * self.peng_lambda
-                    * (1 - dones).flatten()
-                    * (peng_targets[valid_indices, t + 1] - next_q_values)
+                    rewards
+                    + self.gamma * (1 - self.peng_lambda) * next_q_values * (1 - dones)
+                    + self.gamma * self.peng_lambda * (1 - dones) * peng_targets[valid_indices, t + 1]
                 )
 
         return ReplayBufferSamples(

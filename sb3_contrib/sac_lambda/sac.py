@@ -97,7 +97,7 @@ class SAC(OffPolicyAlgorithm):
         use_sde_at_warmup: bool = False,
         tensorboard_log: Optional[str] = None,
         create_eval_env: bool = False,
-        policy_kwargs: Dict[str, Any] = None,
+        policy_kwargs: Optional[Dict[str, Any]] = None,
         verbose: int = 0,
         seed: Optional[int] = None,
         device: Union[th.device, str] = "auto",
@@ -197,6 +197,11 @@ class SAC(OffPolicyAlgorithm):
         actor_losses, critic_losses = [], []
 
         for gradient_step in range(gradient_steps):
+            # hack: pass ent_coef to replay buffer
+            if self.ent_coef_optimizer is not None:
+                self.replay_buffer.ent_coef = th.exp(self.log_ent_coef.detach()).item()
+            else:
+                self.replay_buffer.ent_coef = self.ent_coef_tensor.item()
             # Sample replay buffer
             replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)
 
