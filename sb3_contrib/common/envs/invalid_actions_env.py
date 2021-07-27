@@ -7,6 +7,19 @@ from stable_baselines3.common.type_aliases import GymObs, GymStepReturn
 
 
 class InvalidActionEnv(Env):
+    """
+    Identity environment with invalid actions for testing purposes
+
+    :param dim: the size of the action and observation dimension you want
+        to learn. Provide at most one of ``dim`` and ``space``. If both are
+        None, then initialization proceeds with ``dim=1`` and ``space=None``.
+    :param space: the action and observation space. Provide at most one of
+        ``dim`` and ``space``.
+    :param ep_length: the length of each episode in timesteps
+    :param n_invalid_actions: Number of invalid action that will be masked.
+        Must be smaller than `dim - 1`
+    """
+
     def __init__(
         self,
         dim: Optional[int] = None,
@@ -14,18 +27,6 @@ class InvalidActionEnv(Env):
         ep_length: int = 100,
         n_invalid_actions: int = 0,
     ):
-        """
-        Identity environment with invalid actions for testing purposes
-
-        :param dim: the size of the action and observation dimension you want
-            to learn. Provide at most one of ``dim`` and ``space``. If both are
-            None, then initialization proceeds with ``dim=1`` and ``space=None``.
-        :param space: the action and observation space. Provide at most one of
-            ``dim`` and ``space``.
-        :param ep_length: the length of each episode in timesteps
-        :param n_invalid_actions: Number of invalid action that will be masked.
-            Must be smaller than `dim - 1`
-        """
         if space is None:
             if dim is None:
                 dim = 1

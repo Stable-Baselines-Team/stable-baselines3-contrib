@@ -15,7 +15,7 @@ from stable_baselines3.common.vec_env import VecEnv
 from torch.nn import functional as F
 
 from sb3_contrib.common.maskable.buffers import MaskableRolloutBuffer
-from sb3_contrib.common.maskable.policies import MaskableActorCriticPolicy, MaskablePolicy
+from sb3_contrib.common.maskable.policies import MaskableActorCriticPolicy
 from sb3_contrib.common.maskable.utils import get_action_masks, is_masking_supported
 
 
@@ -103,7 +103,7 @@ class MaskablePPO(OnPolicyAlgorithm):
             tensorboard_log=tensorboard_log,
             create_eval_env=create_eval_env,
             policy_kwargs=policy_kwargs,
-            policy_base=MaskablePolicy,  # see NOTE in ppo_mask.policies
+            policy_base=MaskableActorCriticPolicy,
             verbose=verbose,
             seed=seed,
             device=device,
@@ -111,7 +111,7 @@ class MaskablePPO(OnPolicyAlgorithm):
             supported_action_spaces=(
                 spaces.Discrete,
                 spaces.MultiDiscrete,
-                spaces.MultiBinary,
+                # spaces.MultiBinary, # TODO(kronion): Implement MultiBinary support
             ),
         )
 
@@ -364,19 +364,18 @@ class MaskablePPO(OnPolicyAlgorithm):
         state: Optional[np.ndarray] = None,
         mask: Optional[np.ndarray] = None,
         deterministic: bool = False,
-        action_masks: np.ndarray = None,
+        action_masks: Optional[np.ndarray] = None,
     ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
         """
-        Get the model's action(s) from an observation
+        Get the model's action(s) from an observation.
+
         :param observation: the input observation
         :param state: The last states (can be None, used in recurrent policies)
         :param mask: The last masks (can be None, used in recurrent policies)
         :param deterministic: Whether or not to return deterministic actions.
         :param action_masks: Action masks to apply to the action distribution.
-        :return: the model's action and the next state
-            (used in recurrent policies)
+        :return: the model's action and the next state (used in recurrent policies)
         """
-
         return self.policy.predict(observation, state, mask, deterministic, action_masks=action_masks)
 
     def train(self) -> None:

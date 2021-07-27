@@ -1,10 +1,15 @@
 from stable_baselines3.common.policies import register_policy
 
-from sb3_contrib.common.maskable.policies import MaskableActorCriticPolicy
+from sb3_contrib.common.maskable.policies import (
+    MaskableActorCriticCnnPolicy,
+    MaskableActorCriticPolicy,
+    MaskableMultiInputActorCriticPolicy,
+)
 
 MlpPolicy = MaskableActorCriticPolicy
+CnnPolicy = MaskableActorCriticCnnPolicy
+MultiInputPolicy = MaskableMultiInputActorCriticPolicy
 
-# NOTE: register does not work properly as MaskableActorCriticPolicy
-# is not a direct subclass of BasePolicy, so we need to ask for a MaskablePolicy
-# this won't work if we have more than one algorithm that supports masking
 register_policy("MlpPolicy", MaskableActorCriticPolicy)
+register_policy("CnnPolicy", MaskableActorCriticCnnPolicy)
+register_policy("MultiInputPolicy", MaskableMultiInputActorCriticPolicy)
