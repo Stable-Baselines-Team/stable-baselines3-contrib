@@ -1,5 +1,8 @@
+from stable_baselines3.common.monitor import Monitor
+
 from sb3_contrib import MaskablePPO
 from sb3_contrib.common.envs import InvalidActionEnv
+from sb3_contrib.common.maskable.callbacks import MaskableEvalCallback
 from sb3_contrib.common.maskable.evaluation import evaluate_policy
 
 # TODO: add test for ActionMasker
@@ -20,8 +23,11 @@ def test_identity():
 
 def test_callback():
     env = InvalidActionEnv(dim=20, n_invalid_actions=10)
-    model = MaskablePPO("MlpPolicy", env, n_steps=64, gamma=0.4, seed=32, verbose=1, create_eval_env=True)
-    model.learn(300, eval_freq=100)
+    eval_env = InvalidActionEnv(dim=20, n_invalid_actions=10)
+    model = MaskablePPO("MlpPolicy", env, n_steps=64, gamma=0.4, seed=32, verbose=1)
+    model.learn(300, callback=MaskableEvalCallback(eval_env, eval_freq=100, warn=False))
+
+    model.learn(300, callback=MaskableEvalCallback(Monitor(eval_env), eval_freq=100, warn=False))
 
 
 # TODO
@@ -29,4 +35,6 @@ def test_callback():
 #     pass
 #
 # def test_dict_obs():
+#     pass
+# def test_multi_env_eval():
 #     pass
