@@ -3,6 +3,28 @@
 Changelog
 ==========
 
+
+Release 1.2.0a0 (WIP)
+-------------------------------
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+
+Bug Fixes:
+^^^^^^^^^^
+
+Deprecations:
+^^^^^^^^^^^^^
+
+Others:
+^^^^^^^
+- Fixed type annotation
+- Added python 3.9 to CI
+
+Documentation:
+^^^^^^^^^^^^^^
+
+
 Release 1.1.0 (2021-07-01)
 -------------------------------
 
