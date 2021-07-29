@@ -23,6 +23,8 @@ Deprecations:
 
 Others:
 ^^^^^^^
+- Fixed type annotation
+- Added python 3.9 to CI
 
 Documentation:
 ^^^^^^^^^^^^^^
