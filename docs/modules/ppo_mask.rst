@@ -1,12 +1,21 @@
-.. _ppo2:
+.. _ppo_mask:
 
 .. automodule:: sb3_contrib.ppo_mask
 
 PPO MASK
 ========
 
-Implementation of `invalid action masking <https://arxiv.org/abs/2006.14171>`_ for the Proximal Policy Optimization (PPO) algorithm.
+Implementation of `invalid action masking <https://arxiv.org/abs/2006.14171>`_ for the Proximal Policy Optimization (PPO) algorithm. Other than adding support for action masking, the behavior is the same as in SB3's core PPO algorithm.
 
+
+.. rubric:: Available Policies
+
+.. autosummary::
+    :nosignatures:
+
+    MlpPolicy
+    CnnPolicy
+    MultiInputPolicy
 
 
 Notes
@@ -32,9 +41,10 @@ Space         Action Observation
 Discrete      ✔️      ✔️
 Box           ❌      ✔️
 MultiDiscrete ✔️      ✔️
-MultiBinary   ❌      ✔️
+MultiBinary   ✔️      ✔️
 Dict          ❌     ✔️
 ============= ====== ===========
+
 
 Example
 -------
