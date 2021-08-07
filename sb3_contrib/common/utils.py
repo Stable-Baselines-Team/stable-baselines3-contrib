@@ -1,6 +1,7 @@
-from typing import Optional
+from typing import Optional, Sequence, Callable
 
 import torch as th
+from torch import nn
 
 
 def quantile_huber_loss(
@@ -67,3 +68,66 @@ def quantile_huber_loss(
     else:
         loss = loss.mean()
     return loss
+
+
+# TODO: write regression tests
+def cg_solver(Avp_fun: Callable[[th.Tensor], th.Tensor], b, max_iter=15) -> th.Tensor:
+    """
+    Finds an approximate solution to a set of linear equations Ax = b
+
+    Source: https://github.com/ajlangley/trpo-pytorch/blob/master/conjugate_gradient.py
+
+    :param Avp_fun : callable
+        a function that right multiplies a matrix A by a vector v
+    :param b : torch.FloatTensor
+        the right hand term in the set of linear equations Ax = b
+    :param max_iter : int
+        the maximum number of iterations (default is 10)
+    :return x : torch.FloatTensor
+        the approximate solution to the system of equations defined by Avp_fun
+        and b
+    """
+
+    x = th.zeros_like(b)
+    r = b.clone()
+    p = b.clone()
+
+    for i in range(max_iter):
+        Avp = Avp_fun(p)
+
+        r_dot = th.matmul(r, r)
+        alpha = r_dot / th.matmul(p, Avp)
+        x += alpha * p
+
+        if i == max_iter - 1:
+            return x
+
+        r_new = r - alpha * Avp
+        beta = th.matmul(r_new, r_new) / r_dot
+        r = r_new
+        p = r + beta * p
+
+
+# TODO: test
+def flat_grad(
+    output,
+    parameters: Sequence[nn.parameter.Parameter],
+    create_graph: bool = False,
+    retain_graph: bool = False,
+) -> th.Tensor:
+    """
+    Returns the gradients of the passed sequence of parameters into a flat gradient.
+    Order of parameters is preserved.
+
+    :param output: functional output to compute the gradient for
+    :param parameters: sequence of `Parameter`
+    :param retain_graph – If ``False``, the graph used to compute the grad will be freed.
+        Defaults to the value of ``create_graph``.
+    :param create_graph – If ``True``, graph of the derivative will be constructed,
+        allowing to compute higher order derivative products. Default: ``False``.
+    :return: Tensor containing the flattened gradients
+    """
+    grads = th.autograd.grad(
+        output, parameters, create_graph=create_graph, retain_graph=retain_graph, allow_unused=True
+    )
+    return th.cat([grad.view(-1) for grad in grads if grad is not None])
