@@ -96,7 +96,10 @@ def cg_solver(Avp_fun: Callable[[th.Tensor], th.Tensor], b, max_iter=15) -> th.T
         Avp = Avp_fun(p)
 
         r_dot = th.matmul(r, r)
-        alpha = r_dot / th.matmul(p, Avp)
+        pAp = th.matmul(p, Avp)
+        # This shouldn't raise if the matrix in the matrix in Avp_fun is positive-definite
+        assert pAp >= 0
+        alpha = r_dot / pAp
         x += alpha * p
 
         if i == max_iter - 1:

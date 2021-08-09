@@ -225,7 +225,7 @@ class TRPO(OnPolicyAlgorithm):
 
                 def Hpv(v, retain_graph=True):
                     jvp = (grad_kl * v).sum()
-                    return flat_grad(jvp, params, retain_graph=retain_graph)
+                    return flat_grad(jvp, params, retain_graph=retain_graph).detach()
 
                 s = cg_solver(Hpv, g)
 
@@ -243,33 +243,33 @@ class TRPO(OnPolicyAlgorithm):
                 orig_params = [param.detach().clone() for param in params]
 
                 line_search_success = False
-                for i in range(10):
+                with torch.no_grad():
+                    for i in range(10):
 
-                    j = 0
-                    for param, shape in zip(params, grad_shape):
-                        k = param.numel()
-                        param.data += alpha * beta * s[j:(j + k)].view(shape)
-                        j += k
+                        j = 0
+                        for param, shape in zip(params, grad_shape):
+                            k = param.numel()
+                            param.data += alpha * beta * s[j:(j + k)].view(shape)
+                            j += k
 
-                    with torch.no_grad():
-                        _, log_prob, _ = self.policy.evaluate_actions(
-                            rollout_data.observations, actions
-                        )
-                        kl_div = F.kl_div(
-                            log_prob,
-                            rollout_data.old_log_prob,
-                            log_target=True,
-                            reduction="batchmean",
-                        )
+                            _, log_prob, _ = self.policy.evaluate_actions(
+                                rollout_data.observations, actions
+                            )
+                            kl_div = F.kl_div(
+                                log_prob,
+                                rollout_data.old_log_prob,
+                                log_target=True,
+                                reduction="batchmean",
+                            )
 
-                    if kl_div < self.target_kl:
-                        line_search_success = True
-                        break
+                        if kl_div < self.target_kl:
+                            line_search_success = True
+                            break
 
-                    for param, orig_param in zip(params, orig_params):
-                        param.data = orig_param.data.clone()
+                        for param, orig_param in zip(params, orig_params):
+                            param.data = orig_param.data.clone()
 
-                    alpha *= alpha
+                        alpha *= alpha
 
             if not continue_training:
                 break
