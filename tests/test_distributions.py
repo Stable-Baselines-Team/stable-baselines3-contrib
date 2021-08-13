@@ -9,18 +9,9 @@ def test_applying_mask():
     Show that probs change as a result of masking
     """
 
-    starting_probs = th.Tensor([
-        [0.2, 0.2, 0.6],
-        [1, 0, 0]
-    ])
-    expected_probs = th.Tensor([
-        [0, 0.25, 0.75],
-        [0, 0.5, 0.5]
-    ])
-    mask = np.array([
-        [False, True, True],
-        [False, True, True]
-    ])
+    starting_probs = th.Tensor([[0.2, 0.2, 0.6], [1, 0, 0]])
+    expected_probs = th.Tensor([[0, 0.25, 0.75], [0, 0.5, 0.5]])
+    mask = np.array([[False, True, True], [False, True, True]])
 
     distribution = MaskableCategorical(probs=starting_probs)
     distribution.apply_masking(mask)
@@ -32,22 +23,10 @@ def test_modifying_mask():
     Show that masks apply independently of each other
     """
 
-    starting_probs = th.Tensor([
-        [0.2, 0.2, 0.6],
-        [1, 0, 0]
-    ])
-    expected_probs = th.Tensor([
-        [0.5, 0.5, 0],
-        [0, 1, 0]
-    ])
-    first_mask = np.array([
-        [False, True, True],
-        [False, True, True]
-    ])
-    second_mask = np.array([
-        [True, True, False],
-        [False, True, False]
-    ])
+    starting_probs = th.Tensor([[0.2, 0.2, 0.6], [1, 0, 0]])
+    expected_probs = th.Tensor([[0.5, 0.5, 0], [0, 1, 0]])
+    first_mask = np.array([[False, True, True], [False, True, True]])
+    second_mask = np.array([[True, True, False], [False, True, False]])
 
     # pytorch converts probs to logits in a way that loses some precision and makes
     # 0 probability outcomes slightly non-zero.
@@ -68,14 +47,8 @@ def test_removing_mask():
     Show that masking may be unapplied to recover original probs
     """
 
-    starting_probs = th.Tensor([
-        [0.2, 0.2, 0.6],
-        [1, 0, 0]
-    ])
-    mask = np.array([
-        [False, True, True],
-        [False, True, True]
-    ])
+    starting_probs = th.Tensor([[0.2, 0.2, 0.6], [1, 0, 0]])
+    mask = np.array([[False, True, True], [False, True, True]])
 
     distribution = MaskableCategorical(probs=starting_probs)
     target_distribution = MaskableCategorical(probs=starting_probs)
