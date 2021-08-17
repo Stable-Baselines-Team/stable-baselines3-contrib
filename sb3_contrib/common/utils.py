@@ -71,7 +71,7 @@ def quantile_huber_loss(
 
 
 # TODO: write regression tests
-def cg_solver(Avp_fun: Callable[[th.Tensor], th.Tensor], b, max_iter=10) -> th.Tensor:
+def cg_solver(Avp_fun: Callable[[th.Tensor], th.Tensor], b, max_iter=10, residual_tol=1e-10) -> th.Tensor:
     """
     Finds an approximate solution to a set of linear equations Ax = b
 
@@ -83,29 +83,44 @@ def cg_solver(Avp_fun: Callable[[th.Tensor], th.Tensor], b, max_iter=10) -> th.T
         the right hand term in the set of linear equations Ax = b
     :param max_iter : int
         the maximum number of iterations (default is 10)
+    :param residual_tol: float
+        residual tolerance for early stopping of the solving (default is 1e-10)
     :return x : torch.FloatTensor
         the approximate solution to the system of equations defined by Avp_fun
         and b
     """
 
-    x = th.zeros_like(b)
-    r = b.clone()
-    p = b.clone()
+    # The vector is not initialized at 0 because of the instability issues when the gradient becomes small.
+    # A small random gaussian noise is used for the initialization.
+    x = 1e-4 * th.randn_like(b)
+    r = b - Avp_fun(x)
+    r_dot = th.matmul(r, r)
+
+    if r_dot < residual_tol:
+        # If the gradient becomes extremely small
+        # The denominator in alpha will become zero
+        # Leading to a division by zero
+        return x
+
+    p = r.clone()
 
     for i in range(max_iter):
         Avp = Avp_fun(p)
 
-        r_dot = th.matmul(r, r)
-        pAp = th.matmul(p, Avp)
-        alpha = r_dot / pAp
+        alpha = r_dot / p.dot(Avp)
         x += alpha * p
 
         if i == max_iter - 1:
             return x
 
-        r_new = r - alpha * Avp
-        beta = th.matmul(r_new, r_new) / r_dot
-        r = r_new
+        r -= alpha * Avp
+        new_r_dot = th.matmul(r, r)
+
+        if new_r_dot < residual_tol:
+            return x
+
+        beta = new_r_dot / r_dot
+        r_dot = new_r_dot
         p = r + beta * p
 
 

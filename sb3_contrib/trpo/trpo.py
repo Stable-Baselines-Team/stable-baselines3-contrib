@@ -7,6 +7,7 @@ import torch
 import torch as th
 from gym import spaces
 from torch.distributions import kl_divergence
+from torch.nn import functional as F
 
 from sb3_contrib.common.policies import ActorCriticPolicy
 from sb3_contrib.common.utils import flat_grad, cg_solver
@@ -41,6 +42,7 @@ class TRPO(OnPolicyAlgorithm):
     :param cg_damping: damping in the Hessian vector product computation
     :param ls_alpha: step-size reduction factor for the line-search (i.e. theta_new = theta + alpha^i * step)
     :param ls_steps: maximum number of steps in the line-search
+    :param n_critic_updates: number of critic updates per policy updates
     :param gae_lambda: Factor for trade-off of bias vs variance for Generalized Advantage Estimator
     :param ent_coef: Entropy coefficient for the loss calculation
     :param vf_coef: Value function coefficient for the loss calculation
@@ -74,9 +76,10 @@ class TRPO(OnPolicyAlgorithm):
         n_epochs: int = 10,
         gamma: float = 0.99,
         cg_max_steps: int = 10,
-        cg_damping: float = 0.1,
+        cg_damping: float = 1e-3,
         ls_alpha: float = 0.99,
         ls_steps: int = 10,
+        n_critic_updates: int = 5,
         gae_lambda: float = 0.95,
         ent_coef: float = 0.0,
         vf_coef: float = 0.5,
@@ -151,6 +154,7 @@ class TRPO(OnPolicyAlgorithm):
         self.ls_alpha = ls_alpha
         self.ls_steps = ls_steps
         self.target_kl = target_kl
+        self.n_critic_updates = n_critic_updates
 
         if _init_setup_model:
             self._setup_model()
@@ -165,6 +169,7 @@ class TRPO(OnPolicyAlgorithm):
         po_values = []
         kl_divergences = []
         line_search_results = []
+        value_losses = []
 
         continue_training = True
 
@@ -187,7 +192,7 @@ class TRPO(OnPolicyAlgorithm):
                     _ = self.policy.evaluate_actions(rollout_data.observations, actions)
                     old_distribution = copy.copy(self.policy.get_distribution())
 
-                values, log_prob, _ = self.policy.evaluate_actions(
+                _, log_prob, _ = self.policy.evaluate_actions(
                     rollout_data.observations, actions
                 )
                 distribution = self.policy.get_distribution()
@@ -216,6 +221,7 @@ class TRPO(OnPolicyAlgorithm):
                 grad_kl = []
                 grad_shape = []
                 params = []
+                value_only_params = []
                 for param in self.policy.parameters():
                     kl_param_grad, *_ = torch.autograd.grad(
                         kl_div,
@@ -234,6 +240,8 @@ class TRPO(OnPolicyAlgorithm):
                         grad_kl.append(kl_param_grad.view(-1))
                         g.append(g_grad.view(-1))
                         params.append(param)
+                    else:
+                        value_only_params.append(param)
 
                 g = torch.cat(g)
                 grad_kl = torch.cat(grad_kl)
@@ -261,7 +269,7 @@ class TRPO(OnPolicyAlgorithm):
                             param.data += alpha * beta * s[j : (j + k)].view(shape)
                             j += k
 
-                        values, log_prob, _ = self.policy.evaluate_actions(
+                        _, log_prob, _ = self.policy.evaluate_actions(
                             rollout_data.observations, actions
                         )
 
@@ -293,7 +301,23 @@ class TRPO(OnPolicyAlgorithm):
                         po_values.append(new_policy_obj.item())
                         kl_divergences.append(kl_div.item())
 
-                # TODO: Critic training?
+                for _ in range(self.n_critic_updates):
+                    values, _, _ = self.policy.evaluate_actions(
+                        rollout_data.observations, actions
+                    )
+                    values_pred = values.flatten()
+                    value_loss = F.mse_loss(rollout_data.returns, values_pred)
+                    value_losses.append(value_loss.item())
+
+                    self.policy.optimizer.zero_grad()
+                    value_loss.backward()
+                    # Removing gradients of parameters shared with the actor
+                    # otherwise it defeats the purposes of the KL constraint
+                    for param in params:
+                        param.grad = None
+                    # Clip grad norm
+                    th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
+                    self.policy.optimizer.step()
 
             if not continue_training:
                 break
@@ -305,6 +329,7 @@ class TRPO(OnPolicyAlgorithm):
 
         # Logs
         self.logger.record("train/policy_objective_value", np.mean(po_values))
+        self.logger.record("train/value_loss", np.mean(value_losses))
         self.logger.record("train/kl_divergence_loss", np.mean(kl_divergences))
         self.logger.record("train/explained_variance", explained_var)
         self.logger.record("train/line_search_success", np.mean(line_search_results))
