@@ -71,7 +71,7 @@ def quantile_huber_loss(
 
 
 # TODO: write regression tests
-def cg_solver(Avp_fun: Callable[[th.Tensor], th.Tensor], b, max_iter=15) -> th.Tensor:
+def cg_solver(Avp_fun: Callable[[th.Tensor], th.Tensor], b, max_iter=10) -> th.Tensor:
     """
     Finds an approximate solution to a set of linear equations Ax = b
 
@@ -97,8 +97,6 @@ def cg_solver(Avp_fun: Callable[[th.Tensor], th.Tensor], b, max_iter=15) -> th.T
 
         r_dot = th.matmul(r, r)
         pAp = th.matmul(p, Avp)
-        # This shouldn't raise if the matrix in the matrix in Avp_fun is positive-definite
-        assert pAp >= 0
         alpha = r_dot / pAp
         x += alpha * p
 

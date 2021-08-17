@@ -1,3 +1,4 @@
+import copy
 import warnings
 from typing import Any, Dict, Optional, Type, Union
 
@@ -5,11 +6,11 @@ import numpy as np
 import torch
 import torch as th
 from gym import spaces
-from torch.nn import functional as F
+from torch.distributions import kl_divergence
 
+from sb3_contrib.common.policies import ActorCriticPolicy
 from sb3_contrib.common.utils import flat_grad, cg_solver
 from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
-from stable_baselines3.common.policies import ActorCriticPolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import explained_variance
 
@@ -35,6 +36,11 @@ class TRPO(OnPolicyAlgorithm):
     :param batch_size: Minibatch size
     :param n_epochs: Number of epoch when optimizing the surrogate loss
     :param gamma: Discount factor
+    :param cg_max_steps: maximum number of steps in the Conjugate Gradient algoritgm
+        for computing the Hessian vector product
+    :param cg_damping: damping in the Hessian vector product computation
+    :param ls_alpha: step-size reduction factor for the line-search (i.e. theta_new = theta + alpha^i * step)
+    :param ls_steps: maximum number of steps in the line-search
     :param gae_lambda: Factor for trade-off of bias vs variance for Generalized Advantage Estimator
     :param ent_coef: Entropy coefficient for the loss calculation
     :param vf_coef: Value function coefficient for the loss calculation
@@ -67,6 +73,10 @@ class TRPO(OnPolicyAlgorithm):
         batch_size: Optional[int] = 64,
         n_epochs: int = 10,
         gamma: float = 0.99,
+        cg_max_steps: int = 10,
+        cg_damping: float = 0.1,
+        ls_alpha: float = 0.99,
+        ls_steps: int = 10,
         gae_lambda: float = 0.95,
         ent_coef: float = 0.0,
         vf_coef: float = 0.5,
@@ -136,6 +146,10 @@ class TRPO(OnPolicyAlgorithm):
                 )
         self.batch_size = batch_size
         self.n_epochs = n_epochs
+        self.cg_max_steps = cg_max_steps
+        self.cg_damping = cg_damping
+        self.ls_alpha = ls_alpha
+        self.ls_steps = ls_steps
         self.target_kl = target_kl
 
         if _init_setup_model:
@@ -150,6 +164,7 @@ class TRPO(OnPolicyAlgorithm):
 
         po_values = []
         kl_divergences = []
+        line_search_results = []
 
         continue_training = True
 
@@ -168,30 +183,30 @@ class TRPO(OnPolicyAlgorithm):
                 if self.use_sde:
                     self.policy.reset_noise(self.batch_size)
 
-                values, log_prob, entropy = self.policy.evaluate_actions(
+                with torch.no_grad():
+                    _ = self.policy.evaluate_actions(rollout_data.observations, actions)
+                    old_distribution = copy.copy(self.policy.get_distribution())
+
+                values, log_prob, _ = self.policy.evaluate_actions(
                     rollout_data.observations, actions
                 )
-                values_pred = values.flatten()
+                distribution = self.policy.get_distribution()
+
+                advantages = rollout_data.advantages
+                advantages = (advantages - advantages.mean()) / (
+                    rollout_data.advantages.std() + 1e-8
+                )
 
                 # ratio between old and new policy, should be one at the first iteration
                 ratio = th.exp(log_prob - rollout_data.old_log_prob)
 
                 # surrogate policy objective
-                policy_obj = (values_pred.detach() * ratio).mean()
-
-                # Logging
-                po_values.append(policy_obj.item())
+                policy_obj = (advantages * ratio).mean()
 
                 # KL divergence
-                kl_div = F.kl_div(
-                    log_prob,
-                    rollout_data.old_log_prob,
-                    log_target=True,
-                    reduction="batchmean",
-                )
-
-                # Logging
-                kl_divergences.append(kl_div.item())
+                kl_div = kl_divergence(
+                    distribution.distribution, old_distribution.distribution
+                ).mean()
 
                 # Surrogate & KL gradient
                 self.policy.optimizer.zero_grad()
@@ -225,44 +240,39 @@ class TRPO(OnPolicyAlgorithm):
 
                 def Hpv(v, retain_graph=True):
                     jvp = (grad_kl * v).sum()
-                    return flat_grad(jvp, params, retain_graph=retain_graph).detach()
+                    return flat_grad(jvp, params, retain_graph=retain_graph) + self.cg_damping * v
 
-                s = cg_solver(Hpv, g)
+                s = cg_solver(Hpv, g, max_iter=self.cg_max_steps)
 
                 beta = 2 * self.target_kl
                 beta /= torch.matmul(s, Hpv(s, retain_graph=False))
-                # TODO: investigate
-                # This assert shouldn't raise because s^T H s should not be negative
-                # Yet it does, it means Hpv is not returning H.v
-                # Could the code above do something wrong to the graph - making the Hessian vector product inaccurate?
-                assert beta >= 0
                 beta = torch.sqrt(beta)
 
-                # TODO: define a variable
-                alpha = 0.99
+                alpha = self.ls_alpha
                 orig_params = [param.detach().clone() for param in params]
 
                 line_search_success = False
                 with torch.no_grad():
-                    for i in range(10):
+                    for i in range(self.ls_steps):
 
                         j = 0
                         for param, shape in zip(params, grad_shape):
                             k = param.numel()
-                            param.data += alpha * beta * s[j:(j + k)].view(shape)
+                            param.data += alpha * beta * s[j : (j + k)].view(shape)
                             j += k
 
-                            _, log_prob, _ = self.policy.evaluate_actions(
-                                rollout_data.observations, actions
-                            )
-                            kl_div = F.kl_div(
-                                log_prob,
-                                rollout_data.old_log_prob,
-                                log_target=True,
-                                reduction="batchmean",
-                            )
+                        values, log_prob, _ = self.policy.evaluate_actions(
+                            rollout_data.observations, actions
+                        )
 
-                        if kl_div < self.target_kl:
+                        ratio = th.exp(log_prob - rollout_data.old_log_prob)
+                        new_policy_obj = (advantages * ratio).mean()
+
+                        kl_div = kl_divergence(
+                            distribution.distribution, old_distribution.distribution
+                        ).mean()
+
+                        if (kl_div < self.target_kl) and (new_policy_obj > policy_obj):
                             line_search_success = True
                             break
 
@@ -270,6 +280,20 @@ class TRPO(OnPolicyAlgorithm):
                             param.data = orig_param.data.clone()
 
                         alpha *= alpha
+
+                    line_search_results.append(line_search_success)
+
+                    if not line_search_success:
+                        for param, orig_param in zip(params, orig_params):
+                            param.data = orig_param.data.clone()
+
+                        po_values.append(policy_obj.item())
+                        kl_divergences.append(0)
+                    else:
+                        po_values.append(new_policy_obj.item())
+                        kl_divergences.append(kl_div.item())
+
+                # TODO: Critic training?
 
             if not continue_training:
                 break
@@ -280,10 +304,10 @@ class TRPO(OnPolicyAlgorithm):
         )
 
         # Logs
-        # TODO: add extra logs
         self.logger.record("train/policy_objective_value", np.mean(po_values))
         self.logger.record("train/kl_divergence_loss", np.mean(kl_divergences))
         self.logger.record("train/explained_variance", explained_var)
+        self.logger.record("train/line_search_success", np.mean(line_search_results))
         if hasattr(self.policy, "log_std"):
             self.logger.record("train/std", th.exp(self.policy.log_std).mean().item())
 
