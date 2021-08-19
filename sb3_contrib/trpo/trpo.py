@@ -77,7 +77,7 @@ class TRPO(OnPolicyAlgorithm):
         gamma: float = 0.99,
         cg_max_steps: int = 10,
         cg_damping: float = 1e-3,
-        ls_alpha: float = 0.99,
+        ls_alpha: float = 0.8,
         ls_steps: int = 10,
         n_critic_updates: int = 5,
         gae_lambda: float = 0.95,
@@ -256,7 +256,7 @@ class TRPO(OnPolicyAlgorithm):
                 beta /= torch.matmul(s, Hpv(s, retain_graph=False))
                 beta = torch.sqrt(beta)
 
-                alpha = self.ls_alpha
+                alpha = 1
                 orig_params = [param.detach().clone() for param in params]
 
                 line_search_success = False
@@ -264,9 +264,9 @@ class TRPO(OnPolicyAlgorithm):
                     for i in range(self.ls_steps):
 
                         j = 0
-                        for param, shape in zip(params, grad_shape):
+                        for param, orig_param, shape in zip(params, orig_params, grad_shape):
                             k = param.numel()
-                            param.data += alpha * beta * s[j : (j + k)].view(shape)
+                            param.data = orig_param.data + alpha * beta * s[j : (j + k)].view(shape)
                             j += k
 
                         _, log_prob, _ = self.policy.evaluate_actions(
@@ -284,10 +284,7 @@ class TRPO(OnPolicyAlgorithm):
                             line_search_success = True
                             break
 
-                        for param, orig_param in zip(params, orig_params):
-                            param.data = orig_param.data.clone()
-
-                        alpha *= alpha
+                        alpha *= self.ls_alpha
 
                     line_search_results.append(line_search_success)
 
