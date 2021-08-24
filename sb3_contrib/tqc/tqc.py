@@ -89,7 +89,7 @@ class TQC(OffPolicyAlgorithm):
         use_sde_at_warmup: bool = False,
         tensorboard_log: Optional[str] = None,
         create_eval_env: bool = False,
-        policy_kwargs: Dict[str, Any] = None,
+        policy_kwargs: Optional[Dict[str, Any]] = None,
         verbose: int = 0,
         seed: Optional[int] = None,
         device: Union[th.device, str] = "auto",
