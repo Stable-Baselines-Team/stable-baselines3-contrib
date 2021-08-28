@@ -1,10 +1,11 @@
+from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple
 
 import gym
 import numpy as np
 import torch as th
 from gym import spaces
-from stable_baselines3.common.distributions import BernoulliDistribution, Distribution
+from stable_baselines3.common.distributions import Distribution
 from torch import nn
 from torch.distributions import Categorical
 from torch.distributions.utils import logits_to_probs
@@ -77,9 +78,22 @@ class MaskableCategorical(Categorical):
         return -p_log_p.sum(-1)
 
 
-class MaskableCategoricalDistribution(Distribution):
+class MaskableDistribution(Distribution, ABC):
+    @abstractmethod
+    def apply_masking(self, masks: Optional[np.ndarray]) -> None:
+        """
+        Eliminate ("mask out") chosen distribution outcomes by setting their probability to 0.
+
+        :param masks: An optional boolean ndarray of compatible shape with the distribution.
+            If True, the corresponding choice's logit value is preserved. If False, it is set
+            to a large negative value, resulting in near 0 probability. If masks is None, any
+            previously applied masking is removed, and the original logits are restored.
+        """
+
+
+class MaskableCategoricalDistribution(MaskableDistribution):
     """
-    Categorical distribution for discrete actions.
+    Categorical distribution for discrete actions. Supports invalid action masking.
 
     :param action_dim: Number of discrete actions
     """
@@ -137,9 +151,9 @@ class MaskableCategoricalDistribution(Distribution):
         self.distribution.apply_masking(masks)
 
 
-class MaskableMultiCategoricalDistribution(Distribution):
+class MaskableMultiCategoricalDistribution(MaskableDistribution):
     """
-    MultiCategorical distribution for multi discrete actions.
+    MultiCategorical distribution for multi discrete actions. Supports invalid action masking.
 
     :param action_dims: List of sizes of discrete action spaces
     """
@@ -216,7 +230,20 @@ class MaskableMultiCategoricalDistribution(Distribution):
             distribution.apply_masking(mask)
 
 
-def make_masked_proba_distribution(action_space: gym.spaces.Space) -> Distribution:
+class MaskableBernoulliDistribution(MaskableMultiCategoricalDistribution):
+    """
+    Bernoulli distribution for multibinary actions. Supports invalid action masking.
+
+    :param action_dim: Number of binary actions
+    """
+
+    def __init__(self, action_dim: int):
+        # Two states per binary action
+        action_dims = [2] * action_dim
+        super().__init__(action_dims)
+
+
+def make_masked_proba_distribution(action_space: gym.spaces.Space) -> MaskableDistribution:
     """
     Return an instance of Distribution for the correct type of action space
 
@@ -226,13 +253,10 @@ def make_masked_proba_distribution(action_space: gym.spaces.Space) -> Distributi
 
     if isinstance(action_space, spaces.Discrete):
         return MaskableCategoricalDistribution(action_space.n)
-
     elif isinstance(action_space, spaces.MultiDiscrete):
         return MaskableMultiCategoricalDistribution(action_space.nvec)
-    # TODO add support for other discrete spaces
-    # elif isinstance(action_space, spaces.MultiBinary):
-    #     return BernoulliDistribution(action_space.n)
-
+    elif isinstance(action_space, spaces.MultiBinary):
+        return MaskableBernoulliDistribution(action_space.n)
     else:
         raise NotImplementedError(
             "Error: probability distribution, not implemented for action space"

@@ -5,7 +5,6 @@ from typing import Any, Dict, List, Optional, Tuple, Type, Union
 import gym
 import numpy as np
 import torch as th
-from stable_baselines3.common.distributions import Distribution
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.preprocessing import is_image_space, maybe_transpose
 from stable_baselines3.common.torch_layers import (
@@ -19,11 +18,7 @@ from stable_baselines3.common.type_aliases import Schedule
 from stable_baselines3.common.utils import is_vectorized_observation, obs_as_tensor
 from torch import nn
 
-from sb3_contrib.common.distributions import (
-    MaskableCategoricalDistribution,
-    MaskableMultiCategoricalDistribution,
-    make_masked_proba_distribution,
-)
+from sb3_contrib.common.distributions import MaskableDistribution, make_masked_proba_distribution
 
 
 class MaskableActorCriticPolicy(BasePolicy):
@@ -119,9 +114,7 @@ class MaskableActorCriticPolicy(BasePolicy):
         values = self.value_net(latent_vf)
         distribution = self._get_action_dist_from_latent(latent_pi)
         if action_masks is not None:
-            # Currently, only certain distributions support masking
-            if isinstance(distribution, (MaskableCategoricalDistribution, MaskableMultiCategoricalDistribution)):
-                distribution.apply_masking(action_masks)
+            distribution.apply_masking(action_masks)
         actions = distribution.get_actions(deterministic=deterministic)
         log_prob = distribution.log_prob(actions)
         return actions, values, log_prob
@@ -167,16 +160,9 @@ class MaskableActorCriticPolicy(BasePolicy):
         """
         self._build_mlp_extractor()
 
-        latent_dim_pi = self.mlp_extractor.latent_dim_pi
-
-        if isinstance(self.action_dist, (MaskableCategoricalDistribution, MaskableMultiCategoricalDistribution)):
-            self.action_net = self.action_dist.proba_distribution_net(latent_dim=latent_dim_pi)
-        # elif isinstance(self.action_dist, BernoulliDistribution):
-        #     self.action_net = self.action_dist.proba_distribution_net(latent_dim=latent_dim_pi)
-        else:
-            raise NotImplementedError(f"Unsupported distribution '{self.action_dist}'.")
-
+        self.action_net = self.action_dist.proba_distribution_net(latent_dim=self.mlp_extractor.latent_dim_pi)
         self.value_net = nn.Linear(self.mlp_extractor.latent_dim_vf, 1)
+
         # Init weights: use orthogonal initialization
         # with small initial weight for the output
         if self.ortho_init:
@@ -211,7 +197,7 @@ class MaskableActorCriticPolicy(BasePolicy):
 
         return latent_pi, latent_vf
 
-    def _get_action_dist_from_latent(self, latent_pi: th.Tensor) -> Distribution:
+    def _get_action_dist_from_latent(self, latent_pi: th.Tensor) -> MaskableDistribution:
         """
         Retrieve action distribution given the latent codes.
 
@@ -238,10 +224,7 @@ class MaskableActorCriticPolicy(BasePolicy):
         latent_pi, _ = self._get_latent(observation)
         distribution = self._get_action_dist_from_latent(latent_pi)
         if action_masks is not None:
-            if isinstance(distribution, MaskableCategoricalDistribution) or isinstance(
-                distribution, MaskableMultiCategoricalDistribution
-            ):
-                distribution.apply_masking(action_masks)
+            distribution.apply_masking(action_masks)
         return distribution.get_actions(deterministic=deterministic)
 
     def predict(
@@ -340,10 +323,7 @@ class MaskableActorCriticPolicy(BasePolicy):
         latent_pi, latent_vf = self._get_latent(obs)
         distribution = self._get_action_dist_from_latent(latent_pi)
         if action_masks is not None:
-            if isinstance(distribution, MaskableCategoricalDistribution) or isinstance(
-                distribution, MaskableMultiCategoricalDistribution
-            ):
-                distribution.apply_masking(action_masks)
+            distribution.apply_masking(action_masks)
         log_prob = distribution.log_prob(actions)
         values = self.value_net(latent_vf)
         return values, log_prob, distribution.entropy()
