@@ -1,3 +1,4 @@
+from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.monitor import Monitor
 
 from sb3_contrib import MaskablePPO
@@ -7,6 +8,17 @@ from sb3_contrib.common.maskable.evaluation import evaluate_policy
 
 # TODO: add test for ActionMasker
 # from sb3_contrib.common.wrappers import ActionMasker
+
+
+def make_env():
+    return InvalidActionEnv(dim=20, n_invalid_actions=10)
+
+
+def test_multi_envs():
+    env = make_vec_env(make_env, n_envs=2)
+    model = MaskablePPO("MlpPolicy", env, n_steps=256, gamma=0.4, seed=32, verbose=1)
+    model.learn(1000)
+    evaluate_policy(model, env, n_eval_episodes=20, reward_threshold=90, warn=False)
 
 
 def test_identity():

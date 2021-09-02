@@ -46,6 +46,10 @@ class InvalidActionEnv(Env):
         self.num_resets = -1  # Becomes 0 after __init__ exits.
         self.reset()
 
+    def seed(self, seed: int) -> None:
+        self.action_space.seed(seed)
+        np.random.seed(seed)
+
     def reset(self) -> GymObs:
         self.current_step = 0
         self.num_resets += 1
