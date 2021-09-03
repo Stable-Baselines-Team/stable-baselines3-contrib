@@ -12,6 +12,7 @@ Breaking Changes:
 
 Bug Fixes:
 ^^^^^^^^^^
+- QR-DQN and TQC updated so that their policies are switched between train and eval mode at the correct time (@ayeright)
 
 Deprecations:
 ^^^^^^^^^^^^^
@@ -152,4 +153,4 @@ Stable-Baselines3 is currently maintained by `Antonin Raffin`_ (aka `@araffin`_)
 Contributors:
 -------------
 
-@ku2482 @guyk1971 @minhlong94
+@ku2482 @guyk1971 @minhlong94 @ayeright
