@@ -111,7 +111,7 @@ class MaskablePPO(OnPolicyAlgorithm):
             supported_action_spaces=(
                 spaces.Discrete,
                 spaces.MultiDiscrete,
-                # spaces.MultiBinary, # TODO(kronion): Implement MultiBinary support
+                spaces.MultiBinary,
             ),
         )
 
