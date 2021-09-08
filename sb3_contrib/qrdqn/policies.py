@@ -167,6 +167,7 @@ class QRDQNPolicy(BasePolicy):
         self.quantile_net = self.make_quantile_net()
         self.quantile_net_target = self.make_quantile_net()
         self.quantile_net_target.load_state_dict(self.quantile_net.state_dict())
+        self.quantile_net_target.set_training_mode(False)
 
         # Setup optimizer with initial learning rate
         self.optimizer = self.optimizer_class(self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
@@ -198,6 +199,15 @@ class QRDQNPolicy(BasePolicy):
             )
         )
         return data
+
+    def set_training_mode(self, mode: bool) -> None:
+        """
+        Put the policy in either training or evaluation mode.
+        This affects certain modules, such as batch normalisation and dropout.
+        :param mode: if true, set to training mode, else set to evaluation mode
+        """
+        self.quantile_net.set_training_mode(mode)
+        self.training = mode
 
 
 MlpPolicy = QRDQNPolicy
