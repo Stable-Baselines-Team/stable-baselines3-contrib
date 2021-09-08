@@ -4,11 +4,14 @@ Changelog
 ==========
 
 
-Release 1.2.0a1 (WIP)
+Release 1.2.0 (2021-09-08)
 -------------------------------
+
+**Train/Eval mode support**
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
+- Upgraded to Stable-Baselines3 >= 1.2.0
 
 Bug Fixes:
 ^^^^^^^^^^
