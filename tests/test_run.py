@@ -1,6 +1,6 @@
 import pytest
 
-from sb3_contrib import QRDQN, TQC
+from sb3_contrib import BDPI, QRDQN, TQC
 
 
 @pytest.mark.parametrize("ent_coef", ["auto", 0.01, "auto_0.01"])
@@ -50,6 +50,21 @@ def test_qrdqn():
         "CartPole-v1",
         policy_kwargs=dict(n_quantiles=25, net_arch=[64, 64]),
         learning_starts=100,
+        buffer_size=500,
+        learning_rate=3e-4,
+        verbose=1,
+        create_eval_env=True,
+    )
+    model.learn(total_timesteps=500, eval_freq=250)
+
+
+@pytest.mark.parametrize("n_critics", [1, 3])
+def test_bdpi(n_critics):
+    model = BDPI(
+        "MlpPolicy",
+        "CartPole-v1",
+        policy_kwargs=dict(n_critics=n_critics, net_arch=[64, 64]),
+        learning_starts=0,
         buffer_size=500,
         learning_rate=3e-4,
         verbose=1,

@@ -30,6 +30,19 @@ Train a Quantile Regression DQN (QR-DQN) agent on the CartPole environment.
   model.learn(total_timesteps=10000, log_interval=4)
   model.save("qrdqn_cartpole")
 
+BDPI
+----
+
+Train a Bootstrapped Dual Policy Iteration (BDPI) agent on the LunarLander environment
+
+.. code-block:: python
+
+  from sb3_contrib import BDPI
+
+  policy_kwargs = dict(n_critics=8)
+  model = BDPI("MlpPolicy", "LunarLander-v2", policy_kwargs=policy_kwargs, verbose=1)
+  model.learn(total_timesteps=50000, log_interval=4)
+  model.save("bdpi_lunarlander")
 
 .. PyBullet: Normalizing input features
 .. ------------------------------------

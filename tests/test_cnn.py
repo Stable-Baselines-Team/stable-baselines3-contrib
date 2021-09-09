@@ -8,10 +8,10 @@ from stable_baselines3.common.envs import FakeImageEnv
 from stable_baselines3.common.utils import zip_strict
 from stable_baselines3.common.vec_env import VecTransposeImage, is_vecenv_wrapped
 
-from sb3_contrib import QRDQN, TQC
+from sb3_contrib import BDPI, QRDQN, TQC
 
 
-@pytest.mark.parametrize("model_class", [TQC, QRDQN])
+@pytest.mark.parametrize("model_class", [TQC, QRDQN, BDPI])
 def test_cnn(tmp_path, model_class):
     SAVE_NAME = "cnn_model.zip"
     # Fake grayscale with frameskip
@@ -24,7 +24,15 @@ def test_cnn(tmp_path, model_class):
         discrete=model_class not in {TQC},
     )
     kwargs = {}
-    if model_class in {TQC, QRDQN}:
+
+    if model_class in [BDPI]:
+        kwargs = dict(
+            buffer_size=250,
+            policy_kwargs=dict(
+                features_extractor_kwargs=dict(features_dim=32),
+            ),
+        )
+    elif model_class in [TQC, QRDQN]:
         # Avoid memory error when using replay buffer
         # Reduce the size of the features and the number of quantiles
         kwargs = dict(
@@ -34,6 +42,7 @@ def test_cnn(tmp_path, model_class):
                 features_extractor_kwargs=dict(features_dim=32),
             ),
         )
+
     model = model_class("CnnPolicy", env, **kwargs).learn(250)
 
     obs = env.reset()
@@ -94,6 +103,7 @@ def test_feature_extractor_target_net(model_class, share_features_extractor):
             learning_starts=100,
             policy_kwargs=dict(n_quantiles=25, features_extractor_kwargs=dict(features_dim=32)),
         )
+
     if model_class != QRDQN:
         kwargs["policy_kwargs"]["share_features_extractor"] = share_features_extractor
 

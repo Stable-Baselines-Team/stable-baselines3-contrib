@@ -6,7 +6,7 @@ from stable_baselines3.common.envs import BitFlippingEnv, SimpleMultiObsEnv
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack, VecNormalize
 
-from sb3_contrib import QRDQN, TQC
+from sb3_contrib import BDPI, QRDQN, TQC
 
 
 class DummyDictEnv(gym.Env):
@@ -78,13 +78,13 @@ class DummyDictEnv(gym.Env):
         pass
 
 
-@pytest.mark.parametrize("model_class", [QRDQN, TQC])
+@pytest.mark.parametrize("model_class", [QRDQN, TQC, BDPI])
 def test_consistency(model_class):
     """
     Make sure that dict obs with vector only vs using flatten obs is equivalent.
     This ensures notable that the network architectures are the same.
     """
-    use_discrete_actions = model_class == QRDQN
+    use_discrete_actions = model_class in [QRDQN, BDPI]
     dict_env = DummyDictEnv(use_discrete_actions=use_discrete_actions, vec_only=True)
     dict_env = gym.wrappers.TimeLimit(dict_env, 100)
     env = gym.wrappers.FlattenObservation(dict_env)
@@ -124,7 +124,7 @@ def test_consistency(model_class):
     assert np.allclose(action_1, action_2)
 
 
-@pytest.mark.parametrize("model_class", [QRDQN, TQC])
+@pytest.mark.parametrize("model_class", [QRDQN, TQC, BDPI])
 @pytest.mark.parametrize("channel_last", [False, True])
 def test_dict_spaces(model_class, channel_last):
     """
@@ -138,9 +138,9 @@ def test_dict_spaces(model_class, channel_last):
     kwargs = {}
     n_steps = 256
 
-    if model_class in {}:
+    if model_class in [BDPI]:
         kwargs = dict(
-            n_steps=128,
+            buffer_size=250,
             policy_kwargs=dict(
                 net_arch=[32],
                 features_extractor_kwargs=dict(cnn_output_dim=32),
@@ -169,7 +169,7 @@ def test_dict_spaces(model_class, channel_last):
     evaluate_policy(model, env, n_eval_episodes=5, warn=False)
 
 
-@pytest.mark.parametrize("model_class", [QRDQN, TQC])
+@pytest.mark.parametrize("model_class", [QRDQN, TQC, BDPI])
 @pytest.mark.parametrize("channel_last", [False, True])
 def test_dict_vec_framestack(model_class, channel_last):
     """
@@ -187,9 +187,9 @@ def test_dict_vec_framestack(model_class, channel_last):
     kwargs = {}
     n_steps = 256
 
-    if model_class in {}:
+    if model_class in [BDPI]:
         kwargs = dict(
-            n_steps=128,
+            buffer_size=250,
             policy_kwargs=dict(
                 net_arch=[32],
                 features_extractor_kwargs=dict(cnn_output_dim=32),
@@ -218,13 +218,14 @@ def test_dict_vec_framestack(model_class, channel_last):
     evaluate_policy(model, env, n_eval_episodes=5, warn=False)
 
 
-@pytest.mark.parametrize("model_class", [QRDQN, TQC])
+@pytest.mark.parametrize("model_class", [QRDQN, TQC, BDPI])
 def test_vec_normalize(model_class):
     """
     Additional tests to check observation space support
     for GoalEnv and VecNormalize using MultiInputPolicy.
     """
-    env = DummyVecEnv([lambda: BitFlippingEnv(n_bits=4, continuous=not (model_class == QRDQN))])
+    use_discrete_actions = model_class not in [TQC]
+    env = DummyVecEnv([lambda: BitFlippingEnv(n_bits=4, continuous=not use_discrete_actions)])
     env = VecNormalize(env)
 
     kwargs = {}
@@ -233,6 +234,7 @@ def test_vec_normalize(model_class):
     if model_class in {}:
         kwargs = dict(
             n_steps=128,
+            buffer_size=250,
             policy_kwargs=dict(
                 net_arch=[32],
             ),
