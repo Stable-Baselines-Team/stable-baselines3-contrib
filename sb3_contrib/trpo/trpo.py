@@ -10,9 +10,9 @@ from torch import nn
 from torch.distributions import kl_divergence
 from torch.nn import functional as F
 
-from sb3_contrib.common.policies import ActorCriticPolicy
 from sb3_contrib.common.utils import flat_grad, conjugate_gradient_solver
 from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
+from stable_baselines3.common.policies import ActorCriticPolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import explained_variance
 
@@ -191,11 +191,10 @@ class TRPO(OnPolicyAlgorithm):
                     self.policy.reset_noise(self.batch_size)
 
                 with th.no_grad():
-                    _ = self.policy.evaluate_actions(rollout_data.observations, actions)
-                    old_distribution = copy.copy(self.policy.get_distribution())
+                    old_distribution = copy.copy(self.policy.get_distribution(rollout_data.observations))
 
                 _, log_prob, _ = self.policy.evaluate_actions(rollout_data.observations, actions)
-                distribution = self.policy.get_distribution()
+                distribution = self.policy.action_dist
 
                 advantages = rollout_data.advantages
                 advantages = (advantages - advantages.mean()) / (rollout_data.advantages.std() + 1e-8)

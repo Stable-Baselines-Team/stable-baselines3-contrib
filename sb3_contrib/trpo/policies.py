@@ -1,8 +1,11 @@
 # This file is here just to define MlpPolicy/CnnPolicy
 # that work for TRPO
-from sb3_contrib.common.policies import ActorCriticPolicy, ActorCriticCnnPolicy, MultiInputActorCriticPolicy
-from stable_baselines3.common.policies import register_policy
-
+from stable_baselines3.common.policies import (
+    register_policy,
+    ActorCriticPolicy,
+    ActorCriticCnnPolicy,
+    MultiInputActorCriticPolicy,
+)
 
 MlpPolicy = ActorCriticPolicy
 CnnPolicy = ActorCriticCnnPolicy
