@@ -4,14 +4,18 @@ Changelog
 ==========
 
 
-Release 1.2.0a0 (WIP)
+Release 1.2.0 (2021-09-08)
 -------------------------------
+
+**Train/Eval mode support**
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
+- Upgraded to Stable-Baselines3 >= 1.2.0
 
 Bug Fixes:
 ^^^^^^^^^^
+- QR-DQN and TQC updated so that their policies are switched between train and eval mode at the correct time (@ayeright)
 
 Deprecations:
 ^^^^^^^^^^^^^
@@ -152,4 +156,4 @@ Stable-Baselines3 is currently maintained by `Antonin Raffin`_ (aka `@araffin`_)
 Contributors:
 -------------
 
-@ku2482 @guyk1971 @minhlong94
+@ku2482 @guyk1971 @minhlong94 @ayeright
