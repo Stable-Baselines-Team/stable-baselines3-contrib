@@ -71,21 +71,26 @@ def quantile_huber_loss(
 
 
 # TODO: write regression tests
-def cg_solver(Avp_fun: Callable[[th.Tensor], th.Tensor], b, max_iter=10, residual_tol=1e-10) -> th.Tensor:
+def conjugate_gradient_solver(
+    matrix_vector_dot_func: Callable[[th.Tensor], th.Tensor],
+    b,
+    max_iter=10,
+    residual_tol=1e-10,
+) -> th.Tensor:
     """
     Finds an approximate solution to a set of linear equations Ax = b
 
     Source: https://github.com/ajlangley/trpo-pytorch/blob/master/conjugate_gradient.py
 
-    :param Avp_fun : callable
+    :param matrix_vector_dot_func:
         a function that right multiplies a matrix A by a vector v
-    :param b : torch.FloatTensor
+    :param b:
         the right hand term in the set of linear equations Ax = b
-    :param max_iter : int
+    :param max_iter:
         the maximum number of iterations (default is 10)
-    :param residual_tol: float
+    :param residual_tol:
         residual tolerance for early stopping of the solving (default is 1e-10)
-    :return x : torch.FloatTensor
+    :return x:
         the approximate solution to the system of equations defined by Avp_fun
         and b
     """
@@ -93,7 +98,7 @@ def cg_solver(Avp_fun: Callable[[th.Tensor], th.Tensor], b, max_iter=10, residua
     # The vector is not initialized at 0 because of the instability issues when the gradient becomes small.
     # A small random gaussian noise is used for the initialization.
     x = 1e-4 * th.randn_like(b)
-    r = b - Avp_fun(x)
+    r = b - matrix_vector_dot_func(x)
     r_dot = th.matmul(r, r)
 
     if r_dot < residual_tol:
@@ -105,7 +110,7 @@ def cg_solver(Avp_fun: Callable[[th.Tensor], th.Tensor], b, max_iter=10, residua
     p = r.clone()
 
     for i in range(max_iter):
-        Avp = Avp_fun(p)
+        Avp = matrix_vector_dot_func(p)
 
         alpha = r_dot / p.dot(Avp)
         x += alpha * p
@@ -144,6 +149,10 @@ def flat_grad(
     :return: Tensor containing the flattened gradients
     """
     grads = th.autograd.grad(
-        output, parameters, create_graph=create_graph, retain_graph=retain_graph, allow_unused=True
+        output,
+        parameters,
+        create_graph=create_graph,
+        retain_graph=retain_graph,
+        allow_unused=True,
     )
     return th.cat([grad.view(-1) for grad in grads if grad is not None])

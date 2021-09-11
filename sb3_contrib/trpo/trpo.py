@@ -1,16 +1,17 @@
 import copy
 import warnings
-from typing import Any, Dict, Optional, Type, Union
+from functools import partial
+from typing import Any, Dict, Optional, Type, Union, List
 
 import numpy as np
-import torch
 import torch as th
 from gym import spaces
+from torch import nn
 from torch.distributions import kl_divergence
 from torch.nn import functional as F
 
 from sb3_contrib.common.policies import ActorCriticPolicy
-from sb3_contrib.common.utils import flat_grad, cg_solver
+from sb3_contrib.common.utils import flat_grad, conjugate_gradient_solver
 from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import explained_variance
@@ -108,6 +109,7 @@ class TRPO(OnPolicyAlgorithm):
             max_grad_norm=max_grad_norm,
             use_sde=use_sde,
             sde_sample_freq=sde_sample_freq,
+            policy_base=ActorCriticPolicy,
             tensorboard_log=tensorboard_log,
             policy_kwargs=policy_kwargs,
             verbose=verbose,
@@ -188,19 +190,15 @@ class TRPO(OnPolicyAlgorithm):
                 if self.use_sde:
                     self.policy.reset_noise(self.batch_size)
 
-                with torch.no_grad():
+                with th.no_grad():
                     _ = self.policy.evaluate_actions(rollout_data.observations, actions)
                     old_distribution = copy.copy(self.policy.get_distribution())
 
-                _, log_prob, _ = self.policy.evaluate_actions(
-                    rollout_data.observations, actions
-                )
+                _, log_prob, _ = self.policy.evaluate_actions(rollout_data.observations, actions)
                 distribution = self.policy.get_distribution()
 
                 advantages = rollout_data.advantages
-                advantages = (advantages - advantages.mean()) / (
-                    rollout_data.advantages.std() + 1e-8
-                )
+                advantages = (advantages - advantages.mean()) / (rollout_data.advantages.std() + 1e-8)
 
                 # ratio between old and new policy, should be one at the first iteration
                 ratio = th.exp(log_prob - rollout_data.old_log_prob)
@@ -209,21 +207,26 @@ class TRPO(OnPolicyAlgorithm):
                 policy_obj = (advantages * ratio).mean()
 
                 # KL divergence
-                kl_div = kl_divergence(
-                    distribution.distribution, old_distribution.distribution
-                ).mean()
+                kl_div = kl_divergence(distribution.distribution, old_distribution.distribution).mean()
 
                 # Surrogate & KL gradient
                 self.policy.optimizer.zero_grad()
 
                 # This is necessary because not all the parameters in the policy have gradients w.r.t. the KL divergence
-                g = []
+                policy_obj_gradient = []
+                # Contains the gradients of the KL divergence
                 grad_kl = []
+                # Contains the shape of the gradients of the KL divergence w.r.t each parameter
+                # This way the flattened gradient can be reshaped back into the original shapes and applied to
+                # the parameters
                 grad_shape = []
+                # Contains the parameters which have non-zeros KL divergence gradients
+                # The list is used during the line-search to apply the step to each parameters
                 params = []
-                value_only_params = []
+
                 for param in self.policy.parameters():
-                    kl_param_grad, *_ = torch.autograd.grad(
+                    # For each parameter we compute the gradient of the KL divergence w.r.t to that parameter
+                    kl_param_grad, *_ = th.autograd.grad(
                         kl_div,
                         param,
                         create_graph=True,
@@ -231,64 +234,75 @@ class TRPO(OnPolicyAlgorithm):
                         allow_unused=True,
                         only_inputs=True,
                     )
+                    # If the gradient is not zero (not None), we store the parameter in the params list
+                    # and add the gradient and its shape to grad_kl and grad_shape respectively
                     if kl_param_grad is not None:
-                        g_grad, *_ = torch.autograd.grad(
-                            policy_obj, param, retain_graph=True, only_inputs=True
-                        )
+                        # If the parameter impacts the KL divergence (i.e. the policy)
+                        # we compute the gradient of the policy objective w.r.t to the parameter
+                        # this avoids computing the gradient if it's not going to be used in the conjugate gradient step
+                        g_grad, *_ = th.autograd.grad(policy_obj, param, retain_graph=True, only_inputs=True)
 
                         grad_shape.append(kl_param_grad.shape)
                         grad_kl.append(kl_param_grad.view(-1))
-                        g.append(g_grad.view(-1))
+                        policy_obj_gradient.append(g_grad.view(-1))
                         params.append(param)
-                    else:
-                        value_only_params.append(param)
 
-                g = torch.cat(g)
-                grad_kl = torch.cat(grad_kl)
+                # Gradients are concatenated before the conjugate gradient step
+                policy_obj_gradient = th.cat(policy_obj_gradient)
+                grad_kl = th.cat(grad_kl)
 
-                def Hpv(v, retain_graph=True):
-                    jvp = (grad_kl * v).sum()
-                    return flat_grad(jvp, params, retain_graph=retain_graph) + self.cg_damping * v
+                # Hessian-vector dot product function used in the conjugate gradient step
+                hvp = partial(self.hessian_vector_product, params, grad_kl)
 
-                s = cg_solver(Hpv, g, max_iter=self.cg_max_steps)
+                # Computing search direction
+                search_direction = conjugate_gradient_solver(
+                    hvp,
+                    policy_obj_gradient,
+                    max_iter=self.cg_max_steps,
+                )
 
+                # Maximal step length
                 beta = 2 * self.target_kl
-                beta /= torch.matmul(s, Hpv(s, retain_graph=False))
-                beta = torch.sqrt(beta)
+                beta /= th.matmul(search_direction, hvp(search_direction, retain_graph=False))
+                beta = th.sqrt(beta)
 
                 alpha = 1
                 orig_params = [param.detach().clone() for param in params]
 
-                line_search_success = False
-                with torch.no_grad():
-                    for i in range(self.ls_steps):
+                is_line_search_success = False
+                with th.no_grad():
+                    # Line-search
+                    for _ in range(self.ls_steps):
 
                         j = 0
+                        # Applying the scaled step direction
                         for param, orig_param, shape in zip(params, orig_params, grad_shape):
                             k = param.numel()
-                            param.data = orig_param.data + alpha * beta * s[j : (j + k)].view(shape)
+                            param.data = orig_param.data + alpha * beta * search_direction[j : (j + k)].view(shape)
                             j += k
 
-                        _, log_prob, _ = self.policy.evaluate_actions(
-                            rollout_data.observations, actions
-                        )
+                        # Recomputing the policy log-probabilities
+                        _, log_prob, _ = self.policy.evaluate_actions(rollout_data.observations, actions)
 
+                        # New policy objective
                         ratio = th.exp(log_prob - rollout_data.old_log_prob)
                         new_policy_obj = (advantages * ratio).mean()
 
-                        kl_div = kl_divergence(
-                            distribution.distribution, old_distribution.distribution
-                        ).mean()
+                        # New KL-divergence
+                        kl_div = kl_divergence(distribution.distribution, old_distribution.distribution).mean()
 
+                        # Constraint criteria
                         if (kl_div < self.target_kl) and (new_policy_obj > policy_obj):
-                            line_search_success = True
+                            is_line_search_success = True
                             break
 
+                        # Reducing step size if line-search wasn't successful
                         alpha *= self.ls_alpha
 
-                    line_search_results.append(line_search_success)
+                    line_search_results.append(is_line_search_success)
 
-                    if not line_search_success:
+                    if not is_line_search_success:
+                        # If the line-search wasn't successful we revert to the original parameters
                         for param, orig_param in zip(params, orig_params):
                             param.data = orig_param.data.clone()
 
@@ -298,10 +312,9 @@ class TRPO(OnPolicyAlgorithm):
                         po_values.append(new_policy_obj.item())
                         kl_divergences.append(kl_div.item())
 
+                # Critic updates
                 for _ in range(self.n_critic_updates):
-                    values, _, _ = self.policy.evaluate_actions(
-                        rollout_data.observations, actions
-                    )
+                    values, _, _ = self.policy.evaluate_actions(rollout_data.observations, actions)
                     values_pred = values.flatten()
                     value_loss = F.mse_loss(rollout_data.returns, values_pred)
                     value_losses.append(value_loss.item())
@@ -320,20 +333,32 @@ class TRPO(OnPolicyAlgorithm):
                 break
 
         self._n_updates += self.n_epochs
-        explained_var = explained_variance(
-            self.rollout_buffer.values.flatten(), self.rollout_buffer.returns.flatten()
-        )
+        explained_var = explained_variance(self.rollout_buffer.values.flatten(), self.rollout_buffer.returns.flatten())
 
         # Logs
         self.logger.record("train/policy_objective_value", np.mean(po_values))
         self.logger.record("train/value_loss", np.mean(value_losses))
         self.logger.record("train/kl_divergence_loss", np.mean(kl_divergences))
         self.logger.record("train/explained_variance", explained_var)
-        self.logger.record("train/line_search_success", np.mean(line_search_results))
+        self.logger.record("train/is_line_search_success", np.mean(line_search_results))
         if hasattr(self.policy, "log_std"):
             self.logger.record("train/std", th.exp(self.policy.log_std).mean().item())
 
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
+
+    def hessian_vector_product(
+        self, params: List[nn.Parameter], grad_kl: th.Tensor, v: th.Tensor, retain_graph: bool = True
+    ) -> th.Tensor:
+        """
+        Computes the matrix-vector product with the Fisher information matrix
+        :param params: list of parameters used to compute the Hessian
+        :param grad_kl: flattened gradient of the KL divergence between the old and new policy
+        :param v: vector to compute the dot product the hessian-vector dot product with
+        :param retain_graph: if True, the graph will be kept after computing the Hessian
+        :return: Hessian-vector dot product
+        """
+        jvp = (grad_kl * v).sum()
+        return flat_grad(jvp, params, retain_graph=retain_graph) + self.cg_damping * v
 
     def learn(
         self,
