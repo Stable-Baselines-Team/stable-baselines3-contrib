@@ -165,6 +165,8 @@ class TRPO(OnPolicyAlgorithm):
         """
         Update policy using the currently gathered rollout buffer.
         """
+        # Switch to train mode (this affects batch norm / dropout)
+        self.policy.set_training_mode(True)
         # Update optimizer learning rate
         self._update_learning_rate(self.policy.optimizer)
 
