@@ -12,6 +12,10 @@ Breaking Changes:
 ^^^^^^^^^^^^^^^^^
 - Upgraded to Stable-Baselines3 >= 1.2.1a0
 
+New Features:
+^^^^^^^^^^^^^
+- Added ``TRPO`` (@cyprienc)
+
 Bug Fixes:
 ^^^^^^^^^^
 
@@ -35,10 +39,6 @@ Breaking Changes:
 ^^^^^^^^^^^^^^^^^
 - Upgraded to Stable-Baselines3 >= 1.2.0
 
-
-New Features:
-^^^^^^^^^^^^^
-- Added ``TRPO`` (@cyprienc)
 
 Bug Fixes:
 ^^^^^^^^^^
