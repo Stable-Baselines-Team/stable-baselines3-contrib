@@ -1,20 +1,20 @@
 import copy
 import warnings
 from functools import partial
-from typing import Any, Dict, Optional, Type, Union, List
+from typing import Any, Dict, List, Optional, Type, Union
 
 import numpy as np
 import torch as th
 from gym import spaces
-from torch import nn
-from torch.distributions import kl_divergence
-from torch.nn import functional as F
-
-from sb3_contrib.common.utils import flat_grad, conjugate_gradient_solver
 from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
 from stable_baselines3.common.policies import ActorCriticPolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import explained_variance
+from torch import nn
+from torch.distributions import kl_divergence
+from torch.nn import functional as F
+
+from sb3_contrib.common.utils import conjugate_gradient_solver, flat_grad
 
 
 class TRPO(OnPolicyAlgorithm):
