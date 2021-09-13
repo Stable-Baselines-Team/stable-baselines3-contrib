@@ -1,6 +1,6 @@
 import pytest
 
-from sb3_contrib import QRDQN, TQC
+from sb3_contrib import QRDQN, TQC, TRPO
 
 
 @pytest.mark.parametrize("ent_coef", ["auto", 0.01, "auto_0.01"])
@@ -56,3 +56,9 @@ def test_qrdqn():
         create_eval_env=True,
     )
     model.learn(total_timesteps=500, eval_freq=250)
+
+
+@pytest.mark.parametrize("env_id", ["CartPole-v1", "Pendulum-v0"])
+def test_trpo(env_id):
+    model = TRPO("MlpPolicy", env_id, n_steps=64, seed=0, policy_kwargs=dict(net_arch=[16]), verbose=1)
+    model.learn(total_timesteps=500)
