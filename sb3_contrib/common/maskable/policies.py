@@ -1,4 +1,3 @@
-import copy
 from functools import partial
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
@@ -6,7 +5,6 @@ import gym
 import numpy as np
 import torch as th
 from stable_baselines3.common.policies import BasePolicy
-from stable_baselines3.common.preprocessing import is_image_space, maybe_transpose
 from stable_baselines3.common.torch_layers import (
     BaseFeaturesExtractor,
     CombinedExtractor,
@@ -15,7 +13,6 @@ from stable_baselines3.common.torch_layers import (
     NatureCNN,
 )
 from stable_baselines3.common.type_aliases import Schedule
-from stable_baselines3.common.utils import is_vectorized_observation, obs_as_tensor
 from torch import nn
 
 from sb3_contrib.common.distributions import MaskableDistribution, make_masked_proba_distribution
@@ -253,36 +250,10 @@ class MaskableActorCriticPolicy(BasePolicy):
         # if mask is None:
         #     mask = [False for _ in range(self.n_envs)]
 
-        vectorized_env = False
+        # Switch to eval mode (this affects batch norm / dropout)
+        self.set_training_mode(False)
 
-        if isinstance(observation, dict):
-            # need to copy the dict as the dict in VecFrameStack will become a torch tensor
-            observation = copy.deepcopy(observation)
-            for key, obs in observation.items():
-                obs_space = self.observation_space.spaces[key]
-                if is_image_space(obs_space):
-                    obs_ = maybe_transpose(obs, obs_space)
-                else:
-                    obs_ = np.array(obs)
-                vectorized_env = vectorized_env or is_vectorized_observation(obs_, obs_space)
-                # Add batch dimension if needed
-                observation[key] = obs_.reshape((-1,) + self.observation_space[key].shape)
-
-        elif is_image_space(self.observation_space):
-            # Handle the different cases for images
-            # as PyTorch use channel first format
-            observation = maybe_transpose(observation, self.observation_space)
-
-        else:
-            observation = np.array(observation)
-
-        if not isinstance(observation, dict):
-            # Dict obs need to be handled separately
-            vectorized_env = is_vectorized_observation(observation, self.observation_space)
-            # Add batch dimension if needed
-            observation = observation.reshape((-1,) + self.observation_space.shape)
-
-        observation = obs_as_tensor(observation, self.device)
+        observation, vectorized_env = self.obs_to_tensor(observation)
 
         with th.no_grad():
             actions = self._predict(observation, deterministic=deterministic, action_masks=action_masks)
