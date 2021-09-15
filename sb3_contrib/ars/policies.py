@@ -4,8 +4,9 @@ import torch as th
 from torch import nn
 
 from stable_baselines3.common.policies import BasePolicy, register_policy
-from stable_baselines3.common.torch_layers import BaseFeaturesExtractor, FlattenExtractor, create_mlp
+from stable_baselines3.common.torch_layers import create_mlp
 from stable_baselines3.common.preprocessing import get_action_dim
+
 
 class ARSPolicy(BasePolicy):
     """
@@ -14,17 +15,14 @@ class ARSPolicy(BasePolicy):
     :param observation_space: The observation space of the environment
     :param action_space: The action space of the environment
     :param net_arch: Network architecture, defaults to a linear policy with bias
-    :param features_extractor_class: Feature extractor to use, defaults to a FlattenExtractor
-    :param features_extractor_kwargs: Keyword arguments for the feature extractor
     """
 
-    def __init__(self,
-                 observation_space : gym.spaces.Space,
-                 action_space : gym.spaces.Space,
-                 net_arch: Optional[List[int]] = None,
-                 features_extractor_class: Type[BaseFeaturesExtractor] = FlattenExtractor,
-                 features_extractor_kwargs: Optional[Dict[str, Any]] = None,
-                 ):
+    def __init__(
+        self,
+        observation_space : gym.spaces.Space,
+        action_space : gym.spaces.Space,
+        net_arch: Optional[List[int]] = None,
+    ):
 
         super().__init__(
             observation_space,
@@ -33,7 +31,7 @@ class ARSPolicy(BasePolicy):
         )
 
         if net_arch is None:
-            net_arch = []
+            net_arch = [64, 64]
 
         self.net_arch = net_arch
         self.features_extractor = self.make_features_extractor()
@@ -48,8 +46,12 @@ class ARSPolicy(BasePolicy):
         self.action_net = nn.Sequential(*actor_net)
 
     def _get_constructor_parameters(self) -> Dict[str, Any]:
-        data = super()._get_constructor_parameters()
-        data.update(dict(net_arch=self.net_arch))
+        #data = super()._get_constructor_parameters() this adds normalize_images, which we don't support...
+        data = dict(
+            observation_space=self.observation_space,
+            action_space=self.action_space,
+            net_arch=self.net_arch
+        )
         return data
 
     def forward(self, obs: th.Tensor) -> th.Tensor:
@@ -64,14 +66,20 @@ class ARSPolicy(BasePolicy):
         return self.forward(observation)
 
 
-LinearPolicy = ARSPolicy
+class ARSLinearPolicy(ARSPolicy):
+    def __init__(
+        self,
+        observation_space: gym.spaces.Space,
+        action_space: gym.spaces.Space,
+    ):
+
+        net_arch = []
+        super().__init__(observation_space, action_space, net_arch)
+
+
+MlpPolicy = ARSPolicy
+LinearPolicy = ARSLinearPolicy
+
 
 register_policy("LinearPolicy", LinearPolicy)
-
-# Smoke test
-# if __name__ == "__main__":
-#     import pybullet_envs
-#     env = gym.make("HalfCheetahBulletEnv-v0")
-#     pol = ARSPolicy(env.observation_space, env.action_space)
-#
-#     print(pol.predict(env.reset()))
+register_policy("MlpPolicy", MlpPolicy)

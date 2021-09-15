@@ -12,9 +12,9 @@ from stable_baselines3.common.envs import FakeImageEnv, IdentityEnv, IdentityEnv
 from stable_baselines3.common.utils import get_device
 from stable_baselines3.common.vec_env import DummyVecEnv
 
-from sb3_contrib import QRDQN, TQC
+from sb3_contrib import QRDQN, TQC, ARS
 
-MODEL_LIST = [TQC, QRDQN]
+MODEL_LIST = [TQC, QRDQN, ARS]
 
 
 def select_env(model_class: BaseAlgorithm) -> gym.Env:

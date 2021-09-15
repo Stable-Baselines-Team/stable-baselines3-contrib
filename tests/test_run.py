@@ -1,6 +1,6 @@
 import pytest
 
-from sb3_contrib import QRDQN, TQC
+from sb3_contrib import QRDQN, TQC, ARS
 
 
 @pytest.mark.parametrize("ent_coef", ["auto", 0.01, "auto_0.01"])
@@ -56,3 +56,34 @@ def test_qrdqn():
         create_eval_env=True,
     )
     model.learn(total_timesteps=500, eval_freq=250)
+
+
+@pytest.mark.parametrize("n_delta", [5,8])
+def test_ars_n_delta(n_delta):
+    from stable_baselines3.common.env_util import make_vec_env
+    from stable_baselines3.common.vec_env import SubprocVecEnv
+
+    env = make_vec_env("Pendulum-v0", 4, vec_env_cls=SubprocVecEnv)
+
+    model = ARS(
+        "MlpPolicy",
+        env,
+        n_delta = n_delta
+    )
+
+    model.learn(total_timesteps=500)
+
+
+@pytest.mark.parametrize("n_top", [2, 8])
+def test_ars_n_top(n_top):
+    from stable_baselines3.common.env_util import make_vec_env
+    from stable_baselines3.common.vec_env import SubprocVecEnv
+    env = make_vec_env("Pendulum-v0", 4, vec_env_cls=SubprocVecEnv)
+    model = ARS(
+        "MlpPolicy",
+        env,
+        n_delta = 3,
+        n_top = 4
+    )
+
+    model.learn(total_timesteps=500)
