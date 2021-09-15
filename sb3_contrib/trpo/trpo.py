@@ -42,11 +42,9 @@ class TRPO(OnPolicyAlgorithm):
         for computing the Hessian vector product
     :param cg_damping: damping in the Hessian vector product computation
     :param ls_alpha: step-size reduction factor for the line-search (i.e. theta_new = theta + alpha^i * step)
-    :param ls_steps: maximum number of steps in the line-search
+    :param line_search_max_steps: maximum number of steps in the line-search
     :param n_critic_updates: number of critic updates per policy updates
     :param gae_lambda: Factor for trade-off of bias vs variance for Generalized Advantage Estimator
-    :param ent_coef: Entropy coefficient for the loss calculation
-    :param vf_coef: Value function coefficient for the loss calculation
     :param max_grad_norm: The maximum value for the gradient clipping
     :param use_sde: Whether to use generalized State Dependent Exploration (gSDE)
         instead of action noise exploration (default: False)
@@ -79,11 +77,9 @@ class TRPO(OnPolicyAlgorithm):
         cg_max_steps: int = 10,
         cg_damping: float = 1e-3,
         ls_alpha: float = 0.8,
-        ls_steps: int = 10,
+        line_search_max_steps: int = 10,
         n_critic_updates: int = 5,
         gae_lambda: float = 0.95,
-        ent_coef: float = 0.0,
-        vf_coef: float = 0.5,
         max_grad_norm: float = 0.5,
         use_sde: bool = False,
         sde_sample_freq: int = -1,
@@ -104,8 +100,8 @@ class TRPO(OnPolicyAlgorithm):
             n_steps=n_steps,
             gamma=gamma,
             gae_lambda=gae_lambda,
-            ent_coef=ent_coef,
-            vf_coef=vf_coef,
+            ent_coef=0.0,
+            vf_coef=0.0,
             max_grad_norm=max_grad_norm,
             use_sde=use_sde,
             sde_sample_freq=sde_sample_freq,
@@ -154,7 +150,7 @@ class TRPO(OnPolicyAlgorithm):
         self.cg_max_steps = cg_max_steps
         self.cg_damping = cg_damping
         self.ls_alpha = ls_alpha
-        self.ls_steps = ls_steps
+        self.line_search_max_steps = line_search_max_steps
         self.target_kl = target_kl
         self.n_critic_updates = n_critic_updates
 
@@ -273,7 +269,7 @@ class TRPO(OnPolicyAlgorithm):
                 is_line_search_success = False
                 with th.no_grad():
                     # Line-search
-                    for _ in range(self.ls_steps):
+                    for _ in range(self.line_search_max_steps):
 
                         j = 0
                         # Applying the scaled step direction

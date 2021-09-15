@@ -80,7 +80,12 @@ def conjugate_gradient_solver(
     """
     Finds an approximate solution to a set of linear equations Ax = b
 
-    Source: https://github.com/ajlangley/trpo-pytorch/blob/master/conjugate_gradient.py
+    Sources:
+     - https://github.com/ajlangley/trpo-pytorch/blob/master/conjugate_gradient.py
+     - https://github.com/joschu/modular_rl/blob/master/modular_rl/trpo.py#L122
+
+    Reference:
+     - https://epubs.siam.org/doi/abs/10.1137/1.9781611971446.ch6
 
     :param matrix_vector_dot_func:
         a function that right multiplies a matrix A by a vector v
@@ -98,8 +103,8 @@ def conjugate_gradient_solver(
     # The vector is not initialized at 0 because of the instability issues when the gradient becomes small.
     # A small random gaussian noise is used for the initialization.
     x = 1e-4 * th.randn_like(b)
-    r = b - matrix_vector_dot_func(x)
-    r_dot = th.matmul(r, r)
+    residual = b - matrix_vector_dot_func(x)
+    r_dot = th.matmul(residual, residual)
 
     if r_dot < residual_tol:
         # If the gradient becomes extremely small
@@ -107,7 +112,7 @@ def conjugate_gradient_solver(
         # Leading to a division by zero
         return x
 
-    p = r.clone()
+    p = residual.clone()
 
     for i in range(max_iter):
         Avp = matrix_vector_dot_func(p)
@@ -118,15 +123,15 @@ def conjugate_gradient_solver(
         if i == max_iter - 1:
             return x
 
-        r -= alpha * Avp
-        new_r_dot = th.matmul(r, r)
+        residual -= alpha * Avp
+        new_r_dot = th.matmul(residual, residual)
 
         if new_r_dot < residual_tol:
             return x
 
         beta = new_r_dot / r_dot
         r_dot = new_r_dot
-        p = r + beta * p
+        p = residual + beta * p
 
 
 # TODO: test
