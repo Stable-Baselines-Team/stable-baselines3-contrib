@@ -2,10 +2,11 @@
 
 .. automodule:: sb3_contrib.ppo_mask
 
-PPO MASK
-========
+Maskable PPO 
+============
 
-Implementation of `invalid action masking <https://arxiv.org/abs/2006.14171>`_ for the Proximal Policy Optimization (PPO) algorithm. Other than adding support for action masking, the behavior is the same as in SB3's core PPO algorithm.
+Implementation of `invalid action masking <https://arxiv.org/abs/2006.14171>`_ for the Proximal Policy Optimization(PPO)
+algorithm. Other than adding support for action masking, the behavior is the same as in SB3's core PPO algorithm.
 
 
 .. rubric:: Available Policies
@@ -26,7 +27,6 @@ Notes
 - Additional Blog post: https://boring-guy.sh/posts/masking-rl/
 
 
-
 Can I use?
 ----------
 
@@ -42,7 +42,7 @@ Discrete      ✔️      ✔️
 Box           ❌      ✔️
 MultiDiscrete ✔️      ✔️
 MultiBinary   ✔️      ✔️
-Dict          ❌     ✔️
+Dict          ❌      ✔️
 ============= ====== ===========
 
 
@@ -116,16 +116,111 @@ to specify the name (see `PR #25 <https://github.com/Stable-Baselines-Team/stabl
   model.predict(observation, action_masks=valid_action_array)
 
 
-
 Results
 -------
 
-TODO
+Results are shown for two MicroRTS benchmarks: MicrortsMining4x4F9-v0 (600K steps) and MicrortsMining10x10F9-v0
+(1.5M steps). For each, models were trained with and without masking, using 3 seeds.
+
+4x4
+^^^
+
+No masking
+""""""""""
+
+.. image:: /images/4x4_no_mask.png
+
+With masking
+""""""""""""
+
+.. image:: /images/4x4_mask.png
+
+Combined
+""""""""
+
+.. image:: /images/4x4_combined.png
+
+10x10
+^^^^^
+
+No masking
+""""""""""
+
+.. image:: /images/10x10_no_mask.png
+
+With masking
+""""""""""""
+
+""""""""
+
+.. image:: /images/10x10_mask.png
+
+Combined
+""""""""
+
+.. image:: /images/10x10_combined.png
+
+More information may be found in the
+`associated PR <https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/pull/25>`_.
 
 How to replicate the results?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-TODO
+Clone the repo for the experiment:
+
+.. code-block:: bash
+
+   git clone git@github.com:kronion/microrts-ppo-comparison.git
+   cd microrts-ppo-comparison
+
+Install dependencies:
+
+.. code-block:: bash
+
+   # Install MicroRTS:
+   rm -fR ~/microrts && mkdir ~/microrts && \
+    wget -O ~/microrts/microrts.zip http://microrts.s3.amazonaws.com/microrts/artifacts/202004222224.microrts.zip && \
+    unzip ~/microrts/microrts.zip -d ~/microrts/
+
+   # You may want to make a venv before installing packages
+   pip install -r requirements.txt
+
+Train several times with various seeds, with and without masking:
+
+.. code-block:: bash
+
+   # python sb/train_ppo.py [output dir] [MicroRTS map size] [--mask] [--seed int]
+
+   # 4x4 unmasked
+   python sb3/train_ppo.py zoo 4 --seed 42
+   python sb3/train_ppo.py zoo 4 --seed 43
+   python sb3/train_ppo.py zoo 4 --seed 44
+
+   # 4x4 masked
+   python sb3/train_ppo.py zoo 4 --mask --seed 42
+   python sb3/train_ppo.py zoo 4 --mask --seed 43
+   python sb3/train_ppo.py zoo 4 --mask --seed 44
+
+   # 10x10 unmasked
+   python sb3/train_ppo.py zoo 10 --seed 42
+   python sb3/train_ppo.py zoo 10 --seed 43
+   python sb3/train_ppo.py zoo 10 --seed 44
+
+   # 10x10 masked
+   python sb3/train_ppo.py zoo 10 --mask --seed 42
+   python sb3/train_ppo.py zoo 10 --mask --seed 43
+   python sb3/train_ppo.py zoo 10 --mask --seed 44
+
+View the tensorboard log output:
+
+.. code-block:: bash
+
+   # For 4x4 environment
+    tensorboard --logdir zoo/4x4/runs
+
+    # For 10x10 environment
+    tensorboard --logdir zoo/10x10/runs
+
 
 Parameters
 ----------
