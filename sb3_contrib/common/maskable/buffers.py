@@ -42,7 +42,8 @@ class MaskableRolloutBuffer(RolloutBuffer):
             action_space_size = sum(self.action_space.nvec)
         # TODO handle multibinary
 
-        self.action_masks = np.ones((self.buffer_size, self.n_envs, action_space_size), dtype=np.float32)
+        self.mask_dims = action_space_size
+        self.action_masks = np.ones((self.buffer_size, self.n_envs, self.mask_dims), dtype=np.float32)
 
         super().reset()
 
@@ -51,7 +52,7 @@ class MaskableRolloutBuffer(RolloutBuffer):
         :param action_masks: Masks applied to constrain the choice of possible actions.
         """
         if action_masks is not None:
-            self.action_masks[self.pos] = action_masks.flatten()
+            self.action_masks[self.pos] = action_masks.reshape((self.n_envs, self.mask_dims))
 
         super().add(*args, **kwargs)
 
@@ -89,6 +90,6 @@ class MaskableRolloutBuffer(RolloutBuffer):
             self.log_probs[batch_inds].flatten(),
             self.advantages[batch_inds].flatten(),
             self.returns[batch_inds].flatten(),
-            self.action_masks[batch_inds].flatten(),
+            self.action_masks[batch_inds].reshape(-1, self.mask_dims),
         )
         return MaskableRolloutBufferSamples(*map(self.to_torch, data))
