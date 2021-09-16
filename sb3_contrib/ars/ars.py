@@ -14,7 +14,6 @@ from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedul
 from stable_baselines3.common.utils import get_schedule_fn, safe_mean
 
 
-
 class ARS(BaseAlgorithm):
     """
     Augmented Random Search: https://arxiv.org/abs/1803.07055
@@ -179,6 +178,19 @@ class ARS(BaseAlgorithm):
 
         return
 
+    def _log_and_dump(self):
+        fps = int(self.num_timesteps / (time.time() - self.start_time))
+        self.logger.record("time/iterations", self._n_updates, exclude="tensorboard")
+        if len(self.ep_info_buffer) > 0 and len(self.ep_info_buffer[0]) > 0:
+            self.logger.record("rollout/ep_rew_mean",
+                               safe_mean([ep_info["r"] for ep_info in self.ep_info_buffer]))
+            self.logger.record("rollout/ep_len_mean",
+                               safe_mean([ep_info["l"] for ep_info in self.ep_info_buffer]))
+        self.logger.record("time/fps", fps)
+        self.logger.record("time/time_elapsed", int(time.time() - self.start_time), exclude="tensorboard")
+        self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
+        self.logger.dump(step=self.num_timesteps)
+
     def learn(
             self,
             total_timesteps: int,
@@ -229,17 +241,7 @@ class ARS(BaseAlgorithm):
             self._n_updates += 1
             self.num_timesteps += batch_steps
             if log_interval is not None and self._n_updates % log_interval == 0:
-                fps = int(self.num_timesteps / (time.time() - self.start_time))
-                self.logger.record("time/iterations", self._n_updates, exclude="tensorboard")
-                if len(self.ep_info_buffer) > 0 and len(self.ep_info_buffer[0]) > 0:
-                    self.logger.record("rollout/ep_rew_mean",
-                                       safe_mean([ep_info["r"] for ep_info in self.ep_info_buffer]))
-                    self.logger.record("rollout/ep_len_mean",
-                                       safe_mean([ep_info["l"] for ep_info in self.ep_info_buffer]))
-                self.logger.record("time/fps", fps)
-                self.logger.record("time/time_elapsed", int(time.time() - self.start_time), exclude="tensorboard")
-                self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
-                self.logger.dump(step=self.num_timesteps)
+                self._log_and_dump()
 
         theta_tensor = th.tensor(self.theta, requires_grad=False, dtype=self.dtype, device=self.device)
         torch.nn.utils.vector_to_parameters(theta_tensor, self.policy.parameters())
@@ -253,16 +255,32 @@ if __name__ == "__main__":
 
     from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
     from stable_baselines3.common.env_util import make_vec_env
+
     env_name = "Swimmer-v2"
 
-    venv = make_vec_env(env_name, 24, vec_env_cls=SubprocVecEnv)
+    venv = make_vec_env(env_name, 16, vec_env_cls=SubprocVecEnv)
     venv = VecNormalize(venv, norm_reward=False)
 
     model = ARS("LinearPolicy", venv, verbose=1, n_delta=32, alpha=0.02, sigma=0.03)
 
     model.learn(5e6, log_interval=10)
     from stable_baselines3.common.evaluation import evaluate_policy
+
     evaluate_policy(model, venv)
+
+    # from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
+    # from stable_baselines3.common.env_util import make_vec_env
+    # env_name = "Swimmer-v2"
+    #
+    # venv = make_vec_env(env_name, 16, vec_env_cls=SubprocVecEnv)
+    # venv = VecNormalize(venv, norm_reward=False)
+    #
+    # model = ARS("LinearPolicy", venv, verbose=1, n_delta=32, alpha=0.02, sigma=0.03)
+    #
+    # model.learn(5e6, log_interval=10)
+    # from stable_baselines3.common.evaluation import evaluate_policy
+    # evaluate_policy(model, venv)
+
 
 
     # model.save("test.pkl")
