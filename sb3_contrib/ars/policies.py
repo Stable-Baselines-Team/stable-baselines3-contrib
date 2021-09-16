@@ -39,7 +39,7 @@ class ARSPolicy(BasePolicy):
 
         if isinstance(action_space, gym.spaces.Box):
             action_dim = get_action_dim(action_space)
-            actor_net = create_mlp(self.features_dim, action_dim, net_arch, squash_output=True)
+            actor_net = create_mlp(self.features_dim, action_dim, net_arch, squash_output=False)
         else:
             raise NotImplementedError("Error: ARS policy not implemented for action space" f"of type {type(action_space)}.")
 

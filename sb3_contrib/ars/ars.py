@@ -87,7 +87,7 @@ class ARS(BaseAlgorithm):
         self.zero_policy = zero_policy
         self.theta = None # Need to call init model to initialize theta
 
-        if _init_setup_model: # TODO ... what do I do if this is false? am i guarunteed that someone will call this before training?
+        if _init_setup_model:  # TODO ... what do I do if this is false? am i guaranteed that someone will call this before training?
             self._setup_model()
 
     def _setup_model(self) -> None:
@@ -110,37 +110,40 @@ class ARS(BaseAlgorithm):
         batch_steps = 0
         theta_idx = 0
 
+        # Generate 2*n_delta candidate policies by adding noise to the current theta
         candidate_thetas = np.concatenate([self.theta + deltas, self.theta - deltas])
-        candidate_returns = np.zeros(candidate_thetas.shape[0])
+        candidate_returns = np.zeros(candidate_thetas.shape[0]) # returns == sum of rewards
         self.ep_info_buffer = []
 
         callback.on_rollout_start()
-
         while theta_idx < candidate_returns.shape[0]:
             policies = []
+
+            # We are using a vecenv with n_envs==n_workers. We batch our candidate theta evaluations into vectors
+            # of length n_workers
             for _ in range(self.n_workers):
                 theta_tensor = th.tensor(candidate_thetas[theta_idx], requires_grad=False, dtype=self.dtype)
                 th.nn.utils.vector_to_parameters(theta_tensor, self.policy.parameters())
                 policies.append(copy.deepcopy(self.policy))
                 theta_idx += 1
 
+            # We only want one rollout per policy, but vec envs will automatically reset when a done is sent.
+            # To get around this we use vec_done_once to keep track of which environments have already finished,
+            # and we ignore rewards once we see the first done.
             vec_obs = self.env.reset()
             vec_acts = np.zeros((self.n_workers, self.action_space.shape[0]))
             vec_returns = np.zeros(self.n_workers)
             vec_done_once = np.zeros(self.n_workers, dtype=bool)  # Tracks if each env has returned done at least once
-            vec_steps_taken = np.zeros(self.n_workers)
+            vec_steps_taken = np.zeros(self.n_workers) # used to update logs
 
-            while not np.all(vec_done_once):  # Keep going until every workers has finished at least once
+            while not np.all(vec_done_once):
                 for i in range(self.n_workers):
                     vec_acts[i, :] = policies[i].predict(vec_obs[i, :])[0]
                 vec_obs, vec_rews, vec_done, vec_info = self.env.step(vec_acts)
-
                 callback.on_step()
+                vec_rews += self.alive_bonus_offset # Alive offset from the original paper, defaults to zero
 
-                #print(vec_acts)
-                vec_rews += self.alive_bonus_offset
-
-                # This feels a bit hacky, and the ep_info_buffer won't match up with the order of theta,
+                # The order of episodes in the ep_info_buffer won't match up with the order of theta, which feels gross,
                 # But we are only using ep_info for logging so I don't think that should natter
                 for i, (done_this_time, done_before) in enumerate(zip(vec_done, vec_done_once)):
                     if done_this_time and not done_before:
@@ -148,26 +151,31 @@ class ARS(BaseAlgorithm):
                         if maybe_ep_info is not None:
                             self.ep_info_buffer.append(vec_info[i]['episode'])
 
+                vec_steps_taken += np.invert(vec_done_once) # Count the step even if we received a done
                 vec_done_once = np.bitwise_or(vec_done, vec_done_once)
-                vec_returns += vec_rews*np.invert(vec_done_once)
-                vec_steps_taken += np.invert(vec_done_once)
+                vec_returns += vec_rews*np.invert(vec_done_once)  # Don't count rewards if we have reset
 
             candidate_returns[theta_idx-self.n_workers:theta_idx] = vec_returns
-            batch_steps += sum(vec_steps_taken)
+            batch_steps += sum(vec_steps_taken)  # only count steps used in the update step towards our total_steps
 
         callback.on_rollout_end()
 
         return candidate_returns, batch_steps
 
-    def validate_hypers(self):
+    # Make sure our hyper parameters are valid and auto correct them if they are not
+    def _validate_hypers(self):
         if self.n_top > self.n_delta:
             warnings.warn(f"n_top = {self.n_top} > n_delta = {self.n_top}, setting n_top = n_delta")
             self.n_top = self.n_delta
         if self.n_delta % self.n_workers:
+            new_n_delta = self.n_delta + (self.n_workers - self.n_delta % self.n_workers)
             warnings.warn(f"n_delta = {self.n_delta} should be a multiple of the number of workers = {self.n_workers}"
-                          f" automaticall bumping n_delta to {self.n_delta + (self.n_delta % self.n_workers)}")
+                          f" automatically bumping n_delta to {new_n_delta}")
 
-            self.n_delta = self.n_delta + (self.n_delta % self.n_workers)
+            print(f"n_delta = {self.n_delta} should be a multiple of the number of workers = {self.n_workers}"
+                  f" automatically bumping n_delta to {new_n_delta}")
+
+            self.n_delta = new_n_delta
 
         return
 
@@ -190,7 +198,7 @@ class ARS(BaseAlgorithm):
         )
 
         self.n_workers = self.env.num_envs # TODO can I do this somewhere earlier?? when is the env loaded ... ?
-        self.validate_hypers()
+        self._validate_hypers()
 
         callback.on_training_start(locals(), globals())
 
@@ -214,7 +222,7 @@ class ARS(BaseAlgorithm):
             plus_returns = plus_returns[top_idx]
             minus_returns = minus_returns[top_idx]
 
-            update_return_std = np.sqrt((plus_returns.var() + minus_returns.var()).mean())
+            update_return_std = np.concatenate([plus_returns, minus_returns]).std()
             step_size = alpha_this_step / (self.n_top * update_return_std + 1e-6)
             self.theta = self.theta + step_size*np.sum((plus_returns - minus_returns)*deltas[top_idx].T, axis=1)
 
@@ -242,17 +250,25 @@ class ARS(BaseAlgorithm):
 
 if __name__ == "__main__":
     # Some more args
-    model = ARS("LinearPolicy", "Pendulum-v0")
-    #model = ARS("MlpPolicy", "Pendulum-v0", alpha=0.05, sigma=0.05, policy_kwargs={"net_arch": [16, 16]})
-    for p in model.policy.parameters():
-        print(p.shape)
+
+    from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
+    from stable_baselines3.common.env_util import make_vec_env
+    env_name = "Swimmer-v2"
+
+    venv = make_vec_env(env_name, 24, vec_env_cls=SubprocVecEnv)
+    venv = VecNormalize(venv, norm_reward=False)
+
+    model = ARS("LinearPolicy", venv, verbose=1, n_delta=32, alpha=0.02, sigma=0.03)
+
+    model.learn(5e6, log_interval=10)
+    from stable_baselines3.common.evaluation import evaluate_policy
+    evaluate_policy(model, venv)
 
 
-    model.learn(2e4)
-    model.save("test.pkl")
-
-    model.load("test.pkl")
-    print(model.verbose)
+    # model.save("test.pkl")
+    #
+    # model.load("test.pkl")
+    # print(model.verbose)
 
 
 
