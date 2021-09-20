@@ -49,18 +49,18 @@ Dict          ❌      ✔️
 Example
 -------
 
-Train a PPO agent on ``InvalidActionEnv``.  ``InvalidActionEnv`` has a ``action_masks`` method that return
-the invalid action mask (``True`` if the action is valid, ``False`` otherwise).
+Train a PPO agent on ``InvalidActionEnvDiscrete``.  ``InvalidActionEnvDiscrete`` has a ``action_masks`` method that
+returns the invalid action mask (``True`` if the action is valid, ``False`` otherwise).
 
 .. code-block:: python
 
   from sb3_contrib import MaskablePPO
-  from sb3_contrib.common.envs import InvalidActionEnv
+  from sb3_contrib.common.envs import InvalidActionEnvDiscrete
   from sb3_contrib.common.maskable.evaluation import evaluate_policy
   from sb3_contrib.common.maskable.utils import get_action_masks
 
 
-  env = InvalidActionEnv(dim=80, n_invalid_actions=60)
+  env = InvalidActionEnvDiscrete(dim=80, n_invalid_actions=60)
   model = MaskablePPO("MlpPolicy", env, gamma=0.4, seed=32, verbose=1)
   model.learn(5000)
 

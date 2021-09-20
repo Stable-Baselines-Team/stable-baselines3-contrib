@@ -1,1 +1,1 @@
-from sb3_contrib.common.envs.invalid_actions_env import InvalidActionEnv
+from sb3_contrib.common.envs.invalid_actions_env import InvalidActionEnvDiscrete

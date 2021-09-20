@@ -9,7 +9,7 @@ from stable_baselines3.common.preprocessing import get_flattened_obs_dim
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 
 from sb3_contrib import QRDQN, TQC, MaskablePPO
-from sb3_contrib.common.envs import InvalidActionEnv
+from sb3_contrib.common.envs import InvalidActionEnvDiscrete
 from sb3_contrib.common.maskable.utils import get_action_masks
 
 
@@ -92,7 +92,7 @@ CLONE_HELPERS = {
 
 
 def test_ppo_mask_train_eval_mode():
-    env = InvalidActionEnv(dim=20, n_invalid_actions=10)
+    env = InvalidActionEnvDiscrete(dim=20, n_invalid_actions=10)
     model = MaskablePPO(
         "MlpPolicy",
         env,
