@@ -15,7 +15,7 @@ from stable_baselines3.common.torch_layers import (
 from stable_baselines3.common.type_aliases import Schedule
 from torch import nn
 
-from sb3_contrib.common.distributions import MaskableDistribution, make_masked_proba_distribution
+from sb3_contrib.common.maskable.distributions import MaskableDistribution, make_masked_proba_distribution
 
 
 class MaskableActorCriticPolicy(BasePolicy):

@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, Tuple
 
-import gym
 import numpy as np
 import torch as th
 from gym import spaces
@@ -117,7 +116,12 @@ class MaskableCategoricalDistribution(MaskableDistribution):
         return action_logits
 
     def proba_distribution(self, action_logits: th.Tensor) -> "MaskableCategoricalDistribution":
-        self.distribution = MaskableCategorical(logits=action_logits)
+        flat_logits = action_logits.flatten()
+        logit_dim = flat_logits.shape[0]
+        if logit_dim != self.action_dim:
+            raise ValueError(f"Expected {self.action_dim} logits, received {logit_dim}")
+
+        self.distribution = MaskableCategorical(logits=flat_logits)
         return self
 
     def log_prob(self, actions: th.Tensor) -> th.Tensor:
@@ -179,29 +183,32 @@ class MaskableMultiCategoricalDistribution(MaskableDistribution):
 
     def proba_distribution(self, action_logits: th.Tensor) -> "MaskableMultiCategoricalDistribution":
         self.distributions = [
-            MaskableCategorical(logits=split) for split in th.split(action_logits, tuple(self.action_dims), dim=1)
+            MaskableCategorical(logits=split) for split in th.split(action_logits.flatten(), tuple(self.action_dims))
         ]
         return self
 
     def log_prob(self, actions: th.Tensor) -> th.Tensor:
         assert len(self.distributions) > 0, "Must set distribution parameters"
 
+        # Restructure shape to align with logits
+        actions = actions.view(-1, sum(self.action_dims))
+
         # Extract each discrete action and compute log prob for their respective distributions
         return th.stack(
-            [dist.log_prob(action) for dist, action in zip(self.distributions, th.unbind(actions, dim=1))], dim=1
-        ).sum(dim=1)
+            [dist.log_prob(action) for dist, action in zip(self.distributions, th.unbind(actions, dim=1))],
+        ).sum(dim=0)
 
     def entropy(self) -> th.Tensor:
         assert len(self.distributions) > 0, "Must set distribution parameters"
-        return th.stack([dist.entropy() for dist in self.distributions], dim=1).sum(dim=1)
+        return th.stack([dist.entropy() for dist in self.distributions]).sum()
 
     def sample(self) -> th.Tensor:
         assert len(self.distributions) > 0, "Must set distribution parameters"
-        return th.stack([dist.sample() for dist in self.distributions], dim=1)
+        return th.stack([dist.sample() for dist in self.distributions])
 
     def mode(self) -> th.Tensor:
         assert len(self.distributions) > 0, "Must set distribution parameters"
-        return th.stack([th.argmax(dist.probs, dim=1) for dist in self.distributions], dim=1)
+        return th.stack([th.argmax(dist.probs) for dist in self.distributions])
 
     def actions_from_params(self, action_logits: th.Tensor, deterministic: bool = False) -> th.Tensor:
         # Update the proba distribution
@@ -243,7 +250,7 @@ class MaskableBernoulliDistribution(MaskableMultiCategoricalDistribution):
         super().__init__(action_dims)
 
 
-def make_masked_proba_distribution(action_space: gym.spaces.Space) -> MaskableDistribution:
+def make_masked_proba_distribution(action_space: spaces.Space) -> MaskableDistribution:
     """
     Return an instance of Distribution for the correct type of action space
 

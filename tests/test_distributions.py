@@ -1,8 +1,12 @@
 import numpy as np
 import pytest
 import torch as th
-
-from sb3_contrib.common.distributions import MaskableBernoulliDistribution, MaskableCategorical
+from sb3_contrib.common.maskable.distributions import (
+    MaskableBernoulliDistribution,
+    MaskableCategorical,
+    MaskableCategoricalDistribution,
+    MaskableMultiCategoricalDistribution,
+)
 
 
 class TestMaskableCategorical:
@@ -56,42 +60,147 @@ class TestMaskableCategorical:
         distribution.apply_masking(None)
         assert th.allclose(distribution.probs, target_distribution.probs)
 
+    def test_masking_affects_entropy(self):
+        # All outcomes equally likely
+        NUM_DIMS = 3
+        logits = th.Tensor([[0] * NUM_DIMS])
+        dist = MaskableCategorical(logits=logits)
+
+        # For each possible number of valid actions v, show that e^entropy == v
+        for v in range(1, NUM_DIMS + 1):
+            masks = [j < v for j in range(NUM_DIMS)]
+            dist.apply_masking(masks)
+            assert int(th.exp(dist.entropy())) == v
+
+
+class TestMaskableCategoricalDistribution:
+    def test_distribution_must_be_initialized(self):
+        """
+        Cannot use distribution before it has logits
+        """
+
+        dist = MaskableCategoricalDistribution(1)
+        with pytest.raises(AssertionError):
+            dist.log_prob(th.randn(1))
+
+        with pytest.raises(AssertionError):
+            dist.entropy()
+
+        with pytest.raises(AssertionError):
+            dist.sample()
+
+        with pytest.raises(AssertionError):
+            dist.mode()
+
+        with pytest.raises(AssertionError):
+            dist.apply_masking(None)
+
+    def test_logits_must_align_with_dims(self):
+        NUM_DIMS = 3
+        dist = MaskableCategoricalDistribution(NUM_DIMS)
+
+        # There should be one logit per dim, we're one short
+        logits = th.randn(1, NUM_DIMS - 1)
+        with pytest.raises(ValueError):
+            dist.proba_distribution(logits)
+
+        # That's better
+        logits = th.randn(1, NUM_DIMS)
+        dist.proba_distribution(logits)
+
+        # Other numbers of dimensions are acceptable as long as they can be realigned
+        logits = th.randn(NUM_DIMS)
+        dist.proba_distribution(logits)
+        logits = th.randn(1, NUM_DIMS, 1)
+        dist.proba_distribution(logits)
+
+    def test_dim_masking(self):
+        NUM_DIMS = 2
+        dist = MaskableCategoricalDistribution(NUM_DIMS)
+
+        logits = th.Tensor([[0] * NUM_DIMS])
+        dist.proba_distribution(logits)
+
+        assert (dist.distribution.probs == 0.5).all()
+        assert int(th.exp(dist.entropy())) == NUM_DIMS
+
+        for i in range(NUM_DIMS):
+            mask = np.array([False] * NUM_DIMS)
+            mask[i] = True
+            dist.apply_masking(mask)
+            probs = dist.distribution.probs
+            assert probs.sum() == 1
+            assert probs[i] == 1
+            assert int(th.exp(dist.entropy())) == 1
+
+        dist.apply_masking(None)
+        assert (dist.distribution.probs == 0.5).all()
+        assert int(th.exp(dist.entropy())) == NUM_DIMS
+
 
 class TestMaskableBernoulliDistribution:
+    def test_distribution_must_be_initialized(self):
+        """
+        Cannot use distribution before it has logits
+        """
+
+        dist = MaskableBernoulliDistribution(1)
+
+        with pytest.raises(AssertionError):
+            dist.log_prob(th.randn(1))
+
+        with pytest.raises(AssertionError):
+            dist.entropy()
+
+        with pytest.raises(AssertionError):
+            dist.sample()
+
+        with pytest.raises(AssertionError):
+            dist.mode()
+
+        with pytest.raises(AssertionError):
+            dist.apply_masking(None)
+
     def test_logits_must_align_with_dims(self):
         NUM_DIMS = 3
         dist = MaskableBernoulliDistribution(NUM_DIMS)
 
         # There should be two logits per dim, we're one short
-        logits = th.randn(1, 5)
+        logits = th.randn(1, 2 * NUM_DIMS - 1)
         with pytest.raises(RuntimeError):
             dist.proba_distribution(logits)
 
         # That's better
-        logits = th.randn(1, 6)
+        logits = th.randn(1, 2 * NUM_DIMS)
         dist.proba_distribution(logits)
+
+        # Other numbers of dimensions are acceptable as long as they can be realigned
+        logits = th.randn(2 * NUM_DIMS)
+        dist.proba_distribution(logits)
+        logits = th.randn(1, 2 * NUM_DIMS, 1)
+        dist.proba_distribution(logits)
+
 
     def test_dim_masking(self):
         NUM_DIMS = 1
         dist = MaskableBernoulliDistribution(NUM_DIMS)
 
-        logits = th.Tensor([[0, 0]])
+        logits = th.Tensor([[0] * 2 * NUM_DIMS])
         dist.proba_distribution(logits)
 
         assert len(dist.distributions) == NUM_DIMS
         assert (dist.distributions[0].probs == 0.5).all()
+        assert int(th.exp(dist.entropy())) == 2 * NUM_DIMS
 
-        mask1 = np.array([True, False])
-        dist.apply_masking(mask1)
-        probs = dist.distributions[0].probs[0]
-        assert probs[0] == 1
-        assert probs[1] == 0
-
-        mask2 = np.array([False, True])
-        dist.apply_masking(mask2)
-        probs = dist.distributions[0].probs[0]
-        assert probs[0] == 0
-        assert probs[1] == 1
+        for i in range(NUM_DIMS):
+            mask = np.array([False] * 2 * NUM_DIMS)
+            mask[i] = True
+            dist.apply_masking(mask)
+            probs = dist.distributions[0].probs
+            assert probs.sum() == 1
+            assert probs[i] == 1
+            assert int(th.exp(dist.entropy())) == 1
 
         dist.apply_masking(None)
         assert (dist.distributions[0].probs == 0.5).all()
+        assert int(th.exp(dist.entropy())) == 2 * NUM_DIMS
