@@ -1,8 +1,8 @@
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional, Union
 
 import gym
 import torch as th
-from stable_baselines3.common.policies import BasePolicy, register_policy
+from stable_baselines3.common.policies import BaseModel, BasePolicy, register_policy
 from stable_baselines3.common.preprocessing import get_action_dim
 from stable_baselines3.common.torch_layers import create_mlp
 from torch import nn
@@ -44,6 +44,10 @@ class ARSPolicy(BasePolicy):
             raise NotImplementedError("Error: ARS policy not implemented for action space" f"of type {type(action_space)}.")
 
         self.action_net = nn.Sequential(*actor_net)
+
+    @classmethod  # override to set default device to cpu
+    def load(cls, path: str, device: Union[th.device, str] = "cpu") -> "BaseModel":
+        return super().load(path, device)
 
     def _get_constructor_parameters(self) -> Dict[str, Any]:
         # data = super()._get_constructor_parameters() this adds normalize_images, which we don't support...

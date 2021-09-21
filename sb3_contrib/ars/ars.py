@@ -1,4 +1,6 @@
 import copy
+import io
+import pathlib
 import time
 import warnings
 from typing import Any, Dict, Optional, Type, Union
@@ -21,17 +23,17 @@ class ARS(BaseAlgorithm):
 
     :param policy: The policy to train, can be an instance of ARSPolicy, or a string
     :param env: The environment to train on, may be a string if registred with gym
-    :param n_delta: How many random pertubations of the policy to try at each update step. For performance reasons should be a multiple of n_envs in the vec env... TODO
+    :param n_delta: How many random pertubations of the policy to try at each update step.
     :param n_top: How many of the top delta to use in each update step. Default is n_delta
     :param alpha: Float or schedule for the step size
     :param sigma: Float or schedule for the exploration noise
     :param policy_kwargs: Keyword arguments to pass to the policy on creation
-    :param policy_base: Base class to use for the policy TODO I still don't really know why this is here
+    :param policy_base: Base class to use for the policy
     :param tensorboard_log: String with the directory to put tensorboard logs:
     :param seed: Random seed for the training
     :param verbose: Verbosity level: 0 no output, 1 info, 2 debug
     :param device: Torch device to use for training, defaults to "cpu"
-    :param _init_setup_model: Whether or not to build the network at the creation of the instance TODO will this always be called?
+    :param _init_setup_model: Whether or not to build the network at the creation of the instance
     :param alive_bonus_offset: Constant added to the reward at each step, a value of -1 is used in the original paper
     """
 
@@ -91,6 +93,17 @@ class ARS(BaseAlgorithm):
             _init_setup_model
         ):  # TODO ... what do I do if this is false? am i guaranteed that someone will call this before training?
             self._setup_model()
+
+    @classmethod  # Override just to change the default device argument to "cpu"
+    def load(
+        cls,
+        path: Union[str, pathlib.Path, io.BufferedIOBase],
+        env: Optional[GymEnv] = None,
+        device: Union[th.device, str] = "cpu",
+        custom_objects: Optional[Dict[str, Any]] = None,
+        **kwargs,
+    ) -> "BaseAlgorithm":
+        return super().load(path, env, device, custom_objects, **kwargs)
 
     def _setup_model(self) -> None:
         self.set_random_seed(self.seed)
@@ -261,59 +274,3 @@ class ARS(BaseAlgorithm):
         callback.on_training_end()
 
         return self
-
-
-if __name__ == "__main__":
-    # Some more args
-
-    from stable_baselines3.common.env_util import make_vec_env
-    from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecNormalize
-
-    env_name = "Swimmer-v2"
-
-    venv = make_vec_env(env_name, 16, vec_env_cls=SubprocVecEnv)
-    venv = VecNormalize(venv, norm_reward=False)
-
-    model = ARS("LinearPolicy", venv, verbose=2, n_delta=32, alpha=0.02, sigma=0.03)
-
-    model.learn(5e6, log_interval=1)
-    from stable_baselines3.common.evaluation import evaluate_policy
-
-    evaluate_policy(model, venv)
-
-    # from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
-    # from stable_baselines3.common.env_util import make_vec_env
-    # env_name = "Swimmer-v2"
-    #
-    # venv = make_vec_env(env_name, 16, vec_env_cls=SubprocVecEnv)
-    # venv = VecNormalize(venv, norm_reward=False)
-    #
-    # model = ARS("LinearPolicy", venv, verbose=1, n_delta=32, alpha=0.02, sigma=0.03)
-    #
-    # model.learn(5e6, log_interval=10)
-    # from stable_baselines3.common.evaluation import evaluate_policy
-    # evaluate_policy(model, venv)
-
-    # model.save("test.pkl")
-    #
-    # model.load("test.pkl")
-    # print(model.verbose)
-
-    # Basic example
-    # from sb3_contrib import ARS
-    #
-    # model = ARS("LinearPolicy", "Pendulum-v0", verbose=1)
-    # model.learn(total_timesteps=10000, log_interval=4)
-    # model.save("ars_pendulum")
-
-    # Vec Env
-    # env_name = "Hopper-v2"
-    # from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
-    # from stable_baselines3.common.env_util import make_vec_env
-    #
-    # venv = make_vec_env(env_name, 4, vec_env_cls=SubprocVecEnv)
-    # venv = VecNormalize(venv, norm_reward=False)
-    #
-    # agent = ARS("LinearPolicy", venv, alpha=0.05, sigma=0.05, n_delta=8, n_top=4, alive_bonus_offset=-1, verbose=1)
-    #
-    # agent.learn(2e6, log_interval=10)
