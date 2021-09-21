@@ -116,12 +116,9 @@ class MaskableCategoricalDistribution(MaskableDistribution):
         return action_logits
 
     def proba_distribution(self, action_logits: th.Tensor) -> "MaskableCategoricalDistribution":
-        flat_logits = action_logits.flatten()
-        logit_dim = flat_logits.shape[0]
-        if logit_dim != self.action_dim:
-            raise ValueError(f"Expected {self.action_dim} logits, received {logit_dim}")
-
-        self.distribution = MaskableCategorical(logits=flat_logits)
+        # Restructure shape to align with logits
+        reshaped_logits = action_logits.view(-1, self.action_dim)
+        self.distribution = MaskableCategorical(logits=reshaped_logits)
         return self
 
     def log_prob(self, actions: th.Tensor) -> th.Tensor:
@@ -182,33 +179,36 @@ class MaskableMultiCategoricalDistribution(MaskableDistribution):
         return action_logits
 
     def proba_distribution(self, action_logits: th.Tensor) -> "MaskableMultiCategoricalDistribution":
+        # Restructure shape to align with logits
+        reshaped_logits = action_logits.view(-1, sum(self.action_dims))
+
         self.distributions = [
-            MaskableCategorical(logits=split) for split in th.split(action_logits.flatten(), tuple(self.action_dims))
+            MaskableCategorical(logits=split) for split in th.split(reshaped_logits, tuple(self.action_dims), dim=1)
         ]
         return self
 
     def log_prob(self, actions: th.Tensor) -> th.Tensor:
         assert len(self.distributions) > 0, "Must set distribution parameters"
 
-        # Restructure shape to align with logits
-        actions = actions.view(-1, sum(self.action_dims))
+        # Restructure shape to align with each categorical
+        actions = actions.view(-1, len(self.action_dims))
 
         # Extract each discrete action and compute log prob for their respective distributions
         return th.stack(
-            [dist.log_prob(action) for dist, action in zip(self.distributions, th.unbind(actions, dim=1))],
-        ).sum(dim=0)
+            [dist.log_prob(action) for dist, action in zip(self.distributions, th.unbind(actions, dim=1))], dim=1
+        ).sum(dim=1)
 
     def entropy(self) -> th.Tensor:
         assert len(self.distributions) > 0, "Must set distribution parameters"
-        return th.stack([dist.entropy() for dist in self.distributions]).sum()
+        return th.stack([dist.entropy() for dist in self.distributions], dim=1).sum(dim=1)
 
     def sample(self) -> th.Tensor:
         assert len(self.distributions) > 0, "Must set distribution parameters"
-        return th.stack([dist.sample() for dist in self.distributions])
+        return th.stack([dist.sample() for dist in self.distributions], dim=1)
 
     def mode(self) -> th.Tensor:
         assert len(self.distributions) > 0, "Must set distribution parameters"
-        return th.stack([th.argmax(dist.probs) for dist in self.distributions])
+        return th.stack([th.argmax(dist.probs, dim=1) for dist in self.distributions], dim=1)
 
     def actions_from_params(self, action_logits: th.Tensor, deterministic: bool = False) -> th.Tensor:
         # Update the proba distribution
