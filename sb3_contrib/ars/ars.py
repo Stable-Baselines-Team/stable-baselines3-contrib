@@ -13,9 +13,6 @@ from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import get_schedule_fn, safe_mean
 
-from torch.multiprocessing import Queue, Process
-
-
 class ARS(BaseAlgorithm):
     """
     Augmented Random Search: https://arxiv.org/abs/1803.07055
@@ -107,7 +104,7 @@ class ARS(BaseAlgorithm):
         self.n_params = len(self.theta)
         self.policy = self.policy.to(self.device)
 
-    def _collect_rollouts(self, policy_deltas):
+    def _collect_rollouts(self, policy_deltas, callback):
         with th.no_grad():
             batch_steps = 0
             theta_idx = 0
@@ -117,7 +114,7 @@ class ARS(BaseAlgorithm):
             candidate_returns = np.zeros(candidate_thetas.shape[0]) # returns == sum of rewards
             self.ep_info_buffer = []
 
-            self.callback.on_rollout_start()
+            callback.on_rollout_start()
             while theta_idx < candidate_returns.shape[0]:
                 policy_list = []
 
@@ -142,7 +139,7 @@ class ARS(BaseAlgorithm):
                     for i in range(self.n_workers):
                         vec_acts[i, :] = policy_list[i].predict(vec_obs[i, :])[0]
                     vec_obs, vec_rews, vec_done, vec_info = self.env.step(vec_acts)
-                    self.callback.on_step()
+                    callback.on_step()
 
                     vec_rews += self.alive_bonus_offset # Alive offset from the original paper, defaults to zero
 
@@ -161,7 +158,7 @@ class ARS(BaseAlgorithm):
                 candidate_returns[theta_idx-self.n_workers:theta_idx] = vec_returns
                 batch_steps += sum(vec_steps_taken)  # only count steps used in the update step towards our total_steps
 
-            self.callback.on_rollout_end()
+            callback.on_rollout_end()
 
         return candidate_returns, batch_steps
 
@@ -195,13 +192,13 @@ class ARS(BaseAlgorithm):
         self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
         self.logger.dump(step=self.num_timesteps)
 
-    def _do_one_update(self):
+    def _do_one_update(self, callback):
         sigma_this_step = self.sigma(self._current_progress_remaining)
         alpha_this_step = self.alpha(self._current_progress_remaining)
 
         deltas = self.rng.standard_normal((self.n_delta, self.n_params))
 
-        candidate_returns, batch_steps = self._collect_rollouts(deltas * sigma_this_step)
+        candidate_returns, batch_steps = self._collect_rollouts(deltas * sigma_this_step, callback)
 
         plus_returns = candidate_returns[:self.n_delta]
         minus_returns = candidate_returns[self.n_delta:]
@@ -240,16 +237,14 @@ class ARS(BaseAlgorithm):
             total_steps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
         )
 
-        self.callback = callback
-
         self.n_workers = self.env.num_envs # TODO can I do this somewhere earlier?? when is the env loaded ... ?
         self._validate_hypers()
-        self.callback.on_training_start(locals(), globals())
+        callback.on_training_start(locals(), globals())
 
         while self.num_timesteps < total_steps:
             self._update_current_progress_remaining(self.num_timesteps, total_timesteps)
 
-            self._do_one_update()
+            self._do_one_update(callback)
 
             if log_interval is not None and self._n_updates % log_interval == 0:
                 self._log_and_dump()
@@ -257,7 +252,7 @@ class ARS(BaseAlgorithm):
         theta_tensor = th.tensor(self.theta, dtype=self.dtype, device=self.device) # leave requires_grad how we found it
         torch.nn.utils.vector_to_parameters(theta_tensor, self.policy.parameters())
 
-        self.callback.on_training_end()
+        callback.on_training_end()
 
         return self
 
