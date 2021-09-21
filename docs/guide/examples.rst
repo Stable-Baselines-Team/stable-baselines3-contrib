@@ -41,7 +41,6 @@ Train an agent using Augmented Random Search (ARS) on the Pendulum environment
 
    from sb3_contrib import ARS
 
-   # Policy can be LinearPolicy or MlpPolicy
    model = ARS("LinearPolicy", "Pendulum-v0", verbose=1)
    model.learn(total_timesteps=10000, log_interval=4)
    model.save("ars_pendulum")
