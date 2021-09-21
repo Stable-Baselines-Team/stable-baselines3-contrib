@@ -12,7 +12,7 @@ from stable_baselines3.common.envs import FakeImageEnv, IdentityEnv, IdentityEnv
 from stable_baselines3.common.utils import get_device
 from stable_baselines3.common.vec_env import DummyVecEnv
 
-from sb3_contrib import QRDQN, TQC, ARS
+from sb3_contrib import ARS, QRDQN, TQC
 
 MODEL_LIST = [TQC, QRDQN, ARS]
 

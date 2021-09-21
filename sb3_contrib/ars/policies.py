@@ -1,11 +1,11 @@
 from typing import Any, Dict, List, Optional, Type
+
 import gym
 import torch as th
-from torch import nn
-
 from stable_baselines3.common.policies import BasePolicy, register_policy
-from stable_baselines3.common.torch_layers import create_mlp
 from stable_baselines3.common.preprocessing import get_action_dim
+from stable_baselines3.common.torch_layers import create_mlp
+from torch import nn
 
 
 class ARSPolicy(BasePolicy):
@@ -19,8 +19,8 @@ class ARSPolicy(BasePolicy):
 
     def __init__(
         self,
-        observation_space : gym.spaces.Space,
-        action_space : gym.spaces.Space,
+        observation_space: gym.spaces.Space,
+        action_space: gym.spaces.Space,
         net_arch: Optional[List[int]] = None,
     ):
 
@@ -46,12 +46,8 @@ class ARSPolicy(BasePolicy):
         self.action_net = nn.Sequential(*actor_net)
 
     def _get_constructor_parameters(self) -> Dict[str, Any]:
-        #data = super()._get_constructor_parameters() this adds normalize_images, which we don't support...
-        data = dict(
-            observation_space=self.observation_space,
-            action_space=self.action_space,
-            net_arch=self.net_arch
-        )
+        # data = super()._get_constructor_parameters() this adds normalize_images, which we don't support...
+        data = dict(observation_space=self.observation_space, action_space=self.action_space, net_arch=self.net_arch)
         return data
 
     def forward(self, obs: th.Tensor) -> th.Tensor:
