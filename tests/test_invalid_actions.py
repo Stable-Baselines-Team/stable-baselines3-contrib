@@ -162,7 +162,7 @@ def test_supports_multi_envs():
     evaluate_policy(model, env, warn=False, use_masking=False)
 
 
-def test_callback():
+def test_callback(tmp_path):
     """
     No errors using MaskableEvalCallback during learning
     """
@@ -170,7 +170,7 @@ def test_callback():
     env = make_env()
     eval_env = make_env()
     model = MaskablePPO("MlpPolicy", env, n_steps=64, gamma=0.4, seed=32, verbose=1)
-    model.learn(100, callback=MaskableEvalCallback(eval_env, eval_freq=100, warn=False))
+    model.learn(100, callback=MaskableEvalCallback(eval_env, eval_freq=100, warn=False, log_path=tmp_path))
 
     model.learn(100, callback=MaskableEvalCallback(Monitor(eval_env), eval_freq=100, warn=False))
 

@@ -233,9 +233,6 @@ class MaskablePPO(OnPolicyAlgorithm):
             self.ep_info_buffer = deque(maxlen=100)
             self.ep_success_buffer = deque(maxlen=100)
 
-        if self.action_noise is not None:
-            self.action_noise.reset()
-
         if reset_num_timesteps:
             self.num_timesteps = 0
             self._episode_num = 0

@@ -42,7 +42,6 @@ def test_time_feature():
         check_time_feature(obs, timestep=0, max_timesteps=max_timesteps)
         for step in range(1, max_timesteps + 1):
             obs, _, done, _ = env.step(env.action_space.sample())
-            print(obs)
             check_time_feature(obs, timestep=step, max_timesteps=max_timesteps)
         if done:
             obs = env.reset()
