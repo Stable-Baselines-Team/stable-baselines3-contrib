@@ -1,3 +1,5 @@
+from typing import Union
+
 import gym
 import numpy as np
 import pytest
@@ -6,7 +8,9 @@ import torch.nn as nn
 from stable_baselines3.common.preprocessing import get_flattened_obs_dim
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 
-from sb3_contrib import QRDQN, TQC
+from sb3_contrib import QRDQN, TQC, MaskablePPO
+from sb3_contrib.common.envs import InvalidActionEnvDiscrete
+from sb3_contrib.common.maskable.utils import get_action_masks
 
 
 class FlattenBatchNormDropoutExtractor(BaseFeaturesExtractor):
@@ -76,10 +80,49 @@ def clone_tqc_batch_norm_stats(
     return (actor_bias, actor_running_mean, critic_bias, critic_running_mean, critic_target_bias, critic_target_running_mean)
 
 
+def clone_on_policy_batch_norm(model: Union[MaskablePPO]) -> (th.Tensor, th.Tensor):
+    return clone_batch_norm_stats(model.policy.features_extractor.batch_norm)
+
+
 CLONE_HELPERS = {
     QRDQN: clone_qrdqn_batch_norm_stats,
     TQC: clone_tqc_batch_norm_stats,
+    MaskablePPO: clone_on_policy_batch_norm,
 }
+
+
+def test_ppo_mask_train_eval_mode():
+    env = InvalidActionEnvDiscrete(dim=20, n_invalid_actions=10)
+    model = MaskablePPO(
+        "MlpPolicy",
+        env,
+        policy_kwargs=dict(net_arch=[16, 16], features_extractor_class=FlattenBatchNormDropoutExtractor),
+        seed=1,
+    )
+
+    bias_before, running_mean_before = clone_on_policy_batch_norm(model)
+
+    model.learn(total_timesteps=200)
+
+    bias_after, running_mean_after = clone_on_policy_batch_norm(model)
+
+    assert ~th.isclose(bias_before, bias_after).all()
+    assert ~th.isclose(running_mean_before, running_mean_after).all()
+
+    batch_norm_stats_before = clone_on_policy_batch_norm(model)
+
+    observation = env.reset()
+    action_masks = get_action_masks(env)
+    first_prediction, _ = model.predict(observation, action_masks=action_masks, deterministic=True)
+    for _ in range(5):
+        prediction, _ = model.predict(observation, action_masks=action_masks, deterministic=True)
+        np.testing.assert_allclose(first_prediction, prediction)
+
+    batch_norm_stats_after = clone_on_policy_batch_norm(model)
+
+    # No change in batch norm params
+    for param_before, param_after in zip(batch_norm_stats_before, batch_norm_stats_after):
+        assert th.isclose(param_before, param_after).all()
 
 
 def test_qrdqn_train_with_batch_norm():
