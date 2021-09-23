@@ -36,14 +36,16 @@ class MaskableRolloutBuffer(RolloutBuffer):
         super().__init__(*args, **kwargs)
 
     def reset(self) -> None:
-        if isinstance(self.action_space, (spaces.Discrete, spaces.MultiBinary)):
-            action_space_size = self.action_space.n
+        if isinstance(self.action_space, spaces.Discrete):
+            mask_dims = self.action_space.n
         elif isinstance(self.action_space, spaces.MultiDiscrete):
-            action_space_size = sum(self.action_space.nvec)
+            mask_dims = sum(self.action_space.nvec)
+        elif isinstance(self.action_space, spaces.MultiBinary):
+            mask_dims = 2 * self.action_space.n  # One mask per binary outcome
         else:
             raise ValueError(f"Unsupported action space {type(self.action_space)}")
 
-        self.mask_dims = action_space_size
+        self.mask_dims = mask_dims
         self.action_masks = np.ones((self.buffer_size, self.n_envs, self.mask_dims), dtype=np.float32)
 
         super().reset()
