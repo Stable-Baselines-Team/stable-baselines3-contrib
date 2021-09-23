@@ -33,6 +33,7 @@ RL Baselines3 Zoo also offers a simple interface to train, evaluate agents and d
 
   modules/tqc
   modules/qrdqn
+  modules/ppo_mask
 
 .. toctree::
   :maxdepth: 1

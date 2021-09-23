@@ -3,6 +3,31 @@
 Changelog
 ==========
 
+Release 1.2.1a0 (WIP)
+-------------------------------
+
+**Invalid action masking for PPO**
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+
+New Features:
+^^^^^^^^^^^^^
+- Added ``MaskablePPO`` algorithm (@kronion)
+
+Bug Fixes:
+^^^^^^^^^^
+
+Deprecations:
+^^^^^^^^^^^^^
+
+Others:
+^^^^^^^
+
+
+Documentation:
+^^^^^^^^^^^^^^
+
 
 Release 1.2.0 (2021-09-08)
 -------------------------------
@@ -12,6 +37,9 @@ Release 1.2.0 (2021-09-08)
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
 - Upgraded to Stable-Baselines3 >= 1.2.0
+
+New Features:
+^^^^^^^^^^^^^
 
 Bug Fixes:
 ^^^^^^^^^^
@@ -156,4 +184,4 @@ Stable-Baselines3 is currently maintained by `Antonin Raffin`_ (aka `@araffin`_)
 Contributors:
 -------------
 
-@ku2482 @guyk1971 @minhlong94 @ayeright
+@ku2482 @guyk1971 @minhlong94 @ayeright @kronion
