@@ -1,5 +1,6 @@
 import random
 
+import gym
 import pytest
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.envs import FakeImageEnv, IdentityEnv, IdentityEnvBox
@@ -18,13 +19,49 @@ def make_env():
     return InvalidActionEnvDiscrete(dim=20, n_invalid_actions=10)
 
 
+class ToDictWrapper(gym.Wrapper):
+    """
+    Simple wrapper to test MultInputPolicy on Dict obs.
+    """
+
+    def __init__(self, env):
+        super().__init__(env)
+        self.observation_space = gym.spaces.Dict({"obs": self.env.observation_space})
+
+    def reset(self):
+        return {"obs": self.env.reset()}
+
+    def step(self, action):
+        obs, reward, done, infos = self.env.step(action)
+        return {"obs": obs}, reward, done, infos
+
+
+def test_identity():
+    """
+    Performance test.
+    A randomly initialized model cannot solve that task (score ~=6),
+    nor a model without invalid action masking (score ~=30 after training)
+    which such a low training budget.
+    """
+    env = InvalidActionEnvDiscrete(dim=70, n_invalid_actions=55)
+    model = MaskablePPO(
+        "MlpPolicy",
+        env,
+        gamma=0.4,
+        seed=32,
+        verbose=0,
+    )
+    model.learn(3000)
+    evaluate_policy(model, env, n_eval_episodes=20, reward_threshold=90, warn=False)
+
+
 def test_supports_discrete_action_space():
     """
     No errors using algorithm with an env that has a discrete action space
     """
 
     env = InvalidActionEnvDiscrete(dim=20, n_invalid_actions=10)
-    model = MaskablePPO("MlpPolicy", env, seed=8)
+    model = MaskablePPO("MlpPolicy", env, n_steps=64, seed=8)
     model.learn(100)
     evaluate_policy(model, env, warn=False)
 
@@ -40,7 +77,7 @@ def test_supports_multi_discrete_action_space():
     """
 
     env = InvalidActionEnvMultiDiscrete(dims=[2, 3], n_invalid_actions=1)
-    model = MaskablePPO("MlpPolicy", env, seed=8)
+    model = MaskablePPO("MlpPolicy", env, n_steps=64, seed=8)
     model.learn(100)
     evaluate_policy(model, env, warn=False)
 
@@ -56,7 +93,7 @@ def test_supports_multi_binary_action_space():
     """
 
     env = InvalidActionEnvMultiBinary(dims=3, n_invalid_actions=1)
-    model = MaskablePPO("MlpPolicy", env, seed=8)
+    model = MaskablePPO("MlpPolicy", env, n_steps=64, seed=8)
     model.learn(100)
     evaluate_policy(model, env, warn=False)
 
@@ -81,7 +118,7 @@ def test_disabling_masking():
 
     # Without masking disabled, learning/evaluation will fail if the env doesn't provide masks
     env = IdentityEnv(dim=2)
-    model = MaskablePPO("MlpPolicy", env, seed=8)
+    model = MaskablePPO("MlpPolicy", env, n_steps=64, seed=8)
     with pytest.raises(ValueError):
         model.learn(100)
     with pytest.raises(ValueError):
@@ -100,7 +137,7 @@ def test_masked_evaluation():
     model = MaskablePPO("MlpPolicy", env, seed=8)
     masked_avg_rew, _ = evaluate_policy(model, env, warn=False)
     unmasked_avg_rew, _ = evaluate_policy(model, env, warn=False, use_masking=False)
-    assert masked_avg_rew >= unmasked_avg_rew
+    assert masked_avg_rew > unmasked_avg_rew
 
 
 def test_supports_multi_envs():
@@ -145,7 +182,7 @@ def test_maskable_policy_required():
 
     env = make_env()
     with pytest.raises(ValueError):
-        model = MaskablePPO(ActorCriticPolicy, env)
+        MaskablePPO(ActorCriticPolicy, env)
 
 
 def test_discrete_action_space_required():
@@ -155,7 +192,7 @@ def test_discrete_action_space_required():
 
     env = IdentityEnvBox()
     with pytest.raises(AssertionError):
-        model = MaskablePPO("MlpPolicy", env)
+        MaskablePPO("MlpPolicy", env)
 
 
 def test_cnn():
@@ -166,15 +203,30 @@ def test_cnn():
     env = FakeImageEnv()
     env = ActionMasker(env, action_mask_fn)
 
-    model = MaskablePPO("CnnPolicy", env, n_steps=256, seed=32, verbose=1)
+    model = MaskablePPO(
+        "CnnPolicy",
+        env,
+        n_steps=64,
+        seed=32,
+        verbose=1,
+        policy_kwargs=dict(
+            features_extractor_kwargs=dict(features_dim=32),
+        ),
+    )
     model.learn(100)
     evaluate_policy(model, env, warn=False)
 
 
-# TODO?
+# Dict observations are currently not supported
 # def test_dict_obs():
-#     pass
-
-# TODO? what is this supposed to test?
-# def test_multi_env_eval():
-#     pass
+#     env = InvalidActionEnvDiscrete(dim=20, n_invalid_actions=10)
+#     env = ToDictWrapper(env)
+#     model = MaskablePPO("MultiInputPolicy", env, n_steps=64, seed=8)
+#     model.learn(100)
+#     evaluate_policy(model, env, warn=False)
+#
+#     # Mask all actions except the good one, a random model should succeed
+#     env = InvalidActionEnvDiscrete(dim=20, n_invalid_actions=19)
+#     env = ToDictWrapper(env)
+#     model = MaskablePPO("MultiInputPolicy", env, seed=8)
+#     evaluate_policy(model, env, reward_threshold=99, warn=False)

@@ -2,7 +2,7 @@
 
 .. automodule:: sb3_contrib.ppo_mask
 
-Maskable PPO 
+Maskable PPO
 ============
 
 Implementation of `invalid action masking <https://arxiv.org/abs/2006.14171>`_ for the Proximal Policy Optimization(PPO)
@@ -16,7 +16,7 @@ algorithm. Other than adding support for action masking, the behavior is the sam
 
     MlpPolicy
     CnnPolicy
-    MultiInputPolicy
+    .. MultiInputPolicy
 
 
 Notes
@@ -42,7 +42,7 @@ Discrete      ✔️      ✔️
 Box           ❌      ✔️
 MultiDiscrete ✔️      ✔️
 MultiBinary   ✔️      ✔️
-Dict          ❌      ✔️
+Dict          ❌      ❌
 ============= ====== ===========
 
 
@@ -248,9 +248,9 @@ MaskablePPO Policies
   :members:
   :noindex:
 
-.. autoclass:: MultiInputPolicy
-  :members:
-
-.. autoclass:: sb3_contrib.common.maskable.policies.MaskableMultiInputActorCriticPolicy
-  :members:
-  :noindex:
+.. .. autoclass:: MultiInputPolicy
+..   :members:
+..
+.. .. autoclass:: sb3_contrib.common.maskable.policies.MaskableMultiInputActorCriticPolicy
+..   :members:
+..   :noindex:
