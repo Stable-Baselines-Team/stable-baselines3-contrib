@@ -1,8 +1,8 @@
 import random
 
 import pytest
-from stable_baselines3.common.envs import FakeImageEnv, IdentityEnv, IdentityEnvBox
 from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.envs import FakeImageEnv, IdentityEnv, IdentityEnvBox
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.policies import ActorCriticPolicy
 
@@ -114,7 +114,7 @@ def test_supports_multi_envs():
     model.learn(100)
     evaluate_policy(model, env, warn=False)
 
-    env = make_vec_env(IdentityEnv, n_envs=2, env_kwargs = {"dim": 2})
+    env = make_vec_env(IdentityEnv, n_envs=2, env_kwargs={"dim": 2})
     assert not is_masking_supported(env)
     model = MaskablePPO("MlpPolicy", env, n_steps=256, gamma=0.4, seed=32, verbose=1)
     with pytest.raises(ValueError):

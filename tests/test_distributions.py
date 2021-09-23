@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 import torch as th
+
 from sb3_contrib.common.maskable.distributions import (
     MaskableBernoulliDistribution,
     MaskableCategorical,
@@ -200,7 +201,6 @@ class TestMaskableMultiCategoricalDistribution:
         logits = th.randn(3, DIMS_PER_CAT * NUM_CATS, 3)
         dist.proba_distribution(logits)
 
-
     def test_dim_masking(self):
         DIMS_PER_CAT = 2
         NUM_CATS = 3
@@ -283,7 +283,6 @@ class TestMaskableBernoulliDistribution:
         dist.proba_distribution(logits)
         logits = th.randn(3, 2 * NUM_DIMS, 3)
         dist.proba_distribution(logits)
-
 
     def test_dim_masking(self):
         NUM_DIMS = 2

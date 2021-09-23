@@ -51,9 +51,7 @@ class InvalidActionEnvMultiDiscrete(IdentityEnv):
             dims = [1, 1]
 
         if n_invalid_actions > sum(dims) - len(dims):
-            raise ValueError(
-                f"Cannot find a valid action for each dim. Set n_invalid_actions <= {sum(dims) - len(dims)}"
-            )
+            raise ValueError(f"Cannot find a valid action for each dim. Set n_invalid_actions <= {sum(dims) - len(dims)}")
 
         space = spaces.MultiDiscrete(dims)
         self.n_invalid_actions = n_invalid_actions
