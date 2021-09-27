@@ -25,8 +25,8 @@ class ARS(BaseAlgorithm):
     :param env: The environment to train on, may be a string if registred with gym
     :param n_delta: How many random pertubations of the policy to try at each update step.
     :param n_top: How many of the top delta to use in each update step. Default is n_delta
-    :param alpha: Float or schedule for the step size
-    :param sigma: Float or schedule for the exploration noise
+    :param step_size: Float or schedule for the step size
+    :param delta_std: Float or schedule for the exploration noise
     :param policy_kwargs: Keyword arguments to pass to the policy on creation
     :param policy_base: Base class to use for the policy
     :param tensorboard_log: String with the directory to put tensorboard logs:
@@ -43,8 +43,8 @@ class ARS(BaseAlgorithm):
         env: Union[GymEnv, str],
         n_delta: int = 64,
         n_top: Optional[int] = None,
-        alpha: Union[float, Schedule] = 0.05,
-        sigma: Union[float, Schedule] = 0.05,
+        step_size: Union[float, Schedule] = 0.05,
+        delta_std: Union[float, Schedule] = 0.05,
         policy_kwargs: Optional[Dict[str, Any]] = None,
         policy_base: Type[BasePolicy] = ARSPolicy,
         tensorboard_log: Optional[str] = None,
@@ -70,8 +70,8 @@ class ARS(BaseAlgorithm):
         )
 
         self.n_delta = n_delta
-        self.alpha = get_schedule_fn(alpha)
-        self.sigma = get_schedule_fn(sigma)
+        self.step_size = get_schedule_fn(step_size)
+        self.delta_std = get_schedule_fn(delta_std)
 
         if n_top is None:
             n_top = n_delta
@@ -87,7 +87,7 @@ class ARS(BaseAlgorithm):
         self.alive_bonus_offset = alive_bonus_offset
 
         self.zero_policy = zero_policy
-        self.theta = None  # Need to call init model to initialize theta
+        self.weight = None  # Need to call init model to initialize weight
 
         if (
             _init_setup_model
@@ -111,37 +111,37 @@ class ARS(BaseAlgorithm):
 
         self.policy = self.policy_class(self.observation_space, self.action_space, **self.policy_kwargs)
         self.dtype = self.policy.parameters().__next__().dtype  # This seems sort of like a hack
-        self.theta = th.nn.utils.parameters_to_vector(self.policy.parameters()).detach().numpy()
+        self.weight = th.nn.utils.parameters_to_vector(self.policy.parameters()).detach().numpy()
 
         if self.zero_policy:
-            self.theta = np.zeros_like(self.theta)
-            theta_tensor = th.tensor(self.theta, requires_grad=False, dtype=self.dtype)
-            th.nn.utils.vector_to_parameters(theta_tensor, self.policy.parameters())
+            self.weight = np.zeros_like(self.weight)
+            weight_tensor = th.tensor(self.weight, requires_grad=False, dtype=self.dtype)
+            th.nn.utils.vector_to_parameters(weight_tensor, self.policy.parameters())
 
-        self.n_params = len(self.theta)
+        self.n_params = len(self.weight)
         self.policy = self.policy.to(self.device)
 
     def _collect_rollouts(self, policy_deltas, callback):
         with th.no_grad():
             batch_steps = 0
-            theta_idx = 0
+            weight_idx = 0
 
-            # Generate 2*n_delta candidate policies by adding noise to the current theta
-            candidate_thetas = np.concatenate([self.theta + policy_deltas, self.theta - policy_deltas])
-            candidate_returns = np.zeros(candidate_thetas.shape[0])  # returns == sum of rewards
+            # Generate 2*n_delta candidate policies by adding noise to the current weight
+            candidate_weights = np.concatenate([self.weight + policy_deltas, self.weight - policy_deltas])
+            candidate_returns = np.zeros(candidate_weights.shape[0])  # returns == sum of rewards
             self.ep_info_buffer = []
 
             callback.on_rollout_start()
-            while theta_idx < candidate_returns.shape[0]:
+            while weight_idx < candidate_returns.shape[0]:
                 policy_list = []
 
-                # We are using a vecenv with n_envs==n_workers. We batch our candidate theta evaluations into vectors
+                # We are using a vecenv with n_envs==n_workers. We batch our candidate weight evaluations into vectors
                 # of length n_workers
                 for _ in range(self.n_workers):
-                    theta_tensor = th.tensor(candidate_thetas[theta_idx], dtype=self.dtype)
-                    th.nn.utils.vector_to_parameters(theta_tensor, self.policy.parameters())
+                    weight_tensor = th.tensor(candidate_weights[weight_idx], dtype=self.dtype)
+                    th.nn.utils.vector_to_parameters(weight_tensor, self.policy.parameters())
                     policy_list.append(copy.deepcopy(self.policy))
-                    theta_idx += 1
+                    weight_idx += 1
 
                 # We only want one rollout per policy, but vec envs will automatically reset when a done is sent.
                 # To get around this we use vec_done_once to keep track of which environments have already finished,
@@ -160,7 +160,7 @@ class ARS(BaseAlgorithm):
 
                     vec_rews += self.alive_bonus_offset  # Alive offset from the original paper, defaults to zero
 
-                    # The order of episodes in the ep_info_buffer won't match up with the order of theta, which feels gross,
+                    # The order of episodes in the ep_info_buffer won't match up with the order of weight, which feels gross,
                     # But we are only using ep_info for logging so I don't think that should natter
                     for i, (done_this_time, done_before) in enumerate(zip(vec_done, vec_done_once)):
                         if done_this_time and not done_before:
@@ -172,7 +172,7 @@ class ARS(BaseAlgorithm):
                     vec_returns += vec_rews * np.invert(vec_done_once)
                     vec_done_once = np.bitwise_or(vec_done, vec_done_once)
 
-                candidate_returns[theta_idx - self.n_workers : theta_idx] = vec_returns
+                candidate_returns[weight_idx - self.n_workers : weight_idx] = vec_returns
                 batch_steps += sum(vec_steps_taken)  # only count steps used in the update step towards our total_steps
 
             callback.on_rollout_end()
@@ -180,7 +180,7 @@ class ARS(BaseAlgorithm):
         return candidate_returns, batch_steps
 
     # Make sure our hyper parameters are valid and auto correct them if they are not
-    def _validate_hypers(self):
+    def _validate_hyper_params(self):
         if self.n_top > self.n_delta:
             warnings.warn(f"n_top = {self.n_top} > n_delta = {self.n_top}, setting n_top = n_delta")
             self.n_top = self.n_delta
@@ -212,12 +212,12 @@ class ARS(BaseAlgorithm):
         self.logger.dump(step=self.num_timesteps)
 
     def _do_one_update(self, callback):
-        sigma_this_step = self.sigma(self._current_progress_remaining)
-        alpha_this_step = self.alpha(self._current_progress_remaining)
+        delta_std_this_step = self.delta_std(self._current_progress_remaining)
+        step_size_this_step = self.step_size(self._current_progress_remaining)
 
         deltas = self.rng.standard_normal((self.n_delta, self.n_params))
 
-        candidate_returns, batch_steps = self._collect_rollouts(deltas * sigma_this_step, callback)
+        candidate_returns, batch_steps = self._collect_rollouts(deltas * delta_std_this_step, callback)
 
         plus_returns = candidate_returns[: self.n_delta]
         minus_returns = candidate_returns[self.n_delta :]
@@ -232,8 +232,8 @@ class ARS(BaseAlgorithm):
         deltas = deltas[top_idx]
 
         update_return_std = np.concatenate([plus_returns, minus_returns]).std()
-        step_size = alpha_this_step / (self.n_top * update_return_std + 1e-6)
-        self.theta = self.theta + step_size * (plus_returns - minus_returns) @ deltas
+        step_size = step_size_this_step / (self.n_top * update_return_std + 1e-6)
+        self.weight = self.weight + step_size * (plus_returns - minus_returns) @ deltas
 
         self._n_updates += 1
         self.num_timesteps += batch_steps
@@ -257,7 +257,7 @@ class ARS(BaseAlgorithm):
         )
 
         self.n_workers = self.env.num_envs  # TODO can I do this somewhere earlier?? when is the env loaded ... ?
-        self._validate_hypers()
+        self._validate_hyper_params()
         callback.on_training_start(locals(), globals())
 
         while self.num_timesteps < total_steps:
@@ -268,8 +268,8 @@ class ARS(BaseAlgorithm):
             if log_interval is not None and self._n_updates % log_interval == 0:
                 self._log_and_dump()
 
-        theta_tensor = th.tensor(self.theta, dtype=self.dtype, device=self.device)  # leave requires_grad how we found it
-        torch.nn.utils.vector_to_parameters(theta_tensor, self.policy.parameters())
+        weight_tensor = th.tensor(self.weight, dtype=self.dtype, device=self.device)  # leave requires_grad how we found it
+        torch.nn.utils.vector_to_parameters(weight_tensor, self.policy.parameters())
 
         callback.on_training_end()
 
