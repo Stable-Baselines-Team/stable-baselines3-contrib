@@ -13,6 +13,7 @@ from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import get_schedule_fn, safe_mean
+from stable_baselines3.common.evaluation import evaluate_policy
 
 from sb3_contrib.ars.policies import ARSPolicy
 
@@ -131,51 +132,41 @@ class ARS(BaseAlgorithm):
             candidate_returns = np.zeros(candidate_weights.shape[0])  # returns == sum of rewards
             self.ep_info_buffer = []
 
-            callback.on_rollout_start()
-            while weight_idx < candidate_returns.shape[0]:
-                policy_list = []
 
-                # We are using a vecenv with n_envs==n_workers. We batch our candidate weight evaluations into vectors
-                # of length n_workers
-                for _ in range(self.n_workers):
-                    weight_tensor = th.tensor(candidate_weights[weight_idx], dtype=self.dtype)
-                    th.nn.utils.vector_to_parameters(weight_tensor, self.policy.parameters())
-                    policy_list.append(copy.deepcopy(self.policy))
-                    weight_idx += 1
+            for weight_idx in range(candidate_returns.shape[0]):
 
-                # We only want one rollout per policy, but vec envs will automatically reset when a done is sent.
-                # To get around this we use vec_done_once to keep track of which environments have already finished,
-                # and we ignore rewards once we see the first done.
-                vec_obs = self.env.reset()
-                vec_acts = np.zeros((self.n_workers, self.action_space.shape[0]))
-                vec_returns = np.zeros(self.n_workers)
-                vec_done_once = np.zeros(self.n_workers, dtype=bool)  # Tracks if each env has returned done at least once
-                vec_steps_taken = np.zeros(self.n_workers)  # used to update logs
+                callback.on_rollout_start()
+                weight_tensor = th.tensor(candidate_weights[weight_idx], dtype=self.dtype)
+                th.nn.utils.vector_to_parameters(weight_tensor, self.policy.parameters())
 
-                while not np.all(vec_done_once):
-                    for i in range(self.n_workers):
-                        vec_acts[i, :] = policy_list[i].predict(vec_obs[i, :])[0]
-                    vec_obs, vec_rews, vec_done, vec_info = self.env.step(vec_acts)
+
+                def callback_hack(local, globals):
                     callback.on_step()
+                
+                episode_rewards, episode_lengths = evaluate_policy(
+                    self.policy,
+                    self.env,
+                    n_eval_episodes=1,
+                    return_episode_rewards=True,
+                    callback=callback_hack,
+                )
 
-                    vec_rews += self.alive_bonus_offset  # Alive offset from the original paper, defaults to zero
+                for i in range(len(episode_rewards)):
+                    episode_rewards[i] += self.alive_bonus_offset
 
-                    # The order of episodes in the ep_info_buffer won't match up with the order of weight, which feels gross,
-                    # But we are only using ep_info for logging so I don't think that should natter
-                    for i, (done_this_time, done_before) in enumerate(zip(vec_done, vec_done_once)):
-                        if done_this_time and not done_before:
-                            maybe_ep_info = vec_info[i].get("episode")
-                            if maybe_ep_info is not None:
-                                self.ep_info_buffer.append(maybe_ep_info)
+                candidate_returns[weight_idx] = sum(episode_rewards)
+                batch_steps+=sum(episode_lengths)
 
-                    vec_steps_taken += np.invert(vec_done_once)
-                    vec_returns += vec_rews * np.invert(vec_done_once)
-                    vec_done_once = np.bitwise_or(vec_done, vec_done_once)
 
-                candidate_returns[weight_idx - self.n_workers : weight_idx] = vec_returns
-                batch_steps += sum(vec_steps_taken)  # only count steps used in the update step towards our total_steps
-
-            callback.on_rollout_end()
+                # Mimic Monitor Wrapper
+                infos = [
+                    {"episode": {"r": episode_reward, "l": episode_length}}
+                    for episode_reward, episode_length in zip(episode_rewards, episode_lengths)
+                ]
+                
+                self._update_info_buffer(infos)
+            
+                callback.on_rollout_end()
 
         return candidate_returns, batch_steps
 
@@ -233,7 +224,7 @@ class ARS(BaseAlgorithm):
 
         update_return_std = np.concatenate([plus_returns, minus_returns]).std()
         step_size = step_size_this_step / (self.n_top * update_return_std + 1e-6)
-        self.weight = self.weight + step_size * (plus_returns - minus_returns) @ deltas
+        self.weight = self.weight + step_size * ((plus_returns - minus_returns) @ deltas)
 
         self._n_updates += 1
         self.num_timesteps += batch_steps
