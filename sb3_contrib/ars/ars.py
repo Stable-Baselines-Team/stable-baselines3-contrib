@@ -108,16 +108,16 @@ class ARS(BaseAlgorithm):
 
     def _setup_model(self) -> None:
         self.set_random_seed(self.seed)
-        self.rng = np.random.default_rng(self.seed)
+        if self.seed is not None: 
+            th.manual_seed(self.seed)
 
         self.policy = self.policy_class(self.observation_space, self.action_space, **self.policy_kwargs)
         self.dtype = self.policy.parameters().__next__().dtype  # This seems sort of like a hack
-        self.weight = th.nn.utils.parameters_to_vector(self.policy.parameters()).detach().numpy()
+        self.weight = th.nn.utils.parameters_to_vector(self.policy.parameters()).detach()
 
         if self.zero_policy:
-            self.weight = np.zeros_like(self.weight)
-            weight_tensor = th.tensor(self.weight, requires_grad=False, dtype=self.dtype)
-            th.nn.utils.vector_to_parameters(weight_tensor, self.policy.parameters())
+            self.weight = th.zeros_like(self.weight, requires_grad=False, dtype=self.dtype)
+            th.nn.utils.vector_to_parameters(self.weight, self.policy.parameters())
 
         self.n_params = len(self.weight)
         self.policy = self.policy.to(self.device)
@@ -128,17 +128,15 @@ class ARS(BaseAlgorithm):
             weight_idx = 0
 
             # Generate 2*n_delta candidate policies by adding noise to the current weight
-            candidate_weights = np.concatenate([self.weight + policy_deltas, self.weight - policy_deltas])
-            candidate_returns = np.zeros(candidate_weights.shape[0])  # returns == sum of rewards
+            candidate_weights = th.cat([self.weight + policy_deltas, self.weight - policy_deltas])
+            candidate_returns = th.zeros(candidate_weights.shape[0])  # returns == sum of rewards
             self.ep_info_buffer = []
 
 
             for weight_idx in range(candidate_returns.shape[0]):
 
                 callback.on_rollout_start()
-                weight_tensor = th.tensor(candidate_weights[weight_idx], dtype=self.dtype)
-                th.nn.utils.vector_to_parameters(weight_tensor, self.policy.parameters())
-
+                th.nn.utils.vector_to_parameters(candidate_weights[weight_idx], self.policy.parameters())
 
                 def callback_hack(local, globals):
                     callback.on_step()
@@ -150,11 +148,8 @@ class ARS(BaseAlgorithm):
                     return_episode_rewards=True,
                     callback=callback_hack,
                 )
-
-                for i in range(len(episode_rewards)):
-                    episode_rewards[i] += self.alive_bonus_offset
-
-                candidate_returns[weight_idx] = sum(episode_rewards)
+                    
+                candidate_returns[weight_idx] = sum(episode_rewards) + self.alive_bonus_offset*episode_lengths[0]
                 batch_steps+=sum(episode_lengths)
 
 
@@ -206,24 +201,24 @@ class ARS(BaseAlgorithm):
         delta_std_this_step = self.delta_std(self._current_progress_remaining)
         step_size_this_step = self.step_size(self._current_progress_remaining)
 
-        deltas = self.rng.standard_normal((self.n_delta, self.n_params))
+        deltas = th.normal(mean=0.0, std=1.0, size=(self.n_delta, self.n_params))
 
         candidate_returns, batch_steps = self._collect_rollouts(deltas * delta_std_this_step, callback)
 
         plus_returns = candidate_returns[: self.n_delta]
         minus_returns = candidate_returns[self.n_delta :]
 
-        top_returns = np.zeros_like(plus_returns)
+        top_returns = th.zeros_like(plus_returns)
         for i in range(len(top_returns)):
-            top_returns[i] = np.max([plus_returns[i], minus_returns[i]])
+            top_returns[i] = max([plus_returns[i], minus_returns[i]])
 
-        top_idx = np.argsort(top_returns)[::-1][: self.n_top]
+        top_idx = th.argsort(top_returns, descending=True)[: self.n_top]
         plus_returns = plus_returns[top_idx]
         minus_returns = minus_returns[top_idx]
         deltas = deltas[top_idx]
 
-        update_return_std = np.concatenate([plus_returns, minus_returns]).std()
-        step_size = step_size_this_step / (self.n_top * update_return_std + 1e-6)
+        return_std = th.cat([plus_returns, minus_returns]).std()
+        step_size = step_size_this_step / (self.n_top * return_std + 1e-6)
         self.weight = self.weight + step_size * ((plus_returns - minus_returns) @ deltas)
 
         self._n_updates += 1

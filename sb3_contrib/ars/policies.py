@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Type
 
 import gym
 import torch as th
@@ -22,8 +22,9 @@ class ARSPolicy(BasePolicy):
         observation_space: gym.spaces.Space,
         action_space: gym.spaces.Space,
         net_arch: Optional[List[int]] = None,
-    ):
-
+        activation_fn: Type[nn.Module] = nn.ReLU,
+    ):            
+            
         super().__init__(
             observation_space,
             action_space,
@@ -39,7 +40,9 @@ class ARSPolicy(BasePolicy):
 
         if isinstance(action_space, gym.spaces.Box):
             action_dim = get_action_dim(action_space)
-            actor_net = create_mlp(self.features_dim, action_dim, net_arch)
+            actor_net = create_mlp(self.features_dim, action_dim, net_arch, activation_fn, squash_output=True)
+        elif isinstance(action_space, gym.spaces.Discrete):
+            actor_net = create_mlp(self.features_dim, action_space.n, net_arch, activation_fn)
         else:
             raise NotImplementedError("Error: ARS policy not implemented for action space" f"of type {type(action_space)}.")
 
@@ -75,9 +78,15 @@ class ARSLinearPolicy(ARSPolicy):
     ):
 
         super().__init__(observation_space, action_space)
-        self.action_net = nn.Linear(self.features_dim, get_action_dim(action_space), bias=False)
-        
-        
+
+        if isinstance(action_space, gym.spaces.Box):
+            action_dim = get_action_dim(action_space)
+            self.action_net = nn.Linear(self.features_dim, get_action_dim(action_space), bias=False)
+        elif isinstance(action_space, gym.spaces.Discrete):
+            self.action_net =  nn.Linear(self.features_dim, action_space.n, bias=False) # I doubt anyone really wants to use this .. maybe throw a warning .. 
+        else:
+            raise NotImplementedError("Error: ARS policy not implemented for action space" f"of type {type(action_space)}.")        
+                
 
 MlpPolicy = ARSPolicy
 LinearPolicy = ARSLinearPolicy
