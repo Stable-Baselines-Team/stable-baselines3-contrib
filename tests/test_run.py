@@ -34,7 +34,7 @@ def test_sde():
     model = TQC(
         "MlpPolicy",
         "Pendulum-v0",
-        policy_kwargs=dict(net_arch=[64], sde_net_arch=[8]),
+        policy_kwargs=dict(net_arch=[64]),
         use_sde=True,
         learning_starts=100,
         verbose=1,

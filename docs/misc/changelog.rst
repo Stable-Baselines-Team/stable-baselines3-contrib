@@ -3,7 +3,7 @@
 Changelog
 ==========
 
-Release 1.2.1a0 (WIP)
+Release 1.2.1a2 (WIP)
 -------------------------------
 
 **Add TRPO and Invalid action masking for PPO**
@@ -11,6 +11,7 @@ Release 1.2.1a0 (WIP)
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
 - Upgraded to Stable-Baselines3 >= 1.2.1a0
+- Removed ``sde_net_arch``
 
 New Features:
 ^^^^^^^^^^^^^
