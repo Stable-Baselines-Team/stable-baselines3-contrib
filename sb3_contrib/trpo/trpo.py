@@ -29,7 +29,7 @@ class TRPO(OnPolicyAlgorithm):
 
     :param policy: The policy model to use (MlpPolicy, CnnPolicy, ...)
     :param env: The environment to learn from (if registered in Gym, can be str)
-    :param learning_rate: The learning rate, it can be a function
+    :param learning_rate: The learning rate for the value function, it can be a function
         of the current progress remaining (from 1 to 0)
     :param n_steps: The number of steps to run for each environment per update
         (i.e. rollout buffer size is n_steps * n_envs where n_envs is number of environment copies running in parallel)
@@ -46,7 +46,6 @@ class TRPO(OnPolicyAlgorithm):
     :param line_search_max_steps: maximum number of steps in the line-search
     :param n_critic_updates: number of critic updates per policy updates
     :param gae_lambda: Factor for trade-off of bias vs variance for Generalized Advantage Estimator
-    :param max_grad_norm: The maximum value for the gradient clipping
     :param use_sde: Whether to use generalized State Dependent Exploration (gSDE)
         instead of action noise exploration (default: False)
     :param sde_sample_freq: Sample a new noise matrix every n steps when using gSDE
@@ -81,7 +80,6 @@ class TRPO(OnPolicyAlgorithm):
         line_search_max_steps: int = 10,
         n_critic_updates: int = 5,
         gae_lambda: float = 0.95,
-        max_grad_norm: float = 0.5,
         use_sde: bool = False,
         sde_sample_freq: int = -1,
         target_kl: float = 0.01,
@@ -101,9 +99,9 @@ class TRPO(OnPolicyAlgorithm):
             n_steps=n_steps,
             gamma=gamma,
             gae_lambda=gae_lambda,
-            ent_coef=0.0,
+            ent_coef=0.0,  # TODO: add entropy bonus to surrogate objective
             vf_coef=0.0,
-            max_grad_norm=max_grad_norm,
+            max_grad_norm=0.0,
             use_sde=use_sde,
             sde_sample_freq=sde_sample_freq,
             policy_base=ActorCriticPolicy,
@@ -353,8 +351,6 @@ class TRPO(OnPolicyAlgorithm):
                     # otherwise it defeats the purposes of the KL constraint
                     for param in actor_params:
                         param.grad = None
-                    # Clip grad norm
-                    th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
                     self.policy.optimizer.step()
 
             if not continue_training:
