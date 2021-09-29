@@ -266,6 +266,10 @@ def test_save_load_policy(tmp_path, model_class, policy_str):
     :param policy_str: (str) Name of the policy.
     """
     kwargs = dict(policy_kwargs=dict(net_arch=[16]))
+
+    if policy_str == "CnnPolicy" and model_class is ARS:
+        pytest.skip("ARS does not support CnnPolicy")
+
     if policy_str == "MlpPolicy":
         env = select_env(model_class)
     else:

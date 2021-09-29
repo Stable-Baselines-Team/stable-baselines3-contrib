@@ -23,8 +23,8 @@ class ARSPolicy(BasePolicy):
         action_space: gym.spaces.Space,
         net_arch: Optional[List[int]] = None,
         activation_fn: Type[nn.Module] = nn.ReLU,
-    ):            
-            
+    ):
+
         super().__init__(
             observation_space,
             action_space,
@@ -58,11 +58,15 @@ class ARSPolicy(BasePolicy):
         return data
 
     def forward(self, obs: th.Tensor) -> th.Tensor:
-        features = self.extract_features(obs)
 
+        features = self.extract_features(obs)
         if isinstance(self.action_space, gym.spaces.Box):
             return self.action_net(features)
-        raise NotImplementedError()
+        elif isinstance(self.action_space, gym.spaces.Discrete):
+            logits = self.action_net(features)
+            return th.argmax(logits, dim=1)
+        else:
+            raise NotImplementedError()
 
     def _predict(self, observation: th.Tensor, deterministic: bool = True) -> th.Tensor:
         # Non deterministic action does not really make sense for ARS, we ignore this parameter for now..
@@ -70,23 +74,18 @@ class ARSPolicy(BasePolicy):
 
 
 class ARSLinearPolicy(ARSPolicy):
-    def __init__(
-        self,
-        observation_space: gym.spaces.Space,
-        action_space: gym.spaces.Space,
-        squash_outputs=False
-    ):
+    def __init__(self, observation_space: gym.spaces.Space, action_space: gym.spaces.Space, squash_outputs=False):
 
         super().__init__(observation_space, action_space)
 
         if isinstance(action_space, gym.spaces.Box):
             action_dim = get_action_dim(action_space)
-            self.action_net = nn.Linear(self.features_dim, get_action_dim(action_space), bias=False)
+            self.action_net = nn.Linear(self.features_dim, action_dim, bias=False)
         elif isinstance(action_space, gym.spaces.Discrete):
-            self.action_net =  nn.Linear(self.features_dim, action_space.n, bias=False) # I doubt anyone really wants to use this .. maybe throw a warning .. 
+            self.action_net = nn.Linear(self.features_dim, action_space.n, bias=False)
         else:
-            raise NotImplementedError("Error: ARS policy not implemented for action space" f"of type {type(action_space)}.")        
-                
+            raise NotImplementedError("Error: ARS policy not implemented for action space" f"of type {type(action_space)}.")
+
 
 MlpPolicy = ARSPolicy
 LinearPolicy = ARSLinearPolicy

@@ -6,7 +6,6 @@ import warnings
 from typing import Any, Dict, Optional, Type, Union
 
 import gym
-import numpy as np
 import torch as th
 import torch.nn.utils
 from stable_baselines3.common.base_class import BaseAlgorithm
@@ -66,7 +65,7 @@ class ARS(BaseAlgorithm):
             policy_kwargs=policy_kwargs,
             verbose=verbose,
             device=device,
-            supported_action_spaces=(gym.spaces.Box,),
+            supported_action_spaces=(gym.spaces.Box, gym.spaces.Discrete),
             support_multi_env=True,
         )
 
@@ -78,7 +77,7 @@ class ARS(BaseAlgorithm):
             n_top = n_delta
         self.n_top = n_top
 
-        self.n_workers = None  # We check this at training time ... I guess??
+        self.n_workers = None  # We check this at training time, when the env is loaded
 
         if policy_kwargs is None:
             policy_kwargs = {}
@@ -95,7 +94,7 @@ class ARS(BaseAlgorithm):
         ):  # TODO ... what do I do if this is false? am i guaranteed that someone will call this before training?
             self._setup_model()
 
-    @classmethod  # Override just to change the default device argument to "cpu"
+    @classmethod
     def load(
         cls,
         path: Union[str, pathlib.Path, io.BufferedIOBase],
@@ -108,7 +107,7 @@ class ARS(BaseAlgorithm):
 
     def _setup_model(self) -> None:
         self.set_random_seed(self.seed)
-        if self.seed is not None: 
+        if self.seed is not None:
             th.manual_seed(self.seed)
 
         self.policy = self.policy_class(self.observation_space, self.action_space, **self.policy_kwargs)
@@ -130,37 +129,36 @@ class ARS(BaseAlgorithm):
             # Generate 2*n_delta candidate policies by adding noise to the current weight
             candidate_weights = th.cat([self.weight + policy_deltas, self.weight - policy_deltas])
             candidate_returns = th.zeros(candidate_weights.shape[0])  # returns == sum of rewards
+            train_policy = copy.deepcopy(self.policy)
             self.ep_info_buffer = []
-
 
             for weight_idx in range(candidate_returns.shape[0]):
 
                 callback.on_rollout_start()
-                th.nn.utils.vector_to_parameters(candidate_weights[weight_idx], self.policy.parameters())
+                th.nn.utils.vector_to_parameters(candidate_weights[weight_idx], train_policy.parameters())
 
                 def callback_hack(local, globals):
                     callback.on_step()
-                
+
                 episode_rewards, episode_lengths = evaluate_policy(
-                    self.policy,
+                    train_policy,
                     self.env,
                     n_eval_episodes=1,
                     return_episode_rewards=True,
                     callback=callback_hack,
                 )
-                    
-                candidate_returns[weight_idx] = sum(episode_rewards) + self.alive_bonus_offset*episode_lengths[0]
-                batch_steps+=sum(episode_lengths)
 
+                candidate_returns[weight_idx] = sum(episode_rewards) + self.alive_bonus_offset * episode_lengths[0]
+                batch_steps += sum(episode_lengths)
 
                 # Mimic Monitor Wrapper
                 infos = [
                     {"episode": {"r": episode_reward, "l": episode_length}}
                     for episode_reward, episode_length in zip(episode_rewards, episode_lengths)
                 ]
-                
+
                 self._update_info_buffer(infos)
-            
+
                 callback.on_rollout_end()
 
         return candidate_returns, batch_steps
@@ -170,19 +168,18 @@ class ARS(BaseAlgorithm):
         if self.n_top > self.n_delta:
             warnings.warn(f"n_top = {self.n_top} > n_delta = {self.n_top}, setting n_top = n_delta")
             self.n_top = self.n_delta
-        if self.n_delta % self.n_workers:
-            new_n_delta = self.n_delta + (self.n_workers - self.n_delta % self.n_workers)
-            warnings.warn(
-                f"n_delta = {self.n_delta} should be a multiple of the number of workers = {self.n_workers}"
-                f" automatically bumping n_delta to {new_n_delta}"
-            )
 
-            print(
-                f"n_delta = {self.n_delta} should be a multiple of the number of workers = {self.n_workers}"
-                f" automatically bumping n_delta to {new_n_delta}"
-            )
+        if self.n_workers > 1:
+            warnings.warn("n_workers > 1. For performance reasons we reccomend using a single environement.")
 
-            self.n_delta = new_n_delta
+        # This makes sense if we switch from evaluate_policy to the old vectorized approach.
+        # if self.n_delta % self.n_workers:
+        #     new_n_delta = self.n_delta + (self.n_workers - self.n_delta % self.n_workers)
+        #     warnings.warn(
+        #         f"n_delta = {self.n_delta} should be a multiple of the number of workers = {self.n_workers}"
+        #         f" automatically bumping n_delta to {new_n_delta}"
+        #     )
+        #    self.n_delta = new_n_delta
 
         return
 
@@ -220,6 +217,7 @@ class ARS(BaseAlgorithm):
         return_std = th.cat([plus_returns, minus_returns]).std()
         step_size = step_size_this_step / (self.n_top * return_std + 1e-6)
         self.weight = self.weight + step_size * ((plus_returns - minus_returns) @ deltas)
+        th.nn.utils.vector_to_parameters(self.weight, self.policy.parameters())
 
         self._n_updates += 1
         self.num_timesteps += batch_steps
@@ -254,8 +252,7 @@ class ARS(BaseAlgorithm):
             if log_interval is not None and self._n_updates % log_interval == 0:
                 self._log_and_dump()
 
-        weight_tensor = th.tensor(self.weight, dtype=self.dtype, device=self.device)  # leave requires_grad how we found it
-        torch.nn.utils.vector_to_parameters(weight_tensor, self.policy.parameters())
+        torch.nn.utils.vector_to_parameters(self.weight, self.policy.parameters())
 
         callback.on_training_end()
 
