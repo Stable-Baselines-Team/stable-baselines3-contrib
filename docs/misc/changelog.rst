@@ -3,13 +3,14 @@
 Changelog
 ==========
 
-Release 1.2.1a0 (WIP)
+Release 1.2.1a2 (WIP)
 -------------------------------
 
 **Invalid action masking for PPO**
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
+- Removed ``sde_net_arch``
 
 New Features:
 ^^^^^^^^^^^^^
