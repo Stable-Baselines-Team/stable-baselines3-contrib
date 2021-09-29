@@ -1,7 +1,7 @@
 import copy
 import warnings
 from functools import partial
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import numpy as np
 import torch as th
@@ -38,7 +38,7 @@ class TRPO(OnPolicyAlgorithm):
     :param batch_size: Minibatch size
     :param n_epochs: Number of epoch when optimizing the surrogate loss
     :param gamma: Discount factor
-    :param cg_max_steps: maximum number of steps in the Conjugate Gradient algoritgm
+    :param cg_max_steps: maximum number of steps in the Conjugate Gradient algorithm
         for computing the Hessian vector product
     :param cg_damping: damping in the Hessian vector product computation
     :param line_search_shrinking_factor: step-size reduction factor for the line-search
@@ -158,6 +158,62 @@ class TRPO(OnPolicyAlgorithm):
         if _init_setup_model:
             self._setup_model()
 
+    def _compute_actor_grad(
+        self, kl_div: th.Tensor, policy_objective: th.Tensor
+    ) -> Tuple[List[nn.Parameter], th.Tensor, th.Tensor, List[Tuple[int, ...]]]:
+        """
+        Compute actor gradients for kl div and surrogate objectives.
+
+        :param kl_div: The KL div objective
+        :param policy_objective: The surrogate objective ("classic" policy gradient)
+        :return: List of actor params, gradients and gradients shape.
+        """
+        # This is necessary because not all the parameters in the policy have gradients w.r.t. the KL divergence
+        # The policy objective is also called surrogate objective
+        policy_objective_gradients = []
+        # Contains the gradients of the KL divergence
+        grad_kl = []
+        # Contains the shape of the gradients of the KL divergence w.r.t each parameter
+        # This way the flattened gradient can be reshaped back into the original shapes and applied to
+        # the parameters
+        grad_shape = []
+        # Contains the parameters which have non-zeros KL divergence gradients
+        # The list is used during the line-search to apply the step to each parameters
+        actor_params = []
+
+        for name, param in self.policy.named_parameters():
+            # Skip parameters related to value function based on name
+            # this work for built-in policies only (not custom ones)
+            if "value" in name:
+                continue
+
+            # For each parameter we compute the gradient of the KL divergence w.r.t to that parameter
+            kl_param_grad, *_ = th.autograd.grad(
+                kl_div,
+                param,
+                create_graph=True,
+                retain_graph=True,
+                allow_unused=True,
+                only_inputs=True,
+            )
+            # If the gradient is not zero (not None), we store the parameter in the actor_params list
+            # and add the gradient and its shape to grad_kl and grad_shape respectively
+            if kl_param_grad is not None:
+                # If the parameter impacts the KL divergence (i.e. the policy)
+                # we compute the gradient of the policy objective w.r.t to the parameter
+                # this avoids computing the gradient if it's not going to be used in the conjugate gradient step
+                policy_objective_grad, *_ = th.autograd.grad(policy_objective, param, retain_graph=True, only_inputs=True)
+
+                grad_shape.append(kl_param_grad.shape)
+                grad_kl.append(kl_param_grad.view(-1))
+                policy_objective_gradients.append(policy_objective_grad.view(-1))
+                actor_params.append(param)
+
+        # Gradients are concatenated before the conjugate gradient step
+        policy_objective_gradients = th.cat(policy_objective_gradients)
+        grad_kl = th.cat(grad_kl)
+        return actor_params, policy_objective_gradients, grad_kl, grad_shape
+
     def train(self) -> None:
         """
         Update policy using the currently gathered rollout buffer.
@@ -189,7 +245,10 @@ class TRPO(OnPolicyAlgorithm):
                     self.policy.reset_noise(self.batch_size)
 
                 with th.no_grad():
-                    old_distribution = copy.deepcopy(self.policy.get_distribution(rollout_data.observations))
+                    # Note: is copy enough, no need for deepcopy?
+                    # If using gSDE and deepcopy, we need to use `old_distribution.distribution`
+                    # directly to avoid PyTorch errors.
+                    old_distribution = copy.copy(self.policy.get_distribution(rollout_data.observations))
 
                 distribution = self.policy.get_distribution(rollout_data.observations)
                 log_prob = distribution.log_prob(actions)
@@ -209,52 +268,9 @@ class TRPO(OnPolicyAlgorithm):
                 # Surrogate & KL gradient
                 self.policy.optimizer.zero_grad()
 
-                # This is necessary because not all the parameters in the policy have gradients w.r.t. the KL divergence
-                # The policy objective is also called surrogate objective
-                policy_objective_gradients = []
-                # Contains the gradients of the KL divergence
-                grad_kl = []
-                # Contains the shape of the gradients of the KL divergence w.r.t each parameter
-                # This way the flattened gradient can be reshaped back into the original shapes and applied to
-                # the parameters
-                grad_shape = []
-                # Contains the parameters which have non-zeros KL divergence gradients
-                # The list is used during the line-search to apply the step to each parameters
-                actor_params = []
-
-                for name, param in self.policy.named_parameters():
-                    # Skip parameters related to value function based on name
-                    # this work for built-in policies only (not custom ones)
-                    if "value" in name:
-                        continue
-
-                    # For each parameter we compute the gradient of the KL divergence w.r.t to that parameter
-                    kl_param_grad, *_ = th.autograd.grad(
-                        kl_div,
-                        param,
-                        create_graph=True,
-                        retain_graph=True,
-                        allow_unused=True,
-                        only_inputs=True,
-                    )
-                    # If the gradient is not zero (not None), we store the parameter in the actor_params list
-                    # and add the gradient and its shape to grad_kl and grad_shape respectively
-                    if kl_param_grad is not None:
-                        # If the parameter impacts the KL divergence (i.e. the policy)
-                        # we compute the gradient of the policy objective w.r.t to the parameter
-                        # this avoids computing the gradient if it's not going to be used in the conjugate gradient step
-                        policy_objective_grad, *_ = th.autograd.grad(
-                            policy_objective, param, retain_graph=True, only_inputs=True
-                        )
-
-                        grad_shape.append(kl_param_grad.shape)
-                        grad_kl.append(kl_param_grad.view(-1))
-                        policy_objective_gradients.append(policy_objective_grad.view(-1))
-                        actor_params.append(param)
-
-                # Gradients are concatenated before the conjugate gradient step
-                policy_objective_gradients = th.cat(policy_objective_gradients)
-                grad_kl = th.cat(grad_kl)
+                actor_params, policy_objective_gradients, grad_kl, grad_shape = self._compute_actor_grad(
+                    kl_div, policy_objective
+                )
 
                 # Hessian-vector dot product function used in the conjugate gradient step
                 hessian_vector_product = partial(self.hessian_vector_product, actor_params, grad_kl)
@@ -294,7 +310,8 @@ class TRPO(OnPolicyAlgorithm):
                             start_idx += n_params
 
                         # Recomputing the policy log-probabilities
-                        _, log_prob, _ = self.policy.evaluate_actions(rollout_data.observations, actions)
+                        distribution = self.policy.get_distribution(rollout_data.observations)
+                        log_prob = distribution.log_prob(actions)
 
                         # New policy objective
                         ratio = th.exp(log_prob - rollout_data.old_log_prob)
