@@ -35,6 +35,7 @@ class ARS(BaseAlgorithm):
     :param device: Torch device to use for training, defaults to "cpu"
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     :param alive_bonus_offset: Constant added to the reward at each step, a value of -1 is used in the original paper
+    :param zero_policy: Boolean determining if the passed policy should have it's weights zeroed before training, default True.
     """
 
     def __init__(
@@ -59,7 +60,7 @@ class ARS(BaseAlgorithm):
         super().__init__(
             policy,
             env,
-            learning_rate=0.0,
+            learning_rate=0.0, # This learning rate is ignored
             tensorboard_log=tensorboard_log,
             policy_base=policy_base,
             policy_kwargs=policy_kwargs,
@@ -148,7 +149,7 @@ class ARS(BaseAlgorithm):
                     callback=callback_hack,
                 )
 
-                candidate_returns[weight_idx] = sum(episode_rewards) + self.alive_bonus_offset * episode_lengths[0]
+                candidate_returns[weight_idx] = sum(episode_rewards) + self.alive_bonus_offset * sum(episode_lengths)
                 batch_steps += sum(episode_lengths)
 
                 # Mimic Monitor Wrapper
