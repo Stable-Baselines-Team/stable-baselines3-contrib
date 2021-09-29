@@ -42,7 +42,8 @@ class TRPO(OnPolicyAlgorithm):
     :param cg_damping: damping in the Hessian vector product computation
     :param line_search_shrinking_factor: step-size reduction factor for the line-search
         (i.e., ``theta_new = theta + alpha^i * step``)
-    :param line_search_max_steps: maximum number of steps in the line-search
+    :param line_search_max_iter: maximum number of iteration
+        for the backtracking line-search
     :param n_critic_updates: number of critic updates per policy updates
     :param gae_lambda: Factor for trade-off of bias vs variance for Generalized Advantage Estimator
     :param use_sde: Whether to use generalized State Dependent Exploration (gSDE)
@@ -70,15 +71,15 @@ class TRPO(OnPolicyAlgorithm):
         self,
         policy: Union[str, Type[ActorCriticPolicy]],
         env: Union[GymEnv, str],
-        learning_rate: Union[float, Schedule] = 3e-4,
+        learning_rate: Union[float, Schedule] = 1e-3,
         n_steps: int = 2048,
         batch_size: int = 128,
         gamma: float = 0.99,
-        cg_max_steps: int = 10,
-        cg_damping: float = 1e-3,
+        cg_max_steps: int = 15,
+        cg_damping: float = 0.1,
         line_search_shrinking_factor: float = 0.8,
-        line_search_max_steps: int = 10,
-        n_critic_updates: int = 5,
+        line_search_max_iter: int = 10,
+        n_critic_updates: int = 10,
         gae_lambda: float = 0.95,
         use_sde: bool = False,
         sde_sample_freq: int = -1,
@@ -145,7 +146,7 @@ class TRPO(OnPolicyAlgorithm):
         self.cg_max_steps = cg_max_steps
         self.cg_damping = cg_damping
         self.line_search_shrinking_factor = line_search_shrinking_factor
-        self.line_search_max_steps = line_search_max_steps
+        self.line_search_max_iter = line_search_max_iter
         self.target_kl = target_kl
         self.n_critic_updates = n_critic_updates
         self.sub_sampling_factor = sub_sampling_factor
@@ -295,7 +296,7 @@ class TRPO(OnPolicyAlgorithm):
             is_line_search_success = False
             with th.no_grad():
                 # Line-search (backtracking)
-                for _ in range(self.line_search_max_steps):
+                for _ in range(self.line_search_max_iter):
 
                     start_idx = 0
                     # Applying the scaled step direction
