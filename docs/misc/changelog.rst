@@ -10,7 +10,7 @@ Release 1.2.1a2 (WIP)
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
-- Upgraded to Stable-Baselines3 >= 1.2.1a0
+- Upgraded to Stable-Baselines3 >= 1.2.1a2
 - Removed ``sde_net_arch``
 
 New Features:
