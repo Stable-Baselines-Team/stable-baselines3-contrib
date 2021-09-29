@@ -8,10 +8,11 @@ ARS
 
 
 Augmented Random Search (ARS) is a simple reinforcement algorithm that uses a direct random search over policy
-parameters. In the `original paper <https://arxiv.org/abs/1803.07055>`_ The authors showed that linear policies trained
-with ARS were competititve with deep reinforcement learning for the MuJuCo locomotion tasks.
+parameters. It can be surprisingly effective compared to more sophisticated algorithms. In the `original paper <https://arxiv.org/abs/1803.07055>`_ the authors showed that linear policies trained with ARS were competitive with deep reinforcement learning for the MuJuCo locomotion tasks.
 
-SB3s implementation also allows for training MlP policies, which include linear policies with bias and squashing functions as a special case.
+SB3s implementation allows for linear policies without bias or squashing function, it also allows for training MLP policies, which include linear policies with bias and squashing functions as a special case.
+
+Normally one wants to train ARS with several seeds to properly evaluate. If multiprocess performance is desired, we recommend using a single environment per agent, and training several seeds in parralel, see the replicating results section below for an example.
 
 
 .. rubric:: Available Policies
@@ -41,7 +42,7 @@ Can I use?
 ============= ====== ===========
 Space         Action Observation
 ============= ====== ===========
-Discrete      ✔️       ✔️
+Discrete      ✔️       ❌
 Box           ✔️       ✔️
 MultiDiscrete ❌       ❌
 MultiBinary   ❌       ❌
@@ -67,17 +68,18 @@ Results
 
 Replicating results from the original paper, which used the Mujoco benchmarks. Same parameters from the original paper, using 8 seeds.
 
-|Environments|    ARS     |
-|------------|------------|
-|            |logs        |
-|HalfCheetah |4439 +/- 233|
-|Swimmer     |242 +/- 50  |
-|Hopper      |3520 +/- 0  |
-
+============= ============
+Environments     ARS     
+============= ============
+\
+HalfCheetah   4439 +/- 233
+Swimmer       242 +/- 50  
+Hopper        3520 +/- 0
+============= ============
 
 How to replicate the results?
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-clone RL-Zoo and checkout the branch ``feat/ars``
+Clone RL-Zoo and checkout the branch ``feat/ars``
 
 .. code-block:: bash
 
@@ -85,23 +87,20 @@ clone RL-Zoo and checkout the branch ``feat/ars``
   cd rl-baselines3-zoo/
   git checkout feat/ars
 
-Run the benchmark (replace ``$ENV_ID`` by the envs mentioned above):
+Run the benchmark. The following code snippet trains 8 seeds in parallel
 
 .. code-block:: bash
 
-
-for ENV_ID in Swimmer-v2 HalfCheetah-v2 Hopper-v2
-do
-    for SEED_NUM in {1..8}
-    do
-        SEED=$RANDOM
-        python train.py --algo ars --env $ENV_ID --eval-episodes 10 --eval-freq 10000 --seed  $SEED &
-        sleep 1
-    done
-done
-
-wait
-
+   for ENV_ID in Swimmer-v2 HalfCheetah-v2 Hopper-v2
+   do
+       for SEED_NUM in {1..8}
+       do
+           SEED=$RANDOM
+           python train.py --algo ars --env $ENV_ID --eval-episodes 10 --eval-freq 10000 --seed  $SEED &
+           sleep 1
+       done
+       wait
+   done
 
 Plot the results:
 
@@ -111,8 +110,6 @@ Plot the results:
   python scripts/plot_from_file.py -i logs/ars_results.pkl -l ARS
 
 
-Comments
---------
 
 
 Parameters
