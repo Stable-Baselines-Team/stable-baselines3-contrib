@@ -72,9 +72,9 @@ Replicating results from the original paper, which used the Mujoco benchmarks. S
 Environments     ARS     
 ============= ============
 \
-HalfCheetah   4439 +/- 233
-Swimmer       242 +/- 50  
-Hopper        3520 +/- 0
+HalfCheetah   4398 +/- 320
+Swimmer       241 +/- 51 
+Hopper        3320 +/- 120
 ============= ============
 
 How to replicate the results?
