@@ -15,6 +15,7 @@ Breaking Changes:
 New Features:
 ^^^^^^^^^^^^^
 - Added ``MaskablePPO`` algorithm (@kronion)
+- ``MaskablePPO`` Dictionary Observation support (@glmcdona)
 
 Bug Fixes:
 ^^^^^^^^^^
