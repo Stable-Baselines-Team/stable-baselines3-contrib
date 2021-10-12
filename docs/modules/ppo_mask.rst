@@ -42,7 +42,7 @@ Discrete      ✔️      ✔️
 Box           ❌      ✔️
 MultiDiscrete ✔️      ✔️
 MultiBinary   ✔️      ✔️
-Dict          ❌      ❌
+Dict          ❌      ✔️
 ============= ====== ===========
 
 
