@@ -17,7 +17,7 @@ class MaskableRolloutBufferSamples(NamedTuple):
     returns: th.Tensor
     action_masks: th.Tensor
 
-class DictMaskableRolloutBufferSamples(MaskableRolloutBufferSamples):
+class MaskableDictRolloutBufferSamples(MaskableRolloutBufferSamples):
     observations: TensorDict
     actions: th.Tensor
     old_values: th.Tensor
@@ -106,7 +106,7 @@ class MaskableRolloutBuffer(RolloutBuffer):
         )
         return MaskableRolloutBufferSamples(*map(self.to_torch, data))
 
-class DictMaskableRolloutBuffer(DictRolloutBuffer):
+class MaskableDictRolloutBuffer(DictRolloutBuffer):
     """
     Dict Rollout buffer used in on-policy algorithms like A2C/PPO.
     Extends the RolloutBuffer to use dictionary observations
@@ -142,7 +142,7 @@ class DictMaskableRolloutBuffer(DictRolloutBuffer):
         n_envs: int = 1,
     ):
         self.action_masks = None
-        super(DictMaskableRolloutBuffer, self).__init__(buffer_size, observation_space, action_space, device, gae_lambda, gamma, n_envs=n_envs)
+        super(MaskableDictRolloutBuffer, self).__init__(buffer_size, observation_space, action_space, device, gae_lambda, gamma, n_envs=n_envs)
 
     def reset(self) -> None:
         if isinstance(self.action_space, spaces.Discrete):
@@ -157,7 +157,7 @@ class DictMaskableRolloutBuffer(DictRolloutBuffer):
         self.mask_dims = mask_dims
         self.action_masks = np.ones((self.buffer_size, self.n_envs, self.mask_dims), dtype=np.float32)
         
-        super(DictMaskableRolloutBuffer, self).reset()
+        super(MaskableDictRolloutBuffer, self).reset()
 
     def add(self, *args, action_masks: Optional[np.ndarray] = None, **kwargs) -> None:
         """
@@ -166,9 +166,9 @@ class DictMaskableRolloutBuffer(DictRolloutBuffer):
         if action_masks is not None:
             self.action_masks[self.pos] = action_masks.reshape((self.n_envs, self.mask_dims))
 
-        super(DictMaskableRolloutBuffer, self).add(*args, **kwargs)
+        super(MaskableDictRolloutBuffer, self).add(*args, **kwargs)
 
-    def get(self, batch_size: Optional[int] = None) -> Generator[DictMaskableRolloutBufferSamples, None, None]:
+    def get(self, batch_size: Optional[int] = None) -> Generator[MaskableDictRolloutBufferSamples, None, None]:
         assert self.full, ""
         indices = np.random.permutation(self.buffer_size * self.n_envs)
         # Prepare the data
@@ -192,9 +192,9 @@ class DictMaskableRolloutBuffer(DictRolloutBuffer):
             yield self._get_samples(indices[start_idx : start_idx + batch_size])
             start_idx += batch_size
 
-    def _get_samples(self, batch_inds: np.ndarray, env: Optional[VecNormalize] = None) -> DictMaskableRolloutBufferSamples:
+    def _get_samples(self, batch_inds: np.ndarray, env: Optional[VecNormalize] = None) -> MaskableDictRolloutBufferSamples:
 
-        return DictMaskableRolloutBufferSamples(
+        return MaskableDictRolloutBufferSamples(
             observations={key: self.to_torch(obs[batch_inds]) for (key, obs) in self.observations.items()},
             actions=self.to_torch(self.actions[batch_inds]),
             old_values=self.to_torch(self.values[batch_inds].flatten()),

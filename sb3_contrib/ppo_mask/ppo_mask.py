@@ -15,7 +15,7 @@ from stable_baselines3.common.utils import explained_variance, get_schedule_fn, 
 from stable_baselines3.common.vec_env import VecEnv
 from torch.nn import functional as F
 
-from sb3_contrib.common.maskable.buffers import DictMaskableRolloutBuffer, MaskableRolloutBuffer
+from sb3_contrib.common.maskable.buffers import MaskableDictRolloutBuffer, MaskableRolloutBuffer
 from sb3_contrib.common.maskable.policies import MaskableActorCriticPolicy
 from sb3_contrib.common.maskable.utils import get_action_masks, is_masking_supported
 
@@ -128,7 +128,7 @@ class MaskablePPO(OnPolicyAlgorithm):
         self._setup_lr_schedule()
         self.set_random_seed(self.seed)
 
-        buffer_cls = DictMaskableRolloutBuffer if isinstance(self.observation_space, gym.spaces.Dict) else MaskableRolloutBuffer
+        buffer_cls = MaskableDictRolloutBuffer if isinstance(self.observation_space, gym.spaces.Dict) else MaskableRolloutBuffer
 
         self.policy = self.policy_class(
             self.observation_space,
@@ -291,7 +291,7 @@ class MaskablePPO(OnPolicyAlgorithm):
             collected, False if callback terminated rollout prematurely.
         """
 
-        assert isinstance(rollout_buffer, MaskableRolloutBuffer) or isinstance(rollout_buffer, DictMaskableRolloutBuffer), "RolloutBuffer doesn't support action masking"
+        assert isinstance(rollout_buffer, MaskableRolloutBuffer) or isinstance(rollout_buffer, MaskableDictRolloutBuffer), "RolloutBuffer doesn't support action masking"
         assert self._last_obs is not None, "No previous observation was provided"
         # Switch to eval mode (this affects batch norm / dropout)
         self.policy.set_training_mode(False)
