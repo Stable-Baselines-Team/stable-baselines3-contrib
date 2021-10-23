@@ -3,7 +3,7 @@
 Changelog
 ==========
 
-Release 1.2.1a2 (WIP)
+Release 1.2.1a3 (WIP)
 -------------------------------
 
 **Invalid action masking for PPO**
@@ -186,4 +186,4 @@ Stable-Baselines3 is currently maintained by `Antonin Raffin`_ (aka `@araffin`_)
 Contributors:
 -------------
 
-@ku2482 @guyk1971 @minhlong94 @ayeright @kronion
+@ku2482 @guyk1971 @minhlong94 @ayeright @kronion @glmcdona

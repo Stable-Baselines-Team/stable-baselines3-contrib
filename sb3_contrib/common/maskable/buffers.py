@@ -1,10 +1,10 @@
 from typing import Generator, NamedTuple, Optional, Union
-from stable_baselines3.common.type_aliases import RolloutBufferSamples, TensorDict
 
 import numpy as np
 import torch as th
 from gym import spaces
 from stable_baselines3.common.buffers import DictRolloutBuffer, RolloutBuffer
+from stable_baselines3.common.type_aliases import TensorDict
 from stable_baselines3.common.vec_env import VecNormalize
 
 
@@ -17,6 +17,7 @@ class MaskableRolloutBufferSamples(NamedTuple):
     returns: th.Tensor
     action_masks: th.Tensor
 
+
 class MaskableDictRolloutBufferSamples(MaskableRolloutBufferSamples):
     observations: TensorDict
     actions: th.Tensor
@@ -25,6 +26,7 @@ class MaskableDictRolloutBufferSamples(MaskableRolloutBufferSamples):
     advantages: th.Tensor
     returns: th.Tensor
     action_masks: th.Tensor
+
 
 class MaskableRolloutBuffer(RolloutBuffer):
     """
@@ -106,6 +108,7 @@ class MaskableRolloutBuffer(RolloutBuffer):
         )
         return MaskableRolloutBufferSamples(*map(self.to_torch, data))
 
+
 class MaskableDictRolloutBuffer(DictRolloutBuffer):
     """
     Dict Rollout buffer used in on-policy algorithms like A2C/PPO.
@@ -142,7 +145,9 @@ class MaskableDictRolloutBuffer(DictRolloutBuffer):
         n_envs: int = 1,
     ):
         self.action_masks = None
-        super(MaskableDictRolloutBuffer, self).__init__(buffer_size, observation_space, action_space, device, gae_lambda, gamma, n_envs=n_envs)
+        super(MaskableDictRolloutBuffer, self).__init__(
+            buffer_size, observation_space, action_space, device, gae_lambda, gamma, n_envs=n_envs
+        )
 
     def reset(self) -> None:
         if isinstance(self.action_space, spaces.Discrete):
@@ -156,7 +161,7 @@ class MaskableDictRolloutBuffer(DictRolloutBuffer):
 
         self.mask_dims = mask_dims
         self.action_masks = np.ones((self.buffer_size, self.n_envs, self.mask_dims), dtype=np.float32)
-        
+
         super(MaskableDictRolloutBuffer, self).reset()
 
     def add(self, *args, action_masks: Optional[np.ndarray] = None, **kwargs) -> None:

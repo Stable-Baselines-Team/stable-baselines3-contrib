@@ -1,8 +1,8 @@
 import time
 from collections import deque
 from typing import Any, Dict, Optional, Tuple, Type, Union
-import gym
 
+import gym
 import numpy as np
 import torch as th
 from gym import spaces
@@ -128,7 +128,9 @@ class MaskablePPO(OnPolicyAlgorithm):
         self._setup_lr_schedule()
         self.set_random_seed(self.seed)
 
-        buffer_cls = MaskableDictRolloutBuffer if isinstance(self.observation_space, gym.spaces.Dict) else MaskableRolloutBuffer
+        buffer_cls = (
+            MaskableDictRolloutBuffer if isinstance(self.observation_space, gym.spaces.Dict) else MaskableRolloutBuffer
+        )
 
         self.policy = self.policy_class(
             self.observation_space,
@@ -291,7 +293,9 @@ class MaskablePPO(OnPolicyAlgorithm):
             collected, False if callback terminated rollout prematurely.
         """
 
-        assert isinstance(rollout_buffer, MaskableRolloutBuffer) or isinstance(rollout_buffer, MaskableDictRolloutBuffer), "RolloutBuffer doesn't support action masking"
+        assert isinstance(rollout_buffer, MaskableRolloutBuffer) or isinstance(
+            rollout_buffer, MaskableDictRolloutBuffer
+        ), "RolloutBuffer doesn't support action masking"
         assert self._last_obs is not None, "No previous observation was provided"
         # Switch to eval mode (this affects batch norm / dropout)
         self.policy.set_training_mode(False)
