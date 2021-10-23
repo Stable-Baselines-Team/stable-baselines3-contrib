@@ -293,8 +293,8 @@ class MaskablePPO(OnPolicyAlgorithm):
             collected, False if callback terminated rollout prematurely.
         """
 
-        assert isinstance(rollout_buffer, MaskableRolloutBuffer) or isinstance(
-            rollout_buffer, MaskableDictRolloutBuffer
+        assert isinstance(
+            rollout_buffer, (MaskableRolloutBuffer, MaskableDictRolloutBuffer)
         ), "RolloutBuffer doesn't support action masking"
         assert self._last_obs is not None, "No previous observation was provided"
         # Switch to eval mode (this affects batch norm / dropout)
