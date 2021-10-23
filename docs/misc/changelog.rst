@@ -3,14 +3,21 @@
 Changelog
 ==========
 
-Release 1.2.1a3 (WIP)
+Release 1.3.0 (2021-10-23)
 -------------------------------
 
 **Invalid action masking for PPO**
 
+.. warning::
+
+  This version will be the last one supporting Python 3.6 (end of life in Dec 2021).
+  We highly recommended you to upgrade to Python >= 3.7.
+
+
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
 - Removed ``sde_net_arch``
+- Upgraded to Stable-Baselines3 >= 1.3.0
 
 New Features:
 ^^^^^^^^^^^^^
