@@ -32,6 +32,7 @@ See documentation for the full list of included features.
 **RL Algorithms**:
 - [Truncated Quantile Critics (TQC)](https://arxiv.org/abs/2005.04269)
 - [Quantile Regression DQN (QR-DQN)](https://arxiv.org/abs/1710.10044)
+- [PPO with invalid action masking (MaskablePPO)](https://arxiv.org/abs/2006.14171)
 
 **Gym Wrappers**:
 - [Time Feature Wrapper](https://arxiv.org/abs/1712.00378)
@@ -74,6 +75,15 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     version=__version__,
+    python_requires=">=3.6",
+    # PyPI package information.
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+    ],
 )
 
 # python setup.py sdist
