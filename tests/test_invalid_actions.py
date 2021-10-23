@@ -217,16 +217,15 @@ def test_cnn():
     evaluate_policy(model, env, warn=False)
 
 
-# Dict observations are currently not supported
-# def test_dict_obs():
-#     env = InvalidActionEnvDiscrete(dim=20, n_invalid_actions=10)
-#     env = ToDictWrapper(env)
-#     model = MaskablePPO("MultiInputPolicy", env, n_steps=64, seed=8)
-#     model.learn(100)
-#     evaluate_policy(model, env, warn=False)
-#
-#     # Mask all actions except the good one, a random model should succeed
-#     env = InvalidActionEnvDiscrete(dim=20, n_invalid_actions=19)
-#     env = ToDictWrapper(env)
-#     model = MaskablePPO("MultiInputPolicy", env, seed=8)
-#     evaluate_policy(model, env, reward_threshold=99, warn=False)
+def test_dict_obs():
+    env = InvalidActionEnvDiscrete(dim=20, n_invalid_actions=10)
+    env = ToDictWrapper(env)
+    model = MaskablePPO("MultiInputPolicy", env, n_steps=64, seed=8)
+    model.learn(100)
+    evaluate_policy(model, env, warn=False)
+
+    # Mask all actions except the good one, a random model should succeed
+    env = InvalidActionEnvDiscrete(dim=20, n_invalid_actions=19)
+    env = ToDictWrapper(env)
+    model = MaskablePPO("MultiInputPolicy", env, seed=8)
+    evaluate_policy(model, env, reward_threshold=99, warn=False)

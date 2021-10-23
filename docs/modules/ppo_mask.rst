@@ -16,7 +16,7 @@ algorithm. Other than adding support for action masking, the behavior is the sam
 
     MlpPolicy
     CnnPolicy
-    .. MultiInputPolicy
+    MultiInputPolicy
 
 
 Notes
@@ -42,7 +42,7 @@ Discrete      ✔️      ✔️
 Box           ❌      ✔️
 MultiDiscrete ✔️      ✔️
 MultiBinary   ✔️      ✔️
-Dict          ❌      ❌
+Dict          ❌      ✔️
 ============= ====== ===========
 
 
@@ -248,9 +248,9 @@ MaskablePPO Policies
   :members:
   :noindex:
 
-.. .. autoclass:: MultiInputPolicy
-..   :members:
-..
-.. .. autoclass:: sb3_contrib.common.maskable.policies.MaskableMultiInputActorCriticPolicy
-..   :members:
-..   :noindex:
+.. autoclass:: MultiInputPolicy
+  :members:
+
+.. autoclass:: sb3_contrib.common.maskable.policies.MaskableMultiInputActorCriticPolicy
+  :members:
+  :noindex:
