@@ -1,4 +1,6 @@
+import gym
 import pytest
+from stable_baselines3.common.env_util import make_vec_env
 
 from sb3_contrib import QRDQN, TQC
 
@@ -56,3 +58,31 @@ def test_qrdqn():
         create_eval_env=True,
     )
     model.learn(total_timesteps=500, eval_freq=250)
+
+
+@pytest.mark.parametrize("model_class", [TQC, QRDQN])
+def test_offpolicy_multi_env(model_class):
+    if model_class in [TQC]:
+        env_id = "Pendulum-v0"
+        policy_kwargs = dict(net_arch=[64], n_critics=1)
+    else:
+        env_id = "CartPole-v1"
+        policy_kwargs = dict(net_arch=[64])
+
+    def make_env():
+        env = gym.make(env_id)
+        # to check that the code handling timeouts runs
+        env = gym.wrappers.TimeLimit(env, 50)
+        return env
+
+    env = make_vec_env(make_env, n_envs=2)
+    model = model_class(
+        "MlpPolicy",
+        env,
+        policy_kwargs=policy_kwargs,
+        learning_starts=100,
+        buffer_size=10000,
+        verbose=0,
+        train_freq=5,
+    )
+    model.learn(total_timesteps=150)
