@@ -77,6 +77,8 @@ class RecurrentPPO(OnPolicyAlgorithm):
         ent_coef: float = 0.0,
         vf_coef: float = 0.5,
         max_grad_norm: float = 0.5,
+        use_sde: bool = False,
+        sde_sample_freq: int = -1,
         target_kl: Optional[float] = None,
         tensorboard_log: Optional[str] = None,
         create_eval_env: bool = False,
@@ -96,9 +98,8 @@ class RecurrentPPO(OnPolicyAlgorithm):
             ent_coef=ent_coef,
             vf_coef=vf_coef,
             max_grad_norm=max_grad_norm,
-            # TODO(antonin): add gSDE support
-            use_sde=False,
-            sde_sample_freq=-1,
+            use_sde=use_sde,
+            sde_sample_freq=sde_sample_freq,
             tensorboard_log=tensorboard_log,
             create_eval_env=create_eval_env,
             policy_kwargs=policy_kwargs,
@@ -108,6 +109,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
             device=device,
             _init_setup_model=False,
             supported_action_spaces=(
+                spaces.Box,
                 spaces.Discrete,
                 spaces.MultiDiscrete,
                 spaces.MultiBinary,
@@ -353,6 +355,10 @@ class RecurrentPPO(OnPolicyAlgorithm):
                 if isinstance(self.action_space, spaces.Discrete):
                     # Convert discrete action from float to long
                     actions = rollout_data.actions.long().flatten()
+
+                # Re-sample the noise matrix because the log_std has changed
+                if self.use_sde:
+                    self.policy.reset_noise(self.batch_size)
 
                 self.policy.set_lstm_states(rollout_data.lstm_states)
                 self.policy.set_dones(rollout_data.dones)
