@@ -77,14 +77,13 @@ class RecurrentRolloutBuffer(RolloutBuffer):
 
     def get(self, batch_size: Optional[int] = None) -> Generator[RecurrentRolloutBufferSamples, None, None]:
         assert self.full, ""
-        # Do not shuffle
-        indices = np.arange(self.buffer_size * self.n_envs)
+
         # Prepare the data
         if not self.generator_ready:
             # hidden_state_shape = (self.n_steps, lstm.num_layers, self.n_envs, lstm.hidden_size)
             # swap first to (self.n_steps, self.n_envs, lstm.num_layers, lstm.hidden_size)
-            self.hidden_states = self.hidden_states.swapaxes(1, 2)
-            self.cell_states = self.cell_states.swapaxes(1, 2)
+            # self.hidden_states = self.hidden_states.swapaxes(1, 2)
+            # self.cell_states = self.cell_states.swapaxes(1, 2)
 
             for tensor in [
                 "observations",
@@ -93,8 +92,8 @@ class RecurrentRolloutBuffer(RolloutBuffer):
                 "log_probs",
                 "advantages",
                 "returns",
-                "hidden_states",
-                "cell_states",
+                # "hidden_states",
+                # "cell_states",
                 "dones",
             ]:
                 self.__dict__[tensor] = self.swap_and_flatten(self.__dict__[tensor])
@@ -104,10 +103,43 @@ class RecurrentRolloutBuffer(RolloutBuffer):
         if batch_size is None:
             batch_size = self.buffer_size * self.n_envs
 
-        start_idx = 0
-        while start_idx < self.buffer_size * self.n_envs:
-            yield self._get_samples(indices[start_idx : start_idx + batch_size])
-            start_idx += batch_size
+        # indices = np.arange(self.buffer_size * self.n_envs)
+        # start_idx = 0
+        # while start_idx < self.buffer_size * self.n_envs:
+        #     yield self._get_samples(indices[start_idx : start_idx + batch_size])
+        #     start_idx += batch_size
+
+        # Do not shuffle the sequence, only the env indices
+        n_minibatches = (self.buffer_size * self.n_envs) // batch_size
+        assert (
+            self.n_envs % n_minibatches == 0
+        ), f"{self.n_envs} not a multiple of {n_minibatches} = {self.buffer_size * self.n_envs} // {batch_size}"
+
+        n_envs_per_batch = self.n_envs // n_minibatches
+        env_indices = np.random.permutation(self.n_envs)
+
+        flat_indices = np.arange(self.buffer_size * self.n_envs).reshape(self.n_envs, self.buffer_size)
+
+
+        for start_env_idx in range(0, self.n_envs, n_envs_per_batch):
+            end_env_idx = start_env_idx + n_envs_per_batch
+            mini_batch_env_indices = env_indices[start_env_idx:end_env_idx]
+            batch_inds = flat_indices[mini_batch_env_indices].ravel()
+            lstm_states = (
+                self.hidden_states[:, :, mini_batch_env_indices, :][0],
+                self.cell_states[:, :, mini_batch_env_indices, :][0],
+            )
+
+            yield RecurrentRolloutBufferSamples(
+                observations=self.to_torch(self.observations[batch_inds]),
+                actions=self.to_torch(self.actions[batch_inds]),
+                old_values=self.to_torch(self.values[batch_inds].flatten()),
+                old_log_prob=self.to_torch(self.log_probs[batch_inds].flatten()),
+                advantages=self.to_torch(self.advantages[batch_inds].flatten()),
+                returns=self.to_torch(self.returns[batch_inds].flatten()),
+                lstm_states=(self.to_torch(lstm_states[0]), self.to_torch(lstm_states[1])),
+                dones=self.to_torch(self.dones[batch_inds]),
+            )
 
     def _get_samples(self, batch_inds: np.ndarray, env: Optional[VecNormalize] = None) -> RecurrentRolloutBufferSamples:
         return RecurrentRolloutBufferSamples(
@@ -117,7 +149,7 @@ class RecurrentRolloutBuffer(RolloutBuffer):
             old_log_prob=self.to_torch(self.log_probs[batch_inds].flatten()),
             advantages=self.to_torch(self.advantages[batch_inds].flatten()),
             returns=self.to_torch(self.returns[batch_inds].flatten()),
-            lstm_states=(self.to_torch(self.hidden_states[batch_inds][0]), self.to_torch(self.cell_states[batch_inds][0])),
+            lstm_states=(self.to_torch(self.hidden_states[batch_inds][0:1]), self.to_torch(self.cell_states[batch_inds][0:1])),
             dones=self.to_torch(self.dones[batch_inds]),
         )
 
