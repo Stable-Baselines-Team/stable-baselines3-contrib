@@ -143,11 +143,14 @@ class RecurrentPPO(OnPolicyAlgorithm):
         if not isinstance(self.policy, RecurrentActorCriticPolicy):
             raise ValueError("Policy must subclass RecurrentActorCriticPolicy")
 
-        # TODO: handle multiple envs
-        # self.lstm_states = (th.tensor(lstm_states[0]).to(self.device), th.tensor(lstm_states[0]).to(self.device))
         lstm = self.policy.features_extractor.lstm
         hidden_state_shape = (self.n_steps, lstm.num_layers, self.n_envs, lstm.hidden_size)
         lstm_states = (np.zeros(hidden_state_shape, dtype=np.float32), np.zeros(hidden_state_shape, dtype=np.float32))
+        single_hidden_state_shape = (lstm.num_layers, self.n_envs, lstm.hidden_size)
+        self.lstm_states = (
+            th.zeros(single_hidden_state_shape).to(self.device),
+            th.zeros(single_hidden_state_shape).to(self.device),
+        )
 
         self.rollout_buffer = buffer_cls(
             self.n_steps,
@@ -286,6 +289,8 @@ class RecurrentPPO(OnPolicyAlgorithm):
                 ):
                     terminal_obs = self.policy.obs_to_tensor(infos[idx]["terminal_observation"])[0]
                     with th.no_grad():
+                        terminal_lstm_state = lstm_states[0][:, idx : idx + 1, :], lstm_states[1][:, idx : idx + 1, :]
+                        self.policy.set_lstm_states(terminal_lstm_state)
                         terminal_value = self.policy.predict_values(terminal_obs)[0]
                     rewards[idx] += self.gamma * terminal_value
 

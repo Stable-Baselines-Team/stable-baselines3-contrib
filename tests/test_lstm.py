@@ -35,8 +35,18 @@ class CartPoleNoVelEnv(CartPoleEnv):
 
 def test_ppo_lstm():
     from stable_baselines3.common.env_util import make_vec_env
-    env = make_vec_env("CartPole-v1", n_envs=1)
+
+    env = make_vec_env("CartPole-v1", n_envs=8)
+
+    def make_env():
+        env = CartPoleNoVelEnv()
+        env = TimeLimit(env, max_episode_steps=500)
+        return env
+
+    env = make_vec_env(make_env, n_envs=2)
     # env = CartPoleNoVelEnv()
+    # import gym
+    # env = gym.make("CartPole-v1")
     # env = TimeLimit(env, max_episode_steps=500)
 
     model = RecurrentPPO(
@@ -46,8 +56,9 @@ def test_ppo_lstm():
         learning_rate=3e-4,
         verbose=1,
         batch_size=64,
+        seed=0,
         # create_eval_env=True,
     )
     # model.learn(total_timesteps=500, eval_freq=250)
     # model.learn(total_timesteps=100_000)
-    model.learn(total_timesteps=500)
+    model.learn(total_timesteps=100)
