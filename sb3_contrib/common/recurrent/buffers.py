@@ -115,11 +115,10 @@ class RecurrentRolloutBuffer(RolloutBuffer):
             self.n_envs % n_minibatches == 0
         ), f"{self.n_envs} not a multiple of {n_minibatches} = {self.buffer_size * self.n_envs} // {batch_size}"
 
-        n_envs_per_batch = self.n_envs // n_minibatches
+        # n_envs_per_batch = self.n_envs // n_minibatches
+        n_envs_per_batch = batch_size // self.buffer_size
         env_indices = np.random.permutation(self.n_envs)
-
         flat_indices = np.arange(self.buffer_size * self.n_envs).reshape(self.n_envs, self.buffer_size)
-
 
         for start_env_idx in range(0, self.n_envs, n_envs_per_batch):
             end_env_idx = start_env_idx + n_envs_per_batch
