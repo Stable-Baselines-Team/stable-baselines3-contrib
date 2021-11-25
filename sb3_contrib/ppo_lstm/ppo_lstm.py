@@ -304,10 +304,11 @@ class RecurrentPPO(OnPolicyAlgorithm):
                 ):
                     terminal_obs = self.policy.obs_to_tensor(infos[idx]["terminal_observation"])[0]
                     with th.no_grad():
-                        terminal_lstm_state = (
-                            lstm_states[1][0][:, idx : idx + 1, :],
-                            lstm_states[1][1][:, idx : idx + 1, :],
-                        )
+                        # terminal_lstm_state = (
+                        #     lstm_states[1][0][:, idx : idx + 1, :],
+                        #     lstm_states[1][1][:, idx : idx + 1, :],
+                        # )
+                        terminal_lstm_state = None
                         episode_starts = th.tensor([False]).float().to(self.device)
                         terminal_value = self.policy.predict_values(terminal_obs, terminal_lstm_state, episode_starts)[0]
                     rewards[idx] += self.gamma * terminal_value
