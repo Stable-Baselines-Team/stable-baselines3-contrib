@@ -148,8 +148,8 @@ class RecurrentPPO(OnPolicyAlgorithm):
         if not isinstance(self.policy, RecurrentActorCriticPolicy):
             raise ValueError("Policy must subclass RecurrentActorCriticPolicy")
 
-        # hidden_state_shape = (self.n_steps, lstm.num_layers, self.n_envs, lstm.hidden_size)
-        # lstm_states = (np.zeros(hidden_state_shape, dtype=np.float32), np.zeros(hidden_state_shape, dtype=np.float32))
+        hidden_state_shape = (self.n_steps, lstm.num_layers, self.n_envs, lstm.hidden_size)
+        lstm_states = (np.zeros(hidden_state_shape, dtype=np.float32), np.zeros(hidden_state_shape, dtype=np.float32))
 
         single_hidden_state_shape = (lstm.num_layers, self.n_envs, lstm.hidden_size)
         # hidden states for actor and critic
@@ -168,7 +168,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
             self.n_steps,
             self.observation_space,
             self.action_space,
-            # lstm_states,
+            lstm_states,
             self.device,
             gamma=self.gamma,
             gae_lambda=self.gae_lambda,
@@ -320,13 +320,14 @@ class RecurrentPPO(OnPolicyAlgorithm):
                 self._last_episode_starts,
                 values,
                 log_probs,
-                # lstm_states=(lstm_states[0].cpu().numpy(), lstm_states[1].cpu().numpy()),
+                lstm_states=(self.lstm_states[0][0].cpu().numpy(), self.lstm_states[0][1].cpu().numpy()),
             )
 
             self._last_obs = new_obs
             self._last_episode_starts = dones
+            self.lstm_states = lstm_states
 
-        self.lstm_states = deepcopy(lstm_states)
+        # self.lstm_states = deepcopy(lstm_states)
 
         with th.no_grad():
             # Compute value for the last timestep
