@@ -49,14 +49,14 @@ class RecurrentRolloutBuffer(RolloutBuffer):
         buffer_size: int,
         observation_space: spaces.Space,
         action_space: spaces.Space,
-        lstm_states: Tuple[np.ndarray, np.ndarray],
+        # lstm_states: Tuple[np.ndarray, np.ndarray],
         device: Union[th.device, str] = "cpu",
         gae_lambda: float = 1,
         gamma: float = 0.99,
         n_envs: int = 1,
     ):
-        self.lstm_states = lstm_states
-        self.dones = None
+        # self.lstm_states = lstm_states
+        # self.dones = None
         self.initial_lstm_states = None
         super().__init__(buffer_size, observation_space, action_space, device, gae_lambda, gamma, n_envs)
 

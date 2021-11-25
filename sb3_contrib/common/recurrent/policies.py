@@ -104,9 +104,8 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         lstm_states: Tuple[th.Tensor, th.Tensor],
         episode_starts: th.Tensor,
     ) -> Tuple[th.Tensor, th.Tensor]:
-        lstm_states = lstm_states[0].clone(), lstm_states[1].clone()
-        episode_starts = episode_starts.clone()
-        # lstm_states = lstm_states[0].clone() * 0.0, lstm_states[1].clone() * 0.0
+        # lstm_states = lstm_states[0].clone(), lstm_states[1].clone()
+        # episode_starts = episode_starts.clone()
         # LSTM logic
         # (sequence length, n_envs, features dim) (batch size = n envs)
         n_envs = lstm_states[0].shape[1]
@@ -294,89 +293,3 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             actions = actions[0]
 
         return actions, states
-
-
-import torch
-from torch.distributions.categorical import Categorical
-
-
-def layer_init(layer, std=np.sqrt(2), bias_const=0.0):
-    torch.nn.init.orthogonal_(layer.weight, std)
-    torch.nn.init.constant_(layer.bias, bias_const)
-    return layer
-
-
-class Agent(nn.Module):
-    def __init__(self, envs):
-        super(Agent, self).__init__()
-        self.network = nn.Flatten()
-
-        self.critic = nn.Sequential(
-            nn.Linear(np.array(envs.observation_space.shape).prod(), 64),
-            nn.Tanh(),
-            nn.Linear(64, 1),
-        )
-
-        self.actor = nn.Sequential(
-            nn.Linear(64, 64),
-            nn.Tanh(),
-            nn.Linear(64, envs.action_space.n),
-        )
-        self.lstm = nn.LSTM(np.array(envs.observation_space.shape).prod(), 64)
-        # self.lstm_critic = nn.LSTM(np.array(envs.observation_space.shape).prod(), 64)
-
-    def get_states_critic(self, x, lstm_state, done):
-        hidden = self.network(x)
-
-        # LSTM logic
-        batch_size = lstm_state[0].shape[1]
-        hidden = hidden.reshape((batch_size, -1, self.lstm_critic.input_size)).swapaxes(0, 1)
-        done = done.reshape((batch_size, -1)).swapaxes(0, 1)
-        new_hidden = []
-        for h, d in zip(hidden, done):
-            h, lstm_state = self.lstm_critic(
-                h.unsqueeze(0),
-                (
-                    (1.0 - d).view(1, -1, 1) * lstm_state[0],
-                    (1.0 - d).view(1, -1, 1) * lstm_state[1],
-                ),
-            )
-            new_hidden += [h]
-        new_hidden = torch.flatten(torch.cat(new_hidden).transpose(0, 1), 0, 1)
-        return new_hidden, lstm_state
-
-    def get_states(self, x, lstm_state, done):
-        hidden = self.network(x)
-
-        # LSTM logic
-        batch_size = lstm_state[0].shape[1]
-        hidden = hidden.reshape((batch_size, -1, self.lstm.input_size)).swapaxes(0, 1)
-        done = done.reshape((batch_size, -1)).swapaxes(0, 1)
-        new_hidden = []
-        for h, d in zip(hidden, done):
-            h, lstm_state = self.lstm(
-                h.unsqueeze(0),
-                (
-                    (1.0 - d).view(1, -1, 1) * lstm_state[0],
-                    (1.0 - d).view(1, -1, 1) * lstm_state[1],
-                ),
-            )
-            new_hidden += [h]
-        new_hidden = torch.flatten(torch.cat(new_hidden).transpose(0, 1), 0, 1)
-        return new_hidden, lstm_state
-
-    def get_value(self, x, lstm_state, done):
-        # hidden, _ = self.get_states_critic(x, (lstm_state[0] * 0.0, lstm_state[1] * 0.0), done)
-        return self.critic(x)
-
-    def get_action_and_value(self, x, lstm_state, done, action=None):
-        hidden, lstm_state = self.get_states(x, lstm_state, done)
-        # hidden_critic, lstm_state_critic = self.get_states_critic(x, lstm_state, done)
-        logits = self.actor(hidden)
-        probs = Categorical(logits=logits)
-        if action is None:
-            action = probs.sample()
-        return action, probs.log_prob(action), probs.entropy(), self.critic(x), lstm_state
-
-    def set_training_mode(self, x):
-        pass

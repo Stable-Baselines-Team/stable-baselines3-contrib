@@ -1,4 +1,5 @@
 import time
+from copy import deepcopy
 from typing import Any, Dict, Optional, Tuple, Type, Union
 
 import gym
@@ -142,12 +143,14 @@ class RecurrentPPO(OnPolicyAlgorithm):
         )
         self.policy = self.policy.to(self.device)
 
+        lstm = self.policy.lstm
+
         if not isinstance(self.policy, RecurrentActorCriticPolicy):
             raise ValueError("Policy must subclass RecurrentActorCriticPolicy")
 
-        lstm = self.policy.features_extractor.lstm
-        hidden_state_shape = (self.n_steps, lstm.num_layers, self.n_envs, lstm.hidden_size)
-        lstm_states = (np.zeros(hidden_state_shape, dtype=np.float32), np.zeros(hidden_state_shape, dtype=np.float32))
+        # hidden_state_shape = (self.n_steps, lstm.num_layers, self.n_envs, lstm.hidden_size)
+        # lstm_states = (np.zeros(hidden_state_shape, dtype=np.float32), np.zeros(hidden_state_shape, dtype=np.float32))
+
         single_hidden_state_shape = (lstm.num_layers, self.n_envs, lstm.hidden_size)
         self.lstm_states = (
             th.zeros(single_hidden_state_shape).to(self.device),
@@ -158,7 +161,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
             self.n_steps,
             self.observation_space,
             self.action_space,
-            lstm_states,
+            # lstm_states,
             self.device,
             gamma=self.gamma,
             gae_lambda=self.gae_lambda,
@@ -246,7 +249,8 @@ class RecurrentPPO(OnPolicyAlgorithm):
 
         callback.on_rollout_start()
 
-        rollout_buffer.initial_lstm_states = self.lstm_states[0].clone(), self.lstm_states[1].clone()
+        rollout_buffer.initial_lstm_states = deepcopy(self.lstm_states)
+        lstm_states = deepcopy(self.lstm_states)
 
         while n_steps < n_rollout_steps:
             if self.use_sde and self.sde_sample_freq > 0 and n_steps % self.sde_sample_freq == 0:
@@ -257,9 +261,8 @@ class RecurrentPPO(OnPolicyAlgorithm):
                 # Convert to pytorch tensor or to TensorDict
                 obs_tensor = obs_as_tensor(self._last_obs, self.device)
                 episode_starts = th.tensor(self._last_episode_starts).float().to(self.device)
-                actions, values, log_probs = self.policy.forward(obs_tensor, self.lstm_states, episode_starts)
-                lstm_states = self.policy.get_lstm_states()
-                self.lstm_states = lstm_states[0].clone(), lstm_states[1].clone()
+                actions, values, log_probs, lstm_states = self.policy.forward(obs_tensor, lstm_states, episode_starts)
+
             actions = actions.cpu().numpy()
 
             # Rescale and perform action
@@ -286,21 +289,21 @@ class RecurrentPPO(OnPolicyAlgorithm):
 
             # Handle timeout by bootstraping with value function
             # see GitHub issue #633
-            # for idx, done_ in enumerate(dones):
-            #     if (
-            #         done_
-            #         and infos[idx].get("terminal_observation") is not None
-            #         and infos[idx].get("TimeLimit.truncated", False)
-            #     ):
-            #         terminal_obs = self.policy.obs_to_tensor(infos[idx]["terminal_observation"])[0]
-            #         with th.no_grad():
-            #             terminal_lstm_state = (
-            #                 self.lstm_states[0][:, idx : idx + 1, :],
-            #                 self.lstm_states[1][:, idx : idx + 1, :],
-            #             )
-            #             episode_starts = th.tensor([False]).float().to(self.device)
-            #             terminal_value = self.policy.predict_values(terminal_obs, terminal_lstm_state, episode_starts)[0]
-            #         rewards[idx] += self.gamma * terminal_value
+            for idx, done_ in enumerate(dones):
+                if (
+                    done_
+                    and infos[idx].get("terminal_observation") is not None
+                    and infos[idx].get("TimeLimit.truncated", False)
+                ):
+                    terminal_obs = self.policy.obs_to_tensor(infos[idx]["terminal_observation"])[0]
+                    with th.no_grad():
+                        terminal_lstm_state = (
+                            lstm_states[0][:, idx : idx + 1, :],
+                            lstm_states[1][:, idx : idx + 1, :],
+                        )
+                        episode_starts = th.tensor([False]).float().to(self.device)
+                        terminal_value = self.policy.predict_values(terminal_obs, terminal_lstm_state, episode_starts)[0]
+                    rewards[idx] += self.gamma * terminal_value
 
             rollout_buffer.add(
                 self._last_obs,
@@ -315,12 +318,12 @@ class RecurrentPPO(OnPolicyAlgorithm):
             self._last_obs = new_obs
             self._last_episode_starts = dones
 
+        self.lstm_states = deepcopy(lstm_states)
+
         with th.no_grad():
             # Compute value for the last timestep
-            # TODO: update the lstm states?
-            # TODO: check episode_starts
-            episode_starts = th.tensor(self._last_episode_starts).float().to(self.device)
-            values = self.policy.predict_values(obs_as_tensor(new_obs, self.device), self.lstm_states, episode_starts)
+            episode_starts = th.tensor(dones).float().to(self.device)
+            values = self.policy.predict_values(obs_as_tensor(new_obs, self.device), lstm_states, episode_starts)
 
         rollout_buffer.compute_returns_and_advantage(last_values=values, dones=dones)
 
@@ -347,7 +350,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
         clip_fractions = []
 
         continue_training = True
-        self.policy.features_extractor.debug = True
+        # self.policy.features_extractor.debug = True
 
         # train for n_epochs epochs
         for epoch in range(self.n_epochs):
@@ -369,7 +372,6 @@ class RecurrentPPO(OnPolicyAlgorithm):
                     rollout_data.lstm_states,
                     rollout_data.episode_starts,
                 )
-                # self.policy.features_extractor.debug = False
 
                 values = values.flatten()
                 # Normalize advantage
