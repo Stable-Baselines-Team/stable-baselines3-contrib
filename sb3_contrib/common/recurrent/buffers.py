@@ -104,18 +104,13 @@ class RecurrentRolloutBuffer(RolloutBuffer):
         if batch_size is None:
             batch_size = self.buffer_size * self.n_envs
 
-        # indices = np.arange(self.buffer_size * self.n_envs)
-        # start_idx = 0
-        # while start_idx < self.buffer_size * self.n_envs:
-        #     yield self._get_samples(indices[start_idx : start_idx + batch_size])
-        #     start_idx += batch_size
-
         # Do not shuffle the sequence, only the env indices
-        # n_minibatches = (self.buffer_size * self.n_envs) // batch_size
-        n_minibatches = 1
-        # assert (
-        #     self.n_envs % n_minibatches == 0
-        # ), f"{self.n_envs} not a multiple of {n_minibatches} = {self.buffer_size * self.n_envs} // {batch_size}"
+        n_minibatches = (self.buffer_size * self.n_envs) // batch_size
+        # n_minibatches = 1
+
+        assert (
+            self.n_envs % n_minibatches == 0
+        ), f"{self.n_envs} not a multiple of {n_minibatches} = {self.buffer_size * self.n_envs} // {batch_size}"
         n_envs_per_batch = self.n_envs // n_minibatches
         # n_envs_per_batch = batch_size // self.buffer_size
 
