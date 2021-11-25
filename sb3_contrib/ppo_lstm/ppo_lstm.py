@@ -143,7 +143,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
         )
         self.policy = self.policy.to(self.device)
 
-        lstm = self.policy.lstm
+        lstm = self.policy.lstm_actor
 
         if not isinstance(self.policy, RecurrentActorCriticPolicy):
             raise ValueError("Policy must subclass RecurrentActorCriticPolicy")
@@ -152,9 +152,16 @@ class RecurrentPPO(OnPolicyAlgorithm):
         # lstm_states = (np.zeros(hidden_state_shape, dtype=np.float32), np.zeros(hidden_state_shape, dtype=np.float32))
 
         single_hidden_state_shape = (lstm.num_layers, self.n_envs, lstm.hidden_size)
+        # hidden states for actor and critic
         self.lstm_states = (
-            th.zeros(single_hidden_state_shape).to(self.device),
-            th.zeros(single_hidden_state_shape).to(self.device),
+            (
+                th.zeros(single_hidden_state_shape).to(self.device),
+                th.zeros(single_hidden_state_shape).to(self.device),
+            ),
+            (
+                th.zeros(single_hidden_state_shape).to(self.device),
+                th.zeros(single_hidden_state_shape).to(self.device),
+            ),
         )
 
         self.rollout_buffer = buffer_cls(
@@ -298,8 +305,8 @@ class RecurrentPPO(OnPolicyAlgorithm):
                     terminal_obs = self.policy.obs_to_tensor(infos[idx]["terminal_observation"])[0]
                     with th.no_grad():
                         terminal_lstm_state = (
-                            lstm_states[0][:, idx : idx + 1, :],
-                            lstm_states[1][:, idx : idx + 1, :],
+                            lstm_states[1][0][:, idx : idx + 1, :],
+                            lstm_states[1][1][:, idx : idx + 1, :],
                         )
                         episode_starts = th.tensor([False]).float().to(self.device)
                         terminal_value = self.policy.predict_values(terminal_obs, terminal_lstm_state, episode_starts)[0]
@@ -323,7 +330,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
         with th.no_grad():
             # Compute value for the last timestep
             episode_starts = th.tensor(dones).float().to(self.device)
-            values = self.policy.predict_values(obs_as_tensor(new_obs, self.device), lstm_states, episode_starts)
+            values = self.policy.predict_values(obs_as_tensor(new_obs, self.device), lstm_states[1], episode_starts)
 
         rollout_buffer.compute_returns_and_advantage(last_values=values, dones=dones)
 

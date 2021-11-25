@@ -6,7 +6,7 @@ import torch as th
 from stable_baselines3.common.distributions import Distribution
 from stable_baselines3.common.policies import ActorCriticPolicy
 from stable_baselines3.common.preprocessing import preprocess_obs
-from stable_baselines3.common.torch_layers import BaseFeaturesExtractor, FlattenExtractor
+from stable_baselines3.common.torch_layers import BaseFeaturesExtractor, FlattenExtractor, MlpExtractor
 from stable_baselines3.common.type_aliases import Schedule
 from stable_baselines3.common.utils import zip_strict
 from torch import nn
@@ -68,6 +68,8 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
     ):
+        hidden_size = 64
+        self.lstm_output_dim = hidden_size
         super().__init__(
             observation_space,
             action_space,
@@ -89,43 +91,49 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         )
 
         num_layers = 1
-        hidden_size = 64
-        # hidden_size = self.features_dim
-        # TODO: adjust mlp extractor input shape
-        # and add lstm for value function
-        self.adapter = nn.Linear(hidden_size, self.features_dim)
-        self.lstm = nn.LSTM(self.features_dim, hidden_size, num_layers=num_layers)
+        self.lstm_actor = nn.LSTM(self.features_dim, hidden_size, num_layers=num_layers)
+        # self.lstm_critic = nn.LSTM(self.features_dim, hidden_size, num_layers=num_layers)
+        self.critic = nn.Linear(self.features_dim, hidden_size)
         # Setup optimizer with initial learning rate
         self.optimizer = self.optimizer_class(self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
 
+    def _build_mlp_extractor(self) -> None:
+        """
+        Create the policy and value networks.
+        Part of the layers can be shared.
+        """
+        self.mlp_extractor = MlpExtractor(
+            self.lstm_output_dim,
+            net_arch=self.net_arch,
+            activation_fn=self.activation_fn,
+            device=self.device,
+        )
+
+    @staticmethod
     def _process_sequence(
-        self,
         features: th.Tensor,
         lstm_states: Tuple[th.Tensor, th.Tensor],
         episode_starts: th.Tensor,
+        lstm: nn.LSTM,
     ) -> Tuple[th.Tensor, th.Tensor]:
-        # lstm_states = lstm_states[0].clone(), lstm_states[1].clone()
-        # episode_starts = episode_starts.clone()
         # LSTM logic
         # (sequence length, n_envs, features dim) (batch size = n envs)
         n_envs = lstm_states[0].shape[1]
-        # Note: order matters and should be consistent with the one from the buffer
-        # above is when envs are interleaved
         # Batch to sequence
-        features_sequence = features.reshape((n_envs, -1, self.lstm.input_size)).swapaxes(0, 1)
+        features_sequence = features.reshape((n_envs, -1, lstm.input_size)).swapaxes(0, 1)
         episode_starts = episode_starts.reshape((n_envs, -1)).swapaxes(0, 1)
 
         lstm_output = []
         # Iterate over the sequence
         for features, episode_start in zip_strict(features_sequence, episode_starts):
-            hidden, lstm_states = self.lstm(
+            hidden, lstm_states = lstm(
                 features.unsqueeze(dim=0),
                 (
                     (1.0 - episode_start).view(1, n_envs, 1) * lstm_states[0],
                     (1.0 - episode_start).view(1, n_envs, 1) * lstm_states[1],
                 ),
             )
-            lstm_output += [self.adapter(hidden)]
+            lstm_output += [hidden]
         # Sequence to batch
         lstm_output = th.flatten(th.cat(lstm_output).transpose(0, 1), start_dim=0, end_dim=1)
         return lstm_output, lstm_states
@@ -147,17 +155,20 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         # Preprocess the observation if needed
         features = self.extract_features(obs)
         # latent_pi, latent_vf = self.mlp_extractor(features)
-        latent_pi, lstm_states = self._process_sequence(features, lstm_states, episode_starts)
+        latent_pi, lstm_states_pi = self._process_sequence(features, lstm_states[0], episode_starts, self.lstm_actor)
+        # latent_vf, lstm_states_vf = self._process_sequence(features, lstm_states[1], episode_starts, self.lstm_critic)
+        lstm_states_vf = None
+        latent_vf = self.critic(features)
 
         latent_pi = self.mlp_extractor.forward_actor(latent_pi)
-        latent_vf = self.mlp_extractor.forward_critic(features)
+        latent_vf = self.mlp_extractor.forward_critic(latent_vf)
 
         # Evaluate the values for the given observations
         values = self.value_net(latent_vf)
         distribution = self._get_action_dist_from_latent(latent_pi)
         actions = distribution.get_actions(deterministic=deterministic)
         log_prob = distribution.log_prob(actions)
-        return actions, values, log_prob, lstm_states
+        return actions, values, log_prob, (lstm_states_pi, lstm_states_vf)
 
     def get_distribution(
         self,
@@ -172,7 +183,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         :return: the action distribution.
         """
         features = self.extract_features(obs)
-        latent_pi, _ = self._process_sequence(features, lstm_states, episode_starts)
+        latent_pi, _ = self._process_sequence(features, lstm_states, episode_starts, self.lstm_actor)
         latent_pi = self.mlp_extractor.forward_actor(latent_pi)
         return self._get_action_dist_from_latent(latent_pi)
 
@@ -189,7 +200,9 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         :return: the estimated values.
         """
         features = self.extract_features(obs)
-        latent_vf = self.mlp_extractor.forward_critic(features)
+        # latent_vf, _ = self._process_sequence(features, lstm_states, episode_starts, self.lstm_critic)
+        latent_vf = self.critic(features)
+        latent_vf = self.mlp_extractor.forward_critic(latent_vf)
         return self.value_net(latent_vf)
 
     def evaluate_actions(
@@ -211,9 +224,13 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         # Preprocess the observation if needed
         features = self.extract_features(obs)
         # latent_pi, latent_vf = self.mlp_extractor(features)
-        latent_pi, _ = self._process_sequence(features, lstm_states, episode_starts)
+        latent_pi, _ = self._process_sequence(features, lstm_states[0], episode_starts, self.lstm_actor)
+        # latent_vf, _ = self._process_sequence(features, lstm_states[1], episode_starts, self.lstm_critic)
+        latent_vf = self.critic(features)
+
+
         latent_pi = self.mlp_extractor.forward_actor(latent_pi)
-        latent_vf = self.mlp_extractor.forward_critic(features)
+        latent_vf = self.mlp_extractor.forward_critic(latent_vf)
 
         distribution = self._get_action_dist_from_latent(latent_pi)
         log_prob = distribution.log_prob(actions)

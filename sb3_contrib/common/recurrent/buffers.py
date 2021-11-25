@@ -130,10 +130,15 @@ class RecurrentRolloutBuffer(RolloutBuffer):
             #     self.hidden_states[:, :, mini_batch_env_indices, :][0],
             #     self.cell_states[:, :, mini_batch_env_indices, :][0],
             # )
-            lstm_states = (
-                self.initial_lstm_states[0][:, mini_batch_env_indices].clone(),
-                self.initial_lstm_states[1][:, mini_batch_env_indices].clone(),
+            lstm_states_pi = (
+                self.initial_lstm_states[0][0][:, mini_batch_env_indices].clone(),
+                self.initial_lstm_states[0][1][:, mini_batch_env_indices].clone(),
             )
+            # lstm_states_vf = (
+            #     self.initial_lstm_states[1][0][:, mini_batch_env_indices].clone(),
+            #     self.initial_lstm_states[1][1][:, mini_batch_env_indices].clone(),
+            # )
+            lstm_states_vf = None
 
             yield RecurrentRolloutBufferSamples(
                 observations=self.to_torch(self.observations[batch_inds]),
@@ -143,7 +148,7 @@ class RecurrentRolloutBuffer(RolloutBuffer):
                 advantages=self.to_torch(self.advantages[batch_inds].flatten()),
                 returns=self.to_torch(self.returns[batch_inds].flatten()),
                 # lstm_states=(self.to_torch(lstm_states[0]), self.to_torch(lstm_states[1])),
-                lstm_states=lstm_states,
+                lstm_states=(lstm_states_pi, lstm_states_vf),
                 # dones=self.to_torch(self.dones[batch_inds].flatten()),
                 episode_starts=self.to_torch(self.episode_starts[batch_inds].flatten()),
             )
