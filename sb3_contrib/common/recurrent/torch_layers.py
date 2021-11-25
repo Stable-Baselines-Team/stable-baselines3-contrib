@@ -32,6 +32,9 @@ class LSTMExtractor(BaseFeaturesExtractor):
     ) -> Tuple[th.Tensor, th.Tensor]:
         features = self.flatten(observations)
 
+        lstm_states = lstm_states[0].clone(), lstm_states[1].clone()
+        episode_starts = episode_starts.clone()
+        # lstm_states = lstm_states[0].clone() * 0.0, lstm_states[1].clone() * 0.0
         # LSTM logic
         # (sequence length, n_envs, features dim) (batch size = n envs)
         n_envs = lstm_states[0].shape[1]
@@ -40,28 +43,21 @@ class LSTMExtractor(BaseFeaturesExtractor):
         # Batch to sequence
         features_sequence = features.reshape((n_envs, -1, self.lstm.input_size)).swapaxes(0, 1)
         episode_starts = episode_starts.reshape((n_envs, -1)).swapaxes(0, 1)
-        # if self.debug:
-        #     import ipdb; ipdb.set_trace()
+
         lstm_output = []
         # Iterate over the sequence
         for features, episode_start in zip_strict(features_sequence, episode_starts):
             hidden, lstm_states = self.lstm(
                 features.unsqueeze(dim=0),
                 (
-                    (1.0 - episode_start).view(1, -1, 1) * lstm_states[0],
-                    (1.0 - episode_start).view(1, -1, 1) * lstm_states[1],
+                    (1.0 - episode_start).view(1, n_envs, 1) * lstm_states[0],
+                    (1.0 - episode_start).view(1, n_envs, 1) * lstm_states[1],
                 ),
             )
-            # if self.debug:
-            #     import ipdb; ipdb.set_trace()
             lstm_output += [hidden]
         # Sequence to batch
         lstm_output = th.flatten(th.cat(lstm_output).transpose(0, 1), start_dim=0, end_dim=1)
         return lstm_output, lstm_states
-
-    @property
-    def lstm_states(self) -> Tuple[th.Tensor, th.Tensor]:
-        return self._lstm_states
 
     def forward(
         self,
@@ -69,5 +65,5 @@ class LSTMExtractor(BaseFeaturesExtractor):
         lstm_states: Tuple[th.Tensor, th.Tensor],
         episode_starts: th.Tensor,
     ) -> th.Tensor:
-        features, self._lstm_states = self.process_sequence(observations, lstm_states, episode_starts)
-        return features
+        features, lstm_states = self.process_sequence(observations, lstm_states, episode_starts)
+        return features, lstm_states
