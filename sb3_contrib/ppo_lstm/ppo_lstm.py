@@ -246,6 +246,8 @@ class RecurrentPPO(OnPolicyAlgorithm):
 
         callback.on_rollout_start()
 
+        rollout_buffer.initial_lstm_states = self.lstm_states[0].clone(), self.lstm_states[1].clone()
+
         while n_steps < n_rollout_steps:
             if self.use_sde and self.sde_sample_freq > 0 and n_steps % self.sde_sample_freq == 0:
                 # Sample a new noise matrix
@@ -254,9 +256,10 @@ class RecurrentPPO(OnPolicyAlgorithm):
             with th.no_grad():
                 # Convert to pytorch tensor or to TensorDict
                 obs_tensor = obs_as_tensor(self._last_obs, self.device)
-                self.policy.set_lstm_states(self.lstm_states)
-                actions, values, log_probs = self.policy.forward(obs_tensor)
+                episode_starts = th.tensor(self._last_episode_starts).float().to(self.device)
+                actions, values, log_probs = self.policy.forward(obs_tensor, self.lstm_states, episode_starts)
                 lstm_states = self.policy.get_lstm_states()
+                self.lstm_states = lstm_states[0].clone(), lstm_states[1].clone()
             actions = actions.cpu().numpy()
 
             # Rescale and perform action
@@ -283,18 +286,21 @@ class RecurrentPPO(OnPolicyAlgorithm):
 
             # Handle timeout by bootstraping with value function
             # see GitHub issue #633
-            for idx, done_ in enumerate(dones):
-                if (
-                    done_
-                    and infos[idx].get("terminal_observation") is not None
-                    and infos[idx].get("TimeLimit.truncated", False)
-                ):
-                    terminal_obs = self.policy.obs_to_tensor(infos[idx]["terminal_observation"])[0]
-                    with th.no_grad():
-                        terminal_lstm_state = lstm_states[0][:, idx : idx + 1, :], lstm_states[1][:, idx : idx + 1, :]
-                        self.policy.set_lstm_states(terminal_lstm_state)
-                        terminal_value = self.policy.predict_values(terminal_obs)[0]
-                    rewards[idx] += self.gamma * terminal_value
+            # for idx, done_ in enumerate(dones):
+            #     if (
+            #         done_
+            #         and infos[idx].get("terminal_observation") is not None
+            #         and infos[idx].get("TimeLimit.truncated", False)
+            #     ):
+            #         terminal_obs = self.policy.obs_to_tensor(infos[idx]["terminal_observation"])[0]
+            #         with th.no_grad():
+            #             terminal_lstm_state = (
+            #                 self.lstm_states[0][:, idx : idx + 1, :],
+            #                 self.lstm_states[1][:, idx : idx + 1, :],
+            #             )
+            #             episode_starts = th.tensor([False]).float().to(self.device)
+            #             terminal_value = self.policy.predict_values(terminal_obs, terminal_lstm_state, episode_starts)[0]
+            #         rewards[idx] += self.gamma * terminal_value
 
             rollout_buffer.add(
                 self._last_obs,
@@ -303,22 +309,18 @@ class RecurrentPPO(OnPolicyAlgorithm):
                 self._last_episode_starts,
                 values,
                 log_probs,
-                lstm_states=(lstm_states[0].cpu().numpy(), lstm_states[1].cpu().numpy()),
-                dones=dones,
+                # lstm_states=(lstm_states[0].cpu().numpy(), lstm_states[1].cpu().numpy()),
             )
 
             self._last_obs = new_obs
             self._last_episode_starts = dones
-            # Reset states if needed
-            for idx, done_ in enumerate(dones):
-                if done_:
-                    lstm_states[0][:, idx, :] = 0.0
-                    lstm_states[1][:, idx, :] = 0.0
-            self.lstm_states = lstm_states
 
         with th.no_grad():
             # Compute value for the last timestep
-            values = self.policy.predict_values(obs_as_tensor(new_obs, self.device))
+            # TODO: update the lstm states?
+            # TODO: check episode_starts
+            episode_starts = th.tensor(self._last_episode_starts).float().to(self.device)
+            values = self.policy.predict_values(obs_as_tensor(new_obs, self.device), self.lstm_states, episode_starts)
 
         rollout_buffer.compute_returns_and_advantage(last_values=values, dones=dones)
 
@@ -345,6 +347,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
         clip_fractions = []
 
         continue_training = True
+        self.policy.features_extractor.debug = True
 
         # train for n_epochs epochs
         for epoch in range(self.n_epochs):
@@ -360,12 +363,13 @@ class RecurrentPPO(OnPolicyAlgorithm):
                 if self.use_sde:
                     self.policy.reset_noise(self.batch_size)
 
-                self.policy.set_lstm_states(rollout_data.lstm_states)
-                self.policy.set_dones(rollout_data.dones)
                 values, log_prob, entropy = self.policy.evaluate_actions(
                     rollout_data.observations,
                     actions,
+                    rollout_data.lstm_states,
+                    rollout_data.episode_starts,
                 )
+                # self.policy.features_extractor.debug = False
 
                 values = values.flatten()
                 # Normalize advantage

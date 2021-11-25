@@ -3,7 +3,9 @@ from typing import Any, Dict, List, Optional, Tuple, Type, Union
 import gym
 import numpy as np
 import torch as th
+from stable_baselines3.common.distributions import Distribution
 from stable_baselines3.common.policies import ActorCriticPolicy
+from stable_baselines3.common.preprocessing import preprocess_obs
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.common.type_aliases import Schedule
 from torch import nn
@@ -87,11 +89,108 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             optimizer_kwargs,
         )
 
+    def extract_features(
+        self,
+        obs: th.Tensor,
+        lstm_states: Tuple[th.Tensor, th.Tensor],
+        episode_starts: th.Tensor,
+    ) -> th.Tensor:
+        """
+        Preprocess the observation if needed and extract features.
+
+        :param obs:
+        :return:
+        """
+        assert self.features_extractor is not None, "No features extractor was set"
+        preprocessed_obs = preprocess_obs(obs, self.observation_space, normalize_images=self.normalize_images)
+        return self.features_extractor(preprocessed_obs, lstm_states, episode_starts)
+
+    def forward(
+        self,
+        obs: th.Tensor,
+        lstm_states: Tuple[th.Tensor, th.Tensor],
+        episode_starts: th.Tensor,
+        deterministic: bool = False,
+    ) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
+        """
+        Forward pass in all the networks (actor and critic)
+
+        :param obs: Observation
+        :param deterministic: Whether to sample or use deterministic actions
+        :return: action, value and log probability of the action
+        """
+        # Preprocess the observation if needed
+        features = self.extract_features(obs, lstm_states, episode_starts)
+        latent_pi, latent_vf = self.mlp_extractor(features)
+        # Evaluate the values for the given observations
+        values = self.value_net(latent_vf)
+        distribution = self._get_action_dist_from_latent(latent_pi)
+        actions = distribution.get_actions(deterministic=deterministic)
+        log_prob = distribution.log_prob(actions)
+        return actions, values, log_prob
+
+    def get_distribution(
+        self,
+        obs: th.Tensor,
+        lstm_states: Tuple[th.Tensor, th.Tensor],
+        episode_starts: th.Tensor,
+    ) -> Distribution:
+        """
+        Get the current policy distribution given the observations.
+
+        :param obs:
+        :return: the action distribution.
+        """
+        features = self.extract_features(obs, lstm_states, episode_starts)
+        latent_pi = self.mlp_extractor.forward_actor(features)
+        return self._get_action_dist_from_latent(latent_pi)
+
+    def predict_values(
+        self,
+        obs: th.Tensor,
+        lstm_states: Tuple[th.Tensor, th.Tensor],
+        episode_starts: th.Tensor,
+    ) -> th.Tensor:
+        """
+        Get the estimated values according to the current policy given the observations.
+
+        :param obs:
+        :return: the estimated values.
+        """
+        features = self.extract_features(obs, lstm_states, episode_starts)
+        latent_vf = self.mlp_extractor.forward_critic(features)
+        return self.value_net(latent_vf)
+
+    def evaluate_actions(
+        self,
+        obs: th.Tensor,
+        actions: th.Tensor,
+        lstm_states: Tuple[th.Tensor, th.Tensor],
+        episode_starts: th.Tensor,
+    ) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
+        """
+        Evaluate actions according to the current policy,
+        given the observations.
+
+        :param obs:
+        :param actions:
+        :return: estimated value, log likelihood of taking those actions
+            and entropy of the action distribution.
+        """
+        # Preprocess the observation if needed
+        features = self.extract_features(obs, lstm_states, episode_starts)
+        latent_pi, latent_vf = self.mlp_extractor(features)
+        distribution = self._get_action_dist_from_latent(latent_pi)
+        log_prob = distribution.log_prob(actions)
+        values = self.value_net(latent_vf)
+        return values, log_prob, distribution.entropy()
+
     def _predict(
         self,
         observation: th.Tensor,
+        lstm_states: Tuple[th.Tensor, th.Tensor],
+        episode_starts: th.Tensor,
         deterministic: bool = False,
-        lstm_states: Optional[Tuple[th.Tensor, th.Tensor]] = None,
     ) -> th.Tensor:
         """
         Get the action according to the policy for a given observation.
@@ -101,17 +200,11 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         :param deterministic: Whether to use stochastic or deterministic actions
         :return: Taken action according to the policy
         """
-        self.features_extractor.set_lstm_states(lstm_states)
-        return self.get_distribution(observation).get_actions(deterministic=deterministic)
+        # self.features_extractor.set_lstm_states(lstm_states)
+        return self.get_distribution(observation, lstm_states, episode_starts).get_actions(deterministic=deterministic)
 
     def get_lstm_states(self) -> Tuple[th.Tensor, th.Tensor]:
         return self.features_extractor.lstm_states
-
-    def set_lstm_states(self, lstm_states: Optional[Tuple[th.Tensor]] = None) -> None:
-        self.features_extractor.set_lstm_states(lstm_states)
-
-    def set_dones(self, dones: th.Tensor) -> None:
-        self.features_extractor.set_dones(dones)
 
     def predict(
         self,

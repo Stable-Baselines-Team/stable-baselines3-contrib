@@ -16,7 +16,7 @@ class RecurrentRolloutBufferSamples(NamedTuple):
     advantages: th.Tensor
     returns: th.Tensor
     lstm_states: Tuple[th.Tensor, th.Tensor]
-    dones: th.Tensor
+    episode_starts: th.Tensor
 
 
 class RecurrentDictRolloutBufferSamples(RecurrentRolloutBufferSamples):
@@ -27,7 +27,7 @@ class RecurrentDictRolloutBufferSamples(RecurrentRolloutBufferSamples):
     advantages: th.Tensor
     returns: th.Tensor
     lstm_states: Tuple[th.Tensor, th.Tensor]
-    dones: th.Tensor
+    episode_starts: th.Tensor
 
 
 class RecurrentRolloutBuffer(RolloutBuffer):
@@ -57,23 +57,24 @@ class RecurrentRolloutBuffer(RolloutBuffer):
     ):
         self.lstm_states = lstm_states
         self.dones = None
+        self.initial_lstm_states = None
         super().__init__(buffer_size, observation_space, action_space, device, gae_lambda, gamma, n_envs)
 
     def reset(self):
-        self.hidden_states = np.zeros_like(self.lstm_states[0])
-        self.cell_states = np.zeros_like(self.lstm_states[1])
-        self.dones = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
         super().reset()
+        # self.hidden_states = np.zeros_like(self.lstm_states[0])
+        # self.cell_states = np.zeros_like(self.lstm_states[1])
+        # self.dones = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
 
-    def add(self, *args, lstm_states: Tuple[np.ndarray, np.ndarray], dones: np.ndarray, **kwargs) -> None:
-        """
-        :param hidden_states: LSTM cell and hidden state
-        """
-        self.hidden_states[self.pos] = np.array(lstm_states[0])
-        self.cell_states[self.pos] = np.array(lstm_states[1])
-        self.dones[self.pos] = np.array(dones)
-
-        super().add(*args, **kwargs)
+    # def add(self, *args, lstm_states: Tuple[np.ndarray, np.ndarray], **kwargs) -> None:
+    #     """
+    #     :param hidden_states: LSTM cell and hidden state
+    #     """
+    #     self.hidden_states[self.pos] = np.array(lstm_states[0])
+    #     self.cell_states[self.pos] = np.array(lstm_states[1])
+    #     self.dones[self.pos] = np.array(dones)
+    #
+    #     super().add(*args, **kwargs)
 
     def get(self, batch_size: Optional[int] = None) -> Generator[RecurrentRolloutBufferSamples, None, None]:
         assert self.full, ""
@@ -94,7 +95,7 @@ class RecurrentRolloutBuffer(RolloutBuffer):
                 "returns",
                 # "hidden_states",
                 # "cell_states",
-                "dones",
+                "episode_starts",
             ]:
                 self.__dict__[tensor] = self.swap_and_flatten(self.__dict__[tensor])
             self.generator_ready = True
@@ -110,23 +111,29 @@ class RecurrentRolloutBuffer(RolloutBuffer):
         #     start_idx += batch_size
 
         # Do not shuffle the sequence, only the env indices
-        n_minibatches = (self.buffer_size * self.n_envs) // batch_size
-        assert (
-            self.n_envs % n_minibatches == 0
-        ), f"{self.n_envs} not a multiple of {n_minibatches} = {self.buffer_size * self.n_envs} // {batch_size}"
+        # n_minibatches = (self.buffer_size * self.n_envs) // batch_size
+        n_minibatches = 1
+        # assert (
+        #     self.n_envs % n_minibatches == 0
+        # ), f"{self.n_envs} not a multiple of {n_minibatches} = {self.buffer_size * self.n_envs} // {batch_size}"
+        n_envs_per_batch = self.n_envs // n_minibatches
+        # n_envs_per_batch = batch_size // self.buffer_size
 
-        # n_envs_per_batch = self.n_envs // n_minibatches
-        n_envs_per_batch = batch_size // self.buffer_size
-        env_indices = np.random.permutation(self.n_envs)
+        # env_indices = np.random.permutation(self.n_envs)
+        env_indices = np.arange(self.n_envs)
         flat_indices = np.arange(self.buffer_size * self.n_envs).reshape(self.n_envs, self.buffer_size)
 
         for start_env_idx in range(0, self.n_envs, n_envs_per_batch):
             end_env_idx = start_env_idx + n_envs_per_batch
             mini_batch_env_indices = env_indices[start_env_idx:end_env_idx]
             batch_inds = flat_indices[mini_batch_env_indices].ravel()
+            # lstm_states = (
+            #     self.hidden_states[:, :, mini_batch_env_indices, :][0],
+            #     self.cell_states[:, :, mini_batch_env_indices, :][0],
+            # )
             lstm_states = (
-                self.hidden_states[:, :, mini_batch_env_indices, :][0],
-                self.cell_states[:, :, mini_batch_env_indices, :][0],
+                self.initial_lstm_states[0][:, mini_batch_env_indices].clone(),
+                self.initial_lstm_states[1][:, mini_batch_env_indices].clone(),
             )
 
             yield RecurrentRolloutBufferSamples(
@@ -136,21 +143,11 @@ class RecurrentRolloutBuffer(RolloutBuffer):
                 old_log_prob=self.to_torch(self.log_probs[batch_inds].flatten()),
                 advantages=self.to_torch(self.advantages[batch_inds].flatten()),
                 returns=self.to_torch(self.returns[batch_inds].flatten()),
-                lstm_states=(self.to_torch(lstm_states[0]), self.to_torch(lstm_states[1])),
-                dones=self.to_torch(self.dones[batch_inds]),
+                # lstm_states=(self.to_torch(lstm_states[0]), self.to_torch(lstm_states[1])),
+                lstm_states=lstm_states,
+                # dones=self.to_torch(self.dones[batch_inds].flatten()),
+                episode_starts=self.to_torch(self.episode_starts[batch_inds].flatten()),
             )
-
-    def _get_samples(self, batch_inds: np.ndarray, env: Optional[VecNormalize] = None) -> RecurrentRolloutBufferSamples:
-        return RecurrentRolloutBufferSamples(
-            observations=self.to_torch(self.observations[batch_inds]),
-            actions=self.to_torch(self.actions[batch_inds]),
-            old_values=self.to_torch(self.values[batch_inds].flatten()),
-            old_log_prob=self.to_torch(self.log_probs[batch_inds].flatten()),
-            advantages=self.to_torch(self.advantages[batch_inds].flatten()),
-            returns=self.to_torch(self.returns[batch_inds].flatten()),
-            lstm_states=(self.to_torch(self.hidden_states[batch_inds][0:1]), self.to_torch(self.cell_states[batch_inds][0:1])),
-            dones=self.to_torch(self.dones[batch_inds]),
-        )
 
 
 class RecurrentDictRolloutBuffer(DictRolloutBuffer):
