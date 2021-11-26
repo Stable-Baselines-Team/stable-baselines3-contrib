@@ -16,6 +16,8 @@ from stable_baselines3.common.type_aliases import Schedule
 from stable_baselines3.common.utils import zip_strict
 from torch import nn
 
+from sb3_contrib.common.recurrent.type_aliases import RNNStates
+
 
 class RecurrentActorCriticPolicy(ActorCriticPolicy):
     """
@@ -70,9 +72,11 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         normalize_images: bool = True,
         optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
+        lstm_hidden_size: int = 64,
+        n_lstm_layers: int = 1,
+        shared_lstm: bool = False,
     ):
-        hidden_size = 64
-        self.lstm_output_dim = hidden_size
+        self.lstm_output_dim = lstm_hidden_size
         super().__init__(
             observation_space,
             action_space,
@@ -93,11 +97,13 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             optimizer_kwargs,
         )
 
-        num_layers = 1
-        self.lstm_actor = nn.LSTM(self.features_dim, hidden_size, num_layers=num_layers)
-        self.lstm_shape = (num_layers, 1, hidden_size)
-        # self.lstm_critic = nn.LSTM(self.features_dim, hidden_size, num_layers=num_layers)
-        self.critic = nn.Linear(self.features_dim, hidden_size)
+        self.shared_lstm = shared_lstm
+        self.lstm_actor = nn.LSTM(self.features_dim, lstm_hidden_size, num_layers=n_lstm_layers)
+        self.lstm_shape = (n_lstm_layers, 1, lstm_hidden_size)
+        # self.lstm_critic = nn.LSTM(self.features_dim, lstm_hidden_size, num_layers=n_lstm_layers)
+        self.critic = None
+        if not self.shared_lstm:
+            self.critic = nn.Linear(self.features_dim, lstm_hidden_size)
         # Setup optimizer with initial learning rate
         self.optimizer = self.optimizer_class(self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
 
@@ -145,10 +151,10 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
     def forward(
         self,
         obs: th.Tensor,
-        lstm_states: Tuple[th.Tensor, th.Tensor],
+        lstm_states: RNNStates,
         episode_starts: th.Tensor,
         deterministic: bool = False,
-    ) -> Tuple[th.Tensor, th.Tensor, th.Tensor, Tuple[th.Tensor, ...]]:
+    ) -> Tuple[th.Tensor, th.Tensor, th.Tensor, RNNStates]:
         """
         Forward pass in all the networks (actor and critic)
 
@@ -159,11 +165,15 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         # Preprocess the observation if needed
         features = self.extract_features(obs)
         # latent_pi, latent_vf = self.mlp_extractor(features)
-        latent_pi, lstm_states_pi = self._process_sequence(features, lstm_states[0], episode_starts, self.lstm_actor)
-        # TODO: try re-using LSTM features for value function but using detach
-        # latent_vf, lstm_states_vf = self._process_sequence(features, lstm_states[1], episode_starts, self.lstm_critic)
-        lstm_states_vf = None
-        latent_vf = self.critic(features)
+        latent_pi, lstm_states_pi = self._process_sequence(features, lstm_states.pi, episode_starts, self.lstm_actor)
+        # latent_vf, lstm_states_vf = self._process_sequence(features, lstm_states.vf, episode_starts, self.lstm_critic)
+        # Re-use LSTM features but do not backpropagate
+        if self.shared_lstm:
+            latent_vf = latent_pi.detach()
+            lstm_states_vf = (lstm_states_pi[0].detach(), lstm_states_pi[1].detach())
+        else:
+            latent_vf = self.critic(features)
+            lstm_states_vf = lstm_states_pi
 
         latent_pi = self.mlp_extractor.forward_actor(latent_pi)
         latent_vf = self.mlp_extractor.forward_critic(latent_vf)
@@ -173,7 +183,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         distribution = self._get_action_dist_from_latent(latent_pi)
         actions = distribution.get_actions(deterministic=deterministic)
         log_prob = distribution.log_prob(actions)
-        return actions, values, log_prob, (lstm_states_pi, lstm_states_vf)
+        return actions, values, log_prob, RNNStates(lstm_states_pi, lstm_states_vf)
 
     def get_distribution(
         self,
@@ -205,8 +215,14 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         :return: the estimated values.
         """
         features = self.extract_features(obs)
+        # Use LSTM from the actor
+        if self.shared_lstm:
+            latent_pi, _ = self._process_sequence(features, lstm_states, episode_starts, self.lstm_actor)
+            latent_vf = latent_pi.detach()
+        else:
+            latent_vf = self.critic(features)
+
         # latent_vf, _ = self._process_sequence(features, lstm_states, episode_starts, self.lstm_critic)
-        latent_vf = self.critic(features)
         latent_vf = self.mlp_extractor.forward_critic(latent_vf)
         return self.value_net(latent_vf)
 
@@ -214,7 +230,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         self,
         obs: th.Tensor,
         actions: th.Tensor,
-        lstm_states: Tuple[th.Tensor, th.Tensor],
+        lstm_states: RNNStates,
         episode_starts: th.Tensor,
     ) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
         """
@@ -229,9 +245,12 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         # Preprocess the observation if needed
         features = self.extract_features(obs)
         # latent_pi, latent_vf = self.mlp_extractor(features)
-        latent_pi, _ = self._process_sequence(features, lstm_states[0], episode_starts, self.lstm_actor)
-        # latent_vf, _ = self._process_sequence(features, lstm_states[1], episode_starts, self.lstm_critic)
-        latent_vf = self.critic(features)
+        latent_pi, _ = self._process_sequence(features, lstm_states.pi, episode_starts, self.lstm_actor)
+        # latent_vf, _ = self._process_sequence(features, lstm_states.vf, episode_starts, self.lstm_critic)
+        if self.shared_lstm:
+            latent_vf = latent_pi.detach()
+        else:
+            latent_vf = self.critic(features)
 
         latent_pi = self.mlp_extractor.forward_actor(latent_pi)
         latent_vf = self.mlp_extractor.forward_critic(latent_vf)
@@ -372,6 +391,8 @@ class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
         normalize_images: bool = True,
         optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
+        lstm_hidden_size: int = 64,
+        n_lstm_layers: int = 1,
     ):
         super().__init__(
             observation_space,
@@ -391,6 +412,8 @@ class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
             normalize_images,
             optimizer_class,
             optimizer_kwargs,
+            lstm_hidden_size,
+            n_lstm_layers,
         )
 
 
@@ -447,6 +470,8 @@ class MultiInputRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
         normalize_images: bool = True,
         optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
+        lstm_hidden_size: int = 64,
+        n_lstm_layers: int = 1,
     ):
         super().__init__(
             observation_space,
@@ -466,4 +491,6 @@ class MultiInputRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
             normalize_images,
             optimizer_class,
             optimizer_kwargs,
+            lstm_hidden_size,
+            n_lstm_layers,
         )

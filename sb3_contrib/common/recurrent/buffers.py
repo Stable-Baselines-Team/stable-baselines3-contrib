@@ -1,33 +1,16 @@
-from typing import Generator, NamedTuple, Optional, Tuple, Union
+from typing import Generator, Optional, Tuple, Union
 
 import numpy as np
 import torch as th
 from gym import spaces
 from stable_baselines3.common.buffers import DictRolloutBuffer, RolloutBuffer
-from stable_baselines3.common.type_aliases import TensorDict
 from stable_baselines3.common.vec_env import VecNormalize
 
-
-class RecurrentRolloutBufferSamples(NamedTuple):
-    observations: th.Tensor
-    actions: th.Tensor
-    old_values: th.Tensor
-    old_log_prob: th.Tensor
-    advantages: th.Tensor
-    returns: th.Tensor
-    lstm_states: Tuple[th.Tensor, th.Tensor]
-    episode_starts: th.Tensor
-
-
-class RecurrentDictRolloutBufferSamples(RecurrentRolloutBufferSamples):
-    observations: TensorDict
-    actions: th.Tensor
-    old_values: th.Tensor
-    old_log_prob: th.Tensor
-    advantages: th.Tensor
-    returns: th.Tensor
-    lstm_states: Tuple[th.Tensor, th.Tensor]
-    episode_starts: th.Tensor
+from sb3_contrib.common.recurrent.type_aliases import (
+    RecurrentDictRolloutBufferSamples,
+    RecurrentRolloutBufferSamples,
+    RNNStates,
+)
 
 
 class RecurrentRolloutBuffer(RolloutBuffer):
@@ -147,14 +130,14 @@ class RecurrentRolloutBuffer(RolloutBuffer):
             #     self.cell_states[:, :, mini_batch_env_indices, :][0],
             # )
             lstm_states_pi = (
-                self.initial_lstm_states[0][0][:, mini_batch_env_indices].clone(),
-                self.initial_lstm_states[0][1][:, mini_batch_env_indices].clone(),
+                self.initial_lstm_states.pi[0][:, mini_batch_env_indices].clone(),
+                self.initial_lstm_states.pi[1][:, mini_batch_env_indices].clone(),
             )
             # lstm_states_vf = (
             #     self.initial_lstm_states[1][0][:, mini_batch_env_indices].clone(),
             #     self.initial_lstm_states[1][1][:, mini_batch_env_indices].clone(),
             # )
-            lstm_states_vf = None
+            lstm_states_vf = lstm_states_pi
 
             yield RecurrentRolloutBufferSamples(
                 observations=self.to_torch(self.observations[batch_inds]),
@@ -163,7 +146,7 @@ class RecurrentRolloutBuffer(RolloutBuffer):
                 old_log_prob=self.to_torch(self.log_probs[batch_inds].flatten()),
                 advantages=self.to_torch(self.advantages[batch_inds].flatten()),
                 returns=self.to_torch(self.returns[batch_inds].flatten()),
-                lstm_states=(lstm_states_pi, lstm_states_vf),
+                lstm_states=RNNStates(lstm_states_pi, lstm_states_vf),
                 episode_starts=self.to_torch(self.episode_starts[batch_inds].flatten()),
             )
 
@@ -196,7 +179,7 @@ class RecurrentRolloutBuffer(RolloutBuffer):
         )
         lstm_states_pi = (self.to_torch(lstm_states_pi[0]), self.to_torch(lstm_states_pi[1]))
 
-        lstm_states_vf = None
+        lstm_states_vf = lstm_states_pi
 
         return RecurrentRolloutBufferSamples(
             observations=self.pad(self.observations[batch_inds]).swapaxes(0, 1).reshape((padded_batch_size,) + self.obs_shape),
@@ -205,7 +188,7 @@ class RecurrentRolloutBuffer(RolloutBuffer):
             old_log_prob=self.pad(self.log_probs[batch_inds]).swapaxes(0, 1).flatten(),
             advantages=self.pad(self.advantages[batch_inds]).swapaxes(0, 1).flatten(),
             returns=self.pad(self.returns[batch_inds]).swapaxes(0, 1).flatten(),
-            lstm_states=(lstm_states_pi, lstm_states_vf),
+            lstm_states=RNNStates(lstm_states_pi, lstm_states_vf),
             episode_starts=self.pad(self.episode_starts[batch_inds]).swapaxes(0, 1).flatten(),
         )
 
@@ -316,6 +299,6 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
             old_log_prob=self.to_torch(self.log_probs[batch_inds].flatten()),
             advantages=self.to_torch(self.advantages[batch_inds].flatten()),
             returns=self.to_torch(self.returns[batch_inds].flatten()),
-            lstm_states=(self.to_torch(self.hidden_states[batch_inds]), self.to_torch(self.cell_states[batch_inds])),
+            lstm_states=RNNStates(self.to_torch(self.hidden_states[batch_inds]), self.to_torch(self.cell_states[batch_inds])),
             episode_starts=self.to_torch(self.episode_starts[batch_inds].flatten()),
         )

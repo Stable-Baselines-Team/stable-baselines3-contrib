@@ -17,6 +17,7 @@ from torch.nn import functional as F
 
 from sb3_contrib.common.recurrent.buffers import RecurrentDictRolloutBuffer, RecurrentRolloutBuffer
 from sb3_contrib.common.recurrent.policies import RecurrentActorCriticPolicy
+from sb3_contrib.common.recurrent.type_aliases import RNNStates
 
 
 class RecurrentPPO(OnPolicyAlgorithm):
@@ -154,7 +155,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
 
         single_hidden_state_shape = (lstm.num_layers, self.n_envs, lstm.hidden_size)
         # hidden states for actor and critic
-        self.lstm_states = (
+        self.lstm_states = RNNStates(
             (
                 th.zeros(single_hidden_state_shape).to(self.device),
                 th.zeros(single_hidden_state_shape).to(self.device),
@@ -305,11 +306,11 @@ class RecurrentPPO(OnPolicyAlgorithm):
                 ):
                     terminal_obs = self.policy.obs_to_tensor(infos[idx]["terminal_observation"])[0]
                     with th.no_grad():
-                        # terminal_lstm_state = (
-                        #     lstm_states[1][0][:, idx : idx + 1, :],
-                        #     lstm_states[1][1][:, idx : idx + 1, :],
-                        # )
-                        terminal_lstm_state = None
+                        terminal_lstm_state = (
+                            lstm_states.vf[0][:, idx : idx + 1, :],
+                            lstm_states.vf[1][:, idx : idx + 1, :],
+                        )
+                        # terminal_lstm_state = None
                         episode_starts = th.tensor([False]).float().to(self.device)
                         terminal_value = self.policy.predict_values(terminal_obs, terminal_lstm_state, episode_starts)[0]
                     rewards[idx] += self.gamma * terminal_value
@@ -321,7 +322,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
                 self._last_episode_starts,
                 values,
                 log_probs,
-                lstm_states=(self.lstm_states[0][0].cpu().numpy(), self.lstm_states[0][1].cpu().numpy()),
+                lstm_states=(self.lstm_states.pi[0].cpu().numpy(), self.lstm_states.pi[1].cpu().numpy()),
             )
 
             self._last_obs = new_obs
