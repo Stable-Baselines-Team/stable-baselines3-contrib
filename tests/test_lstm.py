@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 from gym import spaces
 from gym.envs.classic_control import CartPoleEnv
 from gym.wrappers.time_limit import TimeLimit
@@ -37,9 +38,49 @@ class CartPoleNoVelEnv(CartPoleEnv):
         return CartPoleNoVelEnv._pos_obs(full_obs), rew, done, info
 
 
-def test_ppo_lstm():
+def test_cnn():
+    model = RecurrentPPO(
+        "CnnLstmPolicy",
+        "Breakout-v0",
+        n_steps=16,
+        seed=0,
+        policy_kwargs=dict(features_extractor_kwargs=dict(features_dim=32)),
+    )
 
-    env = make_vec_env("CartPole-v1", n_envs=16)
+    model.learn(total_timesteps=32)
+
+
+@pytest.mark.parametrize("env", ["Pendulum-v0", "CartPole-v1"])
+def test_run(env):
+    model = RecurrentPPO(
+        "MlpLstmPolicy",
+        env,
+        n_steps=16,
+        seed=0,
+        create_eval_env=True,
+    )
+
+    model.learn(total_timesteps=32, eval_freq=16)
+
+
+def test_run_sde():
+    model = RecurrentPPO(
+        "MlpLstmPolicy",
+        "Pendulum-v0",
+        n_steps=16,
+        seed=0,
+        create_eval_env=True,
+        sde_sample_freq=4,
+        use_sde=True,
+    )
+
+    model.learn(total_timesteps=32, eval_freq=16)
+
+
+def test_ppo_lstm_performance():
+
+    # env = make_vec_env("CartPole-v1", n_envs=16)
+    # env = make_vec_env("Pendulum-v0", n_envs=16)
 
     def make_env():
         env = CartPoleNoVelEnv()

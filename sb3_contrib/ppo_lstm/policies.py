@@ -1,13 +1,12 @@
 from stable_baselines3.common.policies import register_policy
 
-from sb3_contrib.common.recurrent.policies import (  # RecurrentActorCriticCnnPolicy,; RecurrentMultiInputActorCriticPolicy,
-    RecurrentActorCriticPolicy,
-)
+from sb3_contrib.common.recurrent.policies import RecurrentActorCriticCnnPolicy  # RecurrentMultiInputActorCriticPolicy,
+from sb3_contrib.common.recurrent.policies import RecurrentActorCriticPolicy
 
 MlpLstmPolicy = RecurrentActorCriticPolicy
-# CnnLstmPolicy = RecurrentActorCriticCnnPolicy
+CnnLstmPolicy = RecurrentActorCriticCnnPolicy
 # MultiInputLstmPolicy = RecurrentMultiInputActorCriticPolicy
 
 register_policy("MlpLstmPolicy", RecurrentActorCriticPolicy)
-# register_policy("CnnLstmPolicy", RecurrentActorCriticCnnPolicy)
+register_policy("CnnLstmPolicy", RecurrentActorCriticCnnPolicy)
 # register_policy("MultiInputLstmPolicy", RecurrentMultiInputActorCriticPolicy)
