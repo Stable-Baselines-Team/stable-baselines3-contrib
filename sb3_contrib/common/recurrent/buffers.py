@@ -179,6 +179,8 @@ class RecurrentRolloutBuffer(RolloutBuffer):
     ) -> RecurrentRolloutBufferSamples:
         # Create sequence if env change too
         seq_start = np.logical_or(self.episode_starts[batch_inds], env_change[batch_inds])
+        # First index is always the beginning of a sequence
+        seq_start[0] = True
         self.starts = np.where(seq_start == True)[0]  # noqa: E712
         self.ends = np.concatenate([(self.starts - 1)[1:], np.array([len(batch_inds)])])
 
