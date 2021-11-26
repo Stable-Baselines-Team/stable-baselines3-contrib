@@ -3,6 +3,10 @@ from gym import spaces
 from gym.envs.classic_control import CartPoleEnv
 from gym.wrappers.time_limit import TimeLimit
 
+# from stable_baselines3.common.callbacks import EvalCallback
+from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.evaluation import evaluate_policy
+
 from sb3_contrib import RecurrentPPO
 
 
@@ -34,16 +38,21 @@ class CartPoleNoVelEnv(CartPoleEnv):
 
 
 def test_ppo_lstm():
-    from stable_baselines3.common.env_util import make_vec_env
 
-    # env = make_vec_env("CartPole-v1", n_envs=8)
+    env = make_vec_env("CartPole-v1", n_envs=16)
 
     def make_env():
         env = CartPoleNoVelEnv()
         env = TimeLimit(env, max_episode_steps=500)
         return env
 
-    env = make_vec_env(make_env, n_envs=8)
+    env = make_vec_env(make_env, n_envs=16)
+
+    # eval_callback = EvalCallback(
+    #     make_vec_env(make_env, n_envs=4),
+    #     n_eval_episodes=20,
+    #     eval_freq=250 // env.num_envs,
+    # )
 
     model = RecurrentPPO(
         "MlpLstmPolicy",
@@ -53,14 +62,14 @@ def test_ppo_lstm():
         verbose=1,
         batch_size=256,
         seed=0,
-        n_epochs=10,
+        n_epochs=20,
         # max_grad_norm=1,
         gae_lambda=0.98,
         policy_kwargs=dict(net_arch=[dict(vf=[64])], ortho_init=False),
         # policy_kwargs=dict(net_arch=[dict(pi=[64], vf=[64])])
-        # create_eval_env=True,
     )
 
-    # model.learn(total_timesteps=500, eval_freq=250)
-    # model.learn(total_timesteps=1_000_000)
-    model.learn(total_timesteps=100)
+    model.learn(total_timesteps=250)
+    # model.learn(total_timesteps=100_000)
+    # model.learn(total_timesteps=1000, callback=eval_callback)
+    evaluate_policy(model, env)

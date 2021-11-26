@@ -327,8 +327,6 @@ class RecurrentPPO(OnPolicyAlgorithm):
             self._last_episode_starts = dones
             self.lstm_states = lstm_states
 
-        # self.lstm_states = deepcopy(lstm_states)
-
         with th.no_grad():
             # Compute value for the last timestep
             episode_starts = th.tensor(dones).float().to(self.device)

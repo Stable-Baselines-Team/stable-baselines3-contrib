@@ -5,7 +5,6 @@ import numpy as np
 import torch as th
 from stable_baselines3.common.distributions import Distribution
 from stable_baselines3.common.policies import ActorCriticPolicy
-from stable_baselines3.common.preprocessing import preprocess_obs
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor, FlattenExtractor, MlpExtractor
 from stable_baselines3.common.type_aliases import Schedule
 from stable_baselines3.common.utils import zip_strict
@@ -92,6 +91,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
 
         num_layers = 1
         self.lstm_actor = nn.LSTM(self.features_dim, hidden_size, num_layers=num_layers)
+        self.lstm_shape = (num_layers, 1, hidden_size)
         # self.lstm_critic = nn.LSTM(self.features_dim, hidden_size, num_layers=num_layers)
         self.critic = nn.Linear(self.features_dim, hidden_size)
         # Setup optimizer with initial learning rate
@@ -144,7 +144,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         lstm_states: Tuple[th.Tensor, th.Tensor],
         episode_starts: th.Tensor,
         deterministic: bool = False,
-    ) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
+    ) -> Tuple[th.Tensor, th.Tensor, th.Tensor, Tuple[th.Tensor, ...]]:
         """
         Forward pass in all the networks (actor and critic)
 
@@ -156,6 +156,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         features = self.extract_features(obs)
         # latent_pi, latent_vf = self.mlp_extractor(features)
         latent_pi, lstm_states_pi = self._process_sequence(features, lstm_states[0], episode_starts, self.lstm_actor)
+        # TODO: try re-using LSTM features for value function but using detach
         # latent_vf, lstm_states_vf = self._process_sequence(features, lstm_states[1], episode_starts, self.lstm_critic)
         lstm_states_vf = None
         latent_vf = self.critic(features)
@@ -175,17 +176,17 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         obs: th.Tensor,
         lstm_states: Tuple[th.Tensor, th.Tensor],
         episode_starts: th.Tensor,
-    ) -> Distribution:
+    ) -> Tuple[Distribution, Tuple[th.Tensor, ...]]:
         """
         Get the current policy distribution given the observations.
 
         :param obs:
-        :return: the action distribution.
+        :return: the action distribution and new hidden states.
         """
         features = self.extract_features(obs)
-        latent_pi, _ = self._process_sequence(features, lstm_states, episode_starts, self.lstm_actor)
+        latent_pi, lstm_states = self._process_sequence(features, lstm_states, episode_starts, self.lstm_actor)
         latent_pi = self.mlp_extractor.forward_actor(latent_pi)
-        return self._get_action_dist_from_latent(latent_pi)
+        return self._get_action_dist_from_latent(latent_pi), lstm_states
 
     def predict_values(
         self,
@@ -228,7 +229,6 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         # latent_vf, _ = self._process_sequence(features, lstm_states[1], episode_starts, self.lstm_critic)
         latent_vf = self.critic(features)
 
-
         latent_pi = self.mlp_extractor.forward_actor(latent_pi)
         latent_vf = self.mlp_extractor.forward_critic(latent_vf)
 
@@ -243,16 +243,17 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         lstm_states: Tuple[th.Tensor, th.Tensor],
         episode_starts: th.Tensor,
         deterministic: bool = False,
-    ) -> th.Tensor:
+    ) -> Tuple[th.Tensor, Tuple[th.Tensor, ...]]:
         """
         Get the action according to the policy for a given observation.
 
         :param observation:
         :param lstm_states:
         :param deterministic: Whether to use stochastic or deterministic actions
-        :return: Taken action according to the policy
+        :return: Taken action according to the policy and hidden states of the RNN
         """
-        return self.get_distribution(observation, lstm_states, episode_starts).get_actions(deterministic=deterministic)
+        distribution, lstm_states = self.get_distribution(observation, lstm_states, episode_starts)
+        return distribution.get_actions(deterministic=deterministic), lstm_states
 
     def predict(
         self,
@@ -260,38 +261,40 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         state: Optional[np.ndarray] = None,
         mask: Optional[np.ndarray] = None,
         deterministic: bool = False,
-    ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+    ) -> Tuple[np.ndarray, Optional[Tuple[np.ndarray, ...]]]:
         """
         Get the policy action and state from an observation (and optional state).
         Includes sugar-coating to handle different observations (e.g. normalizing images).
 
         :param observation: the input observation
-        :param state: The last states (can be None, used in recurrent policies)
+        :param state: The last hidden states (can be None, used in recurrent policies)
         :param mask: The last masks (can be None, used in recurrent policies)
+            this correspond to beginning of episodes,
+            where the hidden states of the RNN must be reset.
         :param deterministic: Whether or not to return deterministic actions.
-        :return: the model's action and the next state
+        :return: the model's action and the next hidden state
             (used in recurrent policies)
         """
-        # TODO (GH/1): add support for RNN policies
-        # if state is None:
-        #     state = self.features_extractor.initial_lstm_states
-        # if mask is None:
-        #     mask = [False for _ in range(self.n_envs)]
         # Switch to eval mode (this affects batch norm / dropout)
         self.set_training_mode(False)
 
         observation, vectorized_env = self.obs_to_tensor(observation)
 
-        # TODO(antonin): preprocess state
-        # if state is not None:
-        #     lstm_states = None
+        n_envs = observation.shape[0]
+        # state : (n_layers, n_envs, dim)
+        if state is None:
+            state = np.concatenate([np.zeros(self.lstm_shape) for _ in range(n_envs)], axis=1)
+            state = (state, state)
+
+        if mask is None:
+            mask = np.array([False for _ in range(n_envs)])
 
         with th.no_grad():
-            actions = self._predict(observation, lstm_states=state, deterministic=deterministic)
-            states = self.get_lstm_states()
+            # Convert to PyTorch tensors
+            states = th.tensor(state[0]).float().to(self.device), th.tensor(state[1]).float().to(self.device)
+            mask = th.tensor(mask).float().to(self.device)
+            actions, states = self._predict(observation, lstm_states=states, episode_starts=mask, deterministic=deterministic)
             states = (states[0].cpu().numpy(), states[1].cpu().numpy())
-            # TODO(antonin): fix eval script
-            states = None
 
         # Convert to numpy
         actions = actions.cpu().numpy()
