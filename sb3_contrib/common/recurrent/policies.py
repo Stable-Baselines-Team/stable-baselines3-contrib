@@ -282,16 +282,16 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         self,
         observation: Union[np.ndarray, Dict[str, np.ndarray]],
         state: Optional[np.ndarray] = None,
-        mask: Optional[np.ndarray] = None,
+        episode_start: Optional[np.ndarray] = None,
         deterministic: bool = False,
     ) -> Tuple[np.ndarray, Optional[Tuple[np.ndarray, ...]]]:
         """
-        Get the policy action and state from an observation (and optional state).
+        Get the policy action and state from an observation (and optional hidden state).
         Includes sugar-coating to handle different observations (e.g. normalizing images).
 
         :param observation: the input observation
         :param state: The last hidden states (can be None, used in recurrent policies)
-        :param mask: The last masks (can be None, used in recurrent policies)
+        :param episode_start: The last masks (can be None, used in recurrent policies)
             this correspond to beginning of episodes,
             where the hidden states of the RNN must be reset.
         :param deterministic: Whether or not to return deterministic actions.
@@ -309,14 +309,14 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             state = np.concatenate([np.zeros(self.lstm_shape) for _ in range(n_envs)], axis=1)
             state = (state, state)
 
-        if mask is None:
-            mask = np.array([False for _ in range(n_envs)])
+        if episode_start is None:
+            episode_start = np.array([False for _ in range(n_envs)])
 
         with th.no_grad():
             # Convert to PyTorch tensors
             states = th.tensor(state[0]).float().to(self.device), th.tensor(state[1]).float().to(self.device)
-            mask = th.tensor(mask).float().to(self.device)
-            actions, states = self._predict(observation, lstm_states=states, episode_starts=mask, deterministic=deterministic)
+            episode_starts = th.tensor(episode_start).float().to(self.device)
+            actions, states = self._predict(observation, lstm_states=states, episode_starts=episode_starts, deterministic=deterministic)
             states = (states[0].cpu().numpy(), states[1].cpu().numpy())
 
         # Convert to numpy

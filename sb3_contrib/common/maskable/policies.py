@@ -228,7 +228,7 @@ class MaskableActorCriticPolicy(BasePolicy):
         self,
         observation: Union[np.ndarray, Dict[str, np.ndarray]],
         state: Optional[np.ndarray] = None,
-        mask: Optional[np.ndarray] = None,
+        episode_start: Optional[np.ndarray] = None,
         deterministic: bool = False,
         action_masks: Optional[np.ndarray] = None,
     ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
@@ -238,7 +238,7 @@ class MaskableActorCriticPolicy(BasePolicy):
 
         :param observation: the input observation
         :param state: The last states (can be None, used in recurrent policies)
-        :param mask: The last masks (can be None, used in recurrent policies)
+        :param episode_start: The last masks (can be None, used in recurrent policies)
         :param deterministic: Whether or not to return deterministic actions.
         :param action_masks: Action masks to apply to the action distribution
         :return: the model's action and the next state
@@ -247,8 +247,8 @@ class MaskableActorCriticPolicy(BasePolicy):
         # TODO (GH/1): add support for RNN policies
         # if state is None:
         #     state = self.initial_state
-        # if mask is None:
-        #     mask = [False for _ in range(self.n_envs)]
+        # if episode_start is None:
+        #     episode_start = [False for _ in range(self.n_envs)]
 
         # Switch to eval mode (this affects batch norm / dropout)
         self.set_training_mode(False)

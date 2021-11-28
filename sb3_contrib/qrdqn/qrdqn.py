@@ -207,17 +207,20 @@ class QRDQN(OffPolicyAlgorithm):
         self,
         observation: np.ndarray,
         state: Optional[np.ndarray] = None,
-        mask: Optional[np.ndarray] = None,
+        episode_start: Optional[np.ndarray] = None,
         deterministic: bool = False,
     ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
         """
-        Overrides the base_class predict function to include epsilon-greedy exploration.
+        Get the policy action and state from an observation (and optional hidden state).
+        Includes sugar-coating to handle different observations (e.g. normalizing images).
 
         :param observation: the input observation
-        :param state: The last states (can be None, used in recurrent policies)
-        :param mask: The last masks (can be None, used in recurrent policies)
+        :param state: The last hidden states (can be None, used in recurrent policies)
+        :param episode_start: The last masks (can be None, used in recurrent policies)
+            this correspond to beginning of episodes,
+            where the hidden states of the RNN must be reset.
         :param deterministic: Whether or not to return deterministic actions.
-        :return: the model's action and the next state
+        :return: the model's action and the next hidden state
             (used in recurrent policies)
         """
         if not deterministic and np.random.rand() < self.exploration_rate:
@@ -230,7 +233,7 @@ class QRDQN(OffPolicyAlgorithm):
             else:
                 action = np.array(self.action_space.sample())
         else:
-            action, state = self.policy.predict(observation, state, mask, deterministic)
+            action, state = self.policy.predict(observation, state, episode_start, deterministic)
         return action, state
 
     def learn(
