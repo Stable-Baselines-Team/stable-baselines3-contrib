@@ -82,6 +82,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
         use_sde: bool = False,
         sde_sample_freq: int = -1,
         target_kl: Optional[float] = None,
+        sampling_strategy: str = "default",  # "default" or "per_env"
         tensorboard_log: Optional[str] = None,
         create_eval_env: bool = False,
         policy_kwargs: Optional[Dict[str, Any]] = None,
@@ -123,7 +124,8 @@ class RecurrentPPO(OnPolicyAlgorithm):
         self.clip_range = clip_range
         self.clip_range_vf = clip_range_vf
         self.target_kl = target_kl
-        self.lstm_states = None
+        self._last_lstm_states = None
+        self.sampling_strategy = sampling_strategy
 
         if _init_setup_model:
             self._setup_model()
@@ -155,7 +157,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
 
         single_hidden_state_shape = (lstm.num_layers, self.n_envs, lstm.hidden_size)
         # hidden states for actor and critic
-        self.lstm_states = RNNStates(
+        self._last_lstm_states = RNNStates(
             (
                 th.zeros(single_hidden_state_shape).to(self.device),
                 th.zeros(single_hidden_state_shape).to(self.device),
@@ -175,6 +177,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
             gamma=self.gamma,
             gae_lambda=self.gae_lambda,
             n_envs=self.n_envs,
+            sampling_strategy=self.sampling_strategy,
         )
 
         # Initialize schedules for policy/value clipping
@@ -258,8 +261,8 @@ class RecurrentPPO(OnPolicyAlgorithm):
 
         callback.on_rollout_start()
 
-        rollout_buffer.initial_lstm_states = deepcopy(self.lstm_states)
-        lstm_states = deepcopy(self.lstm_states)
+        rollout_buffer.initial_lstm_states = deepcopy(self._last_lstm_states)
+        lstm_states = deepcopy(self._last_lstm_states)
 
         while n_steps < n_rollout_steps:
             if self.use_sde and self.sde_sample_freq > 0 and n_steps % self.sde_sample_freq == 0:
@@ -322,17 +325,17 @@ class RecurrentPPO(OnPolicyAlgorithm):
                 self._last_episode_starts,
                 values,
                 log_probs,
-                lstm_states=(self.lstm_states.pi[0].cpu().numpy(), self.lstm_states.pi[1].cpu().numpy()),
+                lstm_states=self._last_lstm_states,
             )
 
             self._last_obs = new_obs
             self._last_episode_starts = dones
-            self.lstm_states = lstm_states
+            self._last_lstm_states = lstm_states
 
         with th.no_grad():
             # Compute value for the last timestep
             episode_starts = th.tensor(dones).float().to(self.device)
-            values = self.policy.predict_values(obs_as_tensor(new_obs, self.device), lstm_states[1], episode_starts)
+            values = self.policy.predict_values(obs_as_tensor(new_obs, self.device), lstm_states.vf, episode_starts)
 
         rollout_buffer.compute_returns_and_advantage(last_values=values, dones=dones)
 

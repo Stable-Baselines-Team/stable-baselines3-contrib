@@ -75,6 +75,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         lstm_hidden_size: int = 64,
         n_lstm_layers: int = 1,
         shared_lstm: bool = False,
+        enable_critic_lstm: bool = False,
     ):
         self.lstm_output_dim = lstm_hidden_size
         super().__init__(
@@ -98,12 +99,20 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         )
 
         self.shared_lstm = shared_lstm
+        self.enable_critic_lstm = enable_critic_lstm
         self.lstm_actor = nn.LSTM(self.features_dim, lstm_hidden_size, num_layers=n_lstm_layers)
         self.lstm_shape = (n_lstm_layers, 1, lstm_hidden_size)
-        # self.lstm_critic = nn.LSTM(self.features_dim, lstm_hidden_size, num_layers=n_lstm_layers)
         self.critic = None
-        if not self.shared_lstm:
+        self.lstm_critic = None
+        assert not (
+            self.shared_lstm and self.enable_critic_lstm
+        ), "You must choose between shared LSTM, seperate or no LSTM for the critic"
+        if not (self.shared_lstm or self.enable_critic_lstm):
             self.critic = nn.Linear(self.features_dim, lstm_hidden_size)
+
+        if self.enable_critic_lstm:
+            self.lstm_critic = nn.LSTM(self.features_dim, lstm_hidden_size, num_layers=n_lstm_layers)
+
         # Setup optimizer with initial learning rate
         self.optimizer = self.optimizer_class(self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
 
@@ -166,9 +175,10 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         features = self.extract_features(obs)
         # latent_pi, latent_vf = self.mlp_extractor(features)
         latent_pi, lstm_states_pi = self._process_sequence(features, lstm_states.pi, episode_starts, self.lstm_actor)
-        # latent_vf, lstm_states_vf = self._process_sequence(features, lstm_states.vf, episode_starts, self.lstm_critic)
-        # Re-use LSTM features but do not backpropagate
-        if self.shared_lstm:
+        if self.lstm_critic is not None:
+            latent_vf, lstm_states_vf = self._process_sequence(features, lstm_states.vf, episode_starts, self.lstm_critic)
+        elif self.shared_lstm:
+            # Re-use LSTM features but do not backpropagate
             latent_vf = latent_pi.detach()
             lstm_states_vf = (lstm_states_pi[0].detach(), lstm_states_pi[1].detach())
         else:
@@ -215,8 +225,10 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         :return: the estimated values.
         """
         features = self.extract_features(obs)
-        # Use LSTM from the actor
-        if self.shared_lstm:
+        if self.lstm_critic is not None:
+            latent_vf, lstm_states_vf = self._process_sequence(features, lstm_states, episode_starts, self.lstm_critic)
+        elif self.shared_lstm:
+            # Use LSTM from the actor
             latent_pi, _ = self._process_sequence(features, lstm_states, episode_starts, self.lstm_actor)
             latent_vf = latent_pi.detach()
         else:
@@ -244,10 +256,11 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         """
         # Preprocess the observation if needed
         features = self.extract_features(obs)
-        # latent_pi, latent_vf = self.mlp_extractor(features)
         latent_pi, _ = self._process_sequence(features, lstm_states.pi, episode_starts, self.lstm_actor)
-        # latent_vf, _ = self._process_sequence(features, lstm_states.vf, episode_starts, self.lstm_critic)
-        if self.shared_lstm:
+
+        if self.lstm_critic is not None:
+            latent_vf, _ = self._process_sequence(features, lstm_states.vf, episode_starts, self.lstm_critic)
+        elif self.shared_lstm:
             latent_vf = latent_pi.detach()
         else:
             latent_vf = self.critic(features)
