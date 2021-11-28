@@ -206,10 +206,10 @@ class QRDQN(OffPolicyAlgorithm):
     def predict(
         self,
         observation: np.ndarray,
-        state: Optional[np.ndarray] = None,
+        state: Optional[Tuple[np.ndarray, ...]] = None,
         episode_start: Optional[np.ndarray] = None,
         deterministic: bool = False,
-    ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+    ) -> Tuple[np.ndarray, Optional[Tuple[np.ndarray, ...]]]:
         """
         Get the policy action and state from an observation (and optional hidden state).
         Includes sugar-coating to handle different observations (e.g. normalizing images).

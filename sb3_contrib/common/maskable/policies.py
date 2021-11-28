@@ -227,11 +227,11 @@ class MaskableActorCriticPolicy(BasePolicy):
     def predict(
         self,
         observation: Union[np.ndarray, Dict[str, np.ndarray]],
-        state: Optional[np.ndarray] = None,
+        state: Optional[Tuple[np.ndarray, ...]] = None,
         episode_start: Optional[np.ndarray] = None,
         deterministic: bool = False,
         action_masks: Optional[np.ndarray] = None,
-    ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+    ) -> Tuple[np.ndarray, Optional[Tuple[np.ndarray, ...]]]:
         """
         Get the policy action and state from an observation (and optional state).
         Includes sugar-coating to handle different observations (e.g. normalizing images).
@@ -274,7 +274,7 @@ class MaskableActorCriticPolicy(BasePolicy):
                 raise ValueError("Error: The environment must be vectorized when using recurrent policies.")
             actions = actions[0]
 
-        return actions, state
+        return actions, None
 
     def evaluate_actions(
         self,

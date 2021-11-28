@@ -281,7 +281,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
     def predict(
         self,
         observation: Union[np.ndarray, Dict[str, np.ndarray]],
-        state: Optional[np.ndarray] = None,
+        state: Optional[Tuple[np.ndarray, ...]] = None,
         episode_start: Optional[np.ndarray] = None,
         deterministic: bool = False,
     ) -> Tuple[np.ndarray, Optional[Tuple[np.ndarray, ...]]]:
@@ -316,7 +316,9 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             # Convert to PyTorch tensors
             states = th.tensor(state[0]).float().to(self.device), th.tensor(state[1]).float().to(self.device)
             episode_starts = th.tensor(episode_start).float().to(self.device)
-            actions, states = self._predict(observation, lstm_states=states, episode_starts=episode_starts, deterministic=deterministic)
+            actions, states = self._predict(
+                observation, lstm_states=states, episode_starts=episode_starts, deterministic=deterministic
+            )
             states = (states[0].cpu().numpy(), states[1].cpu().numpy())
 
         # Convert to numpy
