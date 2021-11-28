@@ -107,6 +107,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         assert not (
             self.shared_lstm and self.enable_critic_lstm
         ), "You must choose between shared LSTM, seperate or no LSTM for the critic"
+
         if not (self.shared_lstm or self.enable_critic_lstm):
             self.critic = nn.Linear(self.features_dim, lstm_hidden_size)
 
@@ -234,7 +235,6 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         else:
             latent_vf = self.critic(features)
 
-        # latent_vf, _ = self._process_sequence(features, lstm_states, episode_starts, self.lstm_critic)
         latent_vf = self.mlp_extractor.forward_critic(latent_vf)
         return self.value_net(latent_vf)
 
