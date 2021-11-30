@@ -299,7 +299,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         deterministic: bool = False,
     ) -> Tuple[np.ndarray, Optional[Tuple[np.ndarray, ...]]]:
         """
-        Get the policy action and state from an observation (and optional hidden state).
+        Get the policy action from an observation (and optional hidden state).
         Includes sugar-coating to handle different observations (e.g. normalizing images).
 
         :param observation: the input observation
