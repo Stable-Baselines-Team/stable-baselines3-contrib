@@ -2,7 +2,7 @@ import gym
 import numpy as np
 import pytest
 from gym import spaces
-from stable_baselines3.common.envs import BitFlippingEnv, SimpleMultiObsEnv
+from stable_baselines3.common.envs import SimpleMultiObsEnv
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack, VecNormalize
 
@@ -224,8 +224,8 @@ def test_vec_normalize(model_class):
     Additional tests to check observation space support
     for GoalEnv and VecNormalize using MultiInputPolicy.
     """
-    env = DummyVecEnv([lambda: BitFlippingEnv(n_bits=4, continuous=not (model_class == QRDQN))])
-    env = VecNormalize(env)
+    env = DummyVecEnv([lambda: gym.wrappers.TimeLimit(DummyDictEnv(use_discrete_actions=model_class == QRDQN), 100)])
+    env = VecNormalize(env, norm_obs_keys=["vec"])
 
     kwargs = {}
     n_steps = 256
