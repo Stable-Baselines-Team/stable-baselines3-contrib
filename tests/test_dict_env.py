@@ -2,7 +2,7 @@ import gym
 import numpy as np
 import pytest
 from gym import spaces
-from stable_baselines3.common.envs import BitFlippingEnv, SimpleMultiObsEnv
+from stable_baselines3.common.envs import SimpleMultiObsEnv
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack, VecNormalize
 

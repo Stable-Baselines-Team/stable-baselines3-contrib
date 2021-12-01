@@ -380,7 +380,7 @@ class MaskablePPO(OnPolicyAlgorithm):
         :param action_masks: Action masks to apply to the action distribution.
         :return: the model's action and the next state (used in recurrent policies)
         """
-        return self.policy.predict(observation, state, mask, deterministic, action_masks=action_masks)
+        return self.policy.predict(observation, state, episode_start, deterministic, action_masks=action_masks)
 
     def train(self) -> None:
         """
