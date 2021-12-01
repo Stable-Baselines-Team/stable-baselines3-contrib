@@ -365,11 +365,11 @@ class MaskablePPO(OnPolicyAlgorithm):
     def predict(
         self,
         observation: np.ndarray,
-        state: Optional[np.ndarray] = None,
-        mask: Optional[np.ndarray] = None,
+        state: Optional[Tuple[np.ndarray, ...]] = None,
+        episode_start: Optional[np.ndarray] = None,
         deterministic: bool = False,
         action_masks: Optional[np.ndarray] = None,
-    ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+    ) -> Tuple[np.ndarray, Optional[Tuple[np.ndarray, ...]]]:
         """
         Get the model's action(s) from an observation.
 
@@ -380,7 +380,7 @@ class MaskablePPO(OnPolicyAlgorithm):
         :param action_masks: Action masks to apply to the action distribution.
         :return: the model's action and the next state (used in recurrent policies)
         """
-        return self.policy.predict(observation, state, mask, deterministic, action_masks=action_masks)
+        return self.policy.predict(observation, state, episode_start, deterministic, action_masks=action_masks)
 
     def train(self) -> None:
         """
