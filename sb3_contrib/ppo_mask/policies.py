@@ -1,15 +1,15 @@
 from stable_baselines3.common.policies import register_policy
 
-from sb3_contrib.common.maskable.policies import (  # MaskableMultiInputActorCriticPolicy,
+from sb3_contrib.common.maskable.policies import (
     MaskableActorCriticCnnPolicy,
     MaskableActorCriticPolicy,
+    MaskableMultiInputActorCriticPolicy,
 )
 
 MlpPolicy = MaskableActorCriticPolicy
 CnnPolicy = MaskableActorCriticCnnPolicy
-# MultiInputPolicy = MaskableMultiInputActorCriticPolicy
+MultiInputPolicy = MaskableMultiInputActorCriticPolicy
 
 register_policy("MlpPolicy", MaskableActorCriticPolicy)
 register_policy("CnnPolicy", MaskableActorCriticCnnPolicy)
-# Currently not supported
-# register_policy("MultiInputPolicy", MaskableMultiInputActorCriticPolicy)
+register_policy("MultiInputPolicy", MaskableMultiInputActorCriticPolicy)

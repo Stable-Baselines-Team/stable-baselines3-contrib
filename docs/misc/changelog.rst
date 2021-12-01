@@ -3,20 +3,53 @@
 Changelog
 ==========
 
-Release 1.2.1a2 (WIP)
--------------------------------
 
-**Add TRPO and Invalid action masking for PPO**
+Release 1.3.1a3 (WIP)
+-------------------------------
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
-- Upgraded to Stable-Baselines3 >= 1.2.1a2
+- Upgraded to Stable-Baselines3 >= 1.3.1a3
+
+New Features:
+^^^^^^^^^^^^^
+- Added ``TRPO`` (@cyprienc)
+
+Bug Fixes:
+^^^^^^^^^^
+
+Deprecations:
+^^^^^^^^^^^^^
+
+Others:
+^^^^^^^
+
+
+Documentation:
+^^^^^^^^^^^^^^
+
+Release 1.3.0 (2021-10-23)
+-------------------------------
+
+**Add Invalid action masking for PPO**
+
+.. warning::
+
+  This version will be the last one supporting Python 3.6 (end of life in Dec 2021).
+  We highly recommended you to upgrade to Python >= 3.7.
+
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
 - Removed ``sde_net_arch``
+- Upgraded to Stable-Baselines3 >= 1.3.0
 
 New Features:
 ^^^^^^^^^^^^^
 - Added ``MaskablePPO`` algorithm (@kronion)
 - Added ``TRPO`` (@cyprienc)
+- ``MaskablePPO`` Dictionary Observation support (@glmcdona)
+
 
 Bug Fixes:
 ^^^^^^^^^^
@@ -184,4 +217,4 @@ Stable-Baselines3 is currently maintained by `Antonin Raffin`_ (aka `@araffin`_)
 Contributors:
 -------------
 
-@ku2482 @guyk1971 @minhlong94 @ayeright @kronion @cyprienc
+@ku2482 @guyk1971 @minhlong94 @ayeright @kronion @glmcdona @cyprienc
