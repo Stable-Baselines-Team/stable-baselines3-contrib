@@ -68,12 +68,14 @@ If you want to contribute, please read [**CONTRIBUTING.md**](./CONTRIBUTING.md) 
 To cite this repository in publications (please cite SB3 directly):
 
 ```bibtex
-@misc{stable-baselines3,
-  author = {Raffin, Antonin and Hill, Ashley and Ernestus, Maximilian and Gleave, Adam and Kanervisto, Anssi and Dormann, Noah},
-  title = {Stable Baselines3},
-  year = {2019},
-  publisher = {GitHub},
-  journal = {GitHub repository},
-  howpublished = {\url{https://github.com/DLR-RM/stable-baselines3}},
+@article{stable-baselines3,
+  author  = {Antonin Raffin and Ashley Hill and Adam Gleave and Anssi Kanervisto and Maximilian Ernestus and Noah Dormann},
+  title   = {Stable-Baselines3: Reliable Reinforcement Learning Implementations},
+  journal = {Journal of Machine Learning Research},
+  year    = {2021},
+  volume  = {22},
+  number  = {268},
+  pages   = {1-8},
+  url     = {http://jmlr.org/papers/v22/20-1364.html}
 }
 ```
