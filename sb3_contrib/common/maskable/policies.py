@@ -228,10 +228,10 @@ class MaskableActorCriticPolicy(BasePolicy):
         self,
         observation: Union[np.ndarray, Dict[str, np.ndarray]],
         state: Optional[np.ndarray] = None,
-        mask: Optional[np.ndarray] = None,
+        episode_start: Optional[np.ndarray] = None,
         deterministic: bool = False,
         action_masks: Optional[np.ndarray] = None,
-    ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+    ) -> Tuple[np.ndarray, Optional[Tuple[np.ndarray, ...]]]:
         """
         Get the policy action and state from an observation (and optional state).
         Includes sugar-coating to handle different observations (e.g. normalizing images).

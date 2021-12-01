@@ -3,6 +3,30 @@
 Changelog
 ==========
 
+
+Release 1.3.1a3 (WIP)
+-------------------------------
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Upgraded to Stable-Baselines3 >= 1.3.1a3
+
+New Features:
+^^^^^^^^^^^^^
+
+Bug Fixes:
+^^^^^^^^^^
+
+Deprecations:
+^^^^^^^^^^^^^
+
+Others:
+^^^^^^^
+
+
+Documentation:
+^^^^^^^^^^^^^^
+
 Release 1.3.0 (2021-10-23)
 -------------------------------
 

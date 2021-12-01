@@ -366,10 +366,10 @@ class MaskablePPO(OnPolicyAlgorithm):
         self,
         observation: np.ndarray,
         state: Optional[np.ndarray] = None,
-        mask: Optional[np.ndarray] = None,
+        episode_start: Optional[np.ndarray] = None,
         deterministic: bool = False,
         action_masks: Optional[np.ndarray] = None,
-    ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+    ) -> Tuple[np.ndarray, Optional[Tuple[np.ndarray, ...]]]:
         """
         Get the model's action(s) from an observation.
 
