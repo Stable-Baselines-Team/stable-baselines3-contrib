@@ -4,12 +4,12 @@ Changelog
 ==========
 
 
-Release 1.3.1a3 (WIP)
+Release 1.3.1a4 (WIP)
 -------------------------------
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
-- Upgraded to Stable-Baselines3 >= 1.3.1a3
+- Upgraded to Stable-Baselines3 >= 1.3.1a4
 
 New Features:
 ^^^^^^^^^^^^^
