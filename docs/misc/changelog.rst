@@ -4,15 +4,16 @@ Changelog
 ==========
 
 
-Release 1.3.1a3 (WIP)
+Release 1.3.1a4 (WIP)
 -------------------------------
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
-- Upgraded to Stable-Baselines3 >= 1.3.1a3
+- Upgraded to Stable-Baselines3 >= 1.3.1a4
 
 New Features:
 ^^^^^^^^^^^^^
+- Added experimental support to train off-policy algorithms with multiple envs (note: ``HerReplayBuffer`` currently not supported)
 
 Bug Fixes:
 ^^^^^^^^^^
