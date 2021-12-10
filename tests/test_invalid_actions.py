@@ -55,6 +55,22 @@ def test_identity():
     evaluate_policy(model, env, n_eval_episodes=20, reward_threshold=90, warn=False)
 
 
+def test_bootstraping():
+    # Max ep length = 100 by default
+    env = InvalidActionEnvDiscrete(dim=20, n_invalid_actions=10)
+    env = gym.wrappers.TimeLimit(env, 30)
+    model = MaskablePPO("MlpPolicy", env, n_steps=64, seed=8)
+    model.learn(128)
+
+
+def test_eval_env():
+    env = InvalidActionEnvDiscrete(dim=20, n_invalid_actions=10)
+    eval_env = InvalidActionEnvDiscrete(dim=20, n_invalid_actions=10)
+    model = MaskablePPO("MlpPolicy", env, clip_range_vf=0.2, n_steps=32, seed=8)
+    model.learn(32, eval_env=eval_env, eval_freq=16)
+    model.learn(32, reset_num_timesteps=False)
+
+
 def test_supports_discrete_action_space():
     """
     No errors using algorithm with an env that has a discrete action space
@@ -221,7 +237,7 @@ def test_dict_obs():
     env = InvalidActionEnvDiscrete(dim=20, n_invalid_actions=10)
     env = ToDictWrapper(env)
     model = MaskablePPO("MultiInputPolicy", env, n_steps=64, seed=8)
-    model.learn(100)
+    model.learn(64)
     evaluate_policy(model, env, warn=False)
 
     # Mask all actions except the good one, a random model should succeed
@@ -229,3 +245,13 @@ def test_dict_obs():
     env = ToDictWrapper(env)
     model = MaskablePPO("MultiInputPolicy", env, seed=8)
     evaluate_policy(model, env, reward_threshold=99, warn=False)
+    # MultiDiscrete
+    env = InvalidActionEnvMultiDiscrete(dims=[2, 3], n_invalid_actions=1)
+    env = ToDictWrapper(env)
+    model = MaskablePPO("MultiInputPolicy", env, n_steps=32, seed=8)
+    model.learn(32)
+    # MultiBinary
+    env = InvalidActionEnvMultiBinary(dims=3, n_invalid_actions=1)
+    env = ToDictWrapper(env)
+    model = MaskablePPO("MultiInputPolicy", env, n_steps=32, seed=8)
+    model.learn(32)

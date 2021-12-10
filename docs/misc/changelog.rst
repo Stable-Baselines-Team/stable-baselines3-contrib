@@ -4,13 +4,14 @@ Changelog
 ==========
 
 
-Release 1.3.1a5 (WIP)
+Release 1.3.1a6 (WIP)
 -------------------------------
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
 - Dropped python 3.6 support
 - Upgraded to Stable-Baselines3 >= 1.3.1a4
+- ``MaskablePPO`` was updated to match latest SB3 ``PPO`` version (timeout handling and new method for the policy object)
 
 New Features:
 ^^^^^^^^^^^^^
@@ -24,6 +25,7 @@ Deprecations:
 
 Others:
 ^^^^^^^
+- Improve test coverage for ``MaskablePPO``
 
 
 Documentation:
