@@ -98,11 +98,16 @@ class TestMaskableCategoricalDistribution:
             dist.apply_masking(None)
 
         # But now we can
-        dist.proba_distribution(th.randn(1, DIMS))
-        dist.log_prob(th.randint(DIMS - 1, (3, 1)))
+        action_logits = th.randn(1, DIMS)
+        dist.proba_distribution(action_logits)
+        actions = th.randint(DIMS - 1, (3, 1))
+        dist.log_prob(actions)
         dist.entropy()
         dist.sample()
         dist.mode()
+        # Test api
+        dist.actions_from_params(action_logits)
+        dist.log_prob_from_params(action_logits)
         dist.apply_masking(None)
 
     def test_logits_must_align_with_dims(self):
@@ -174,11 +179,16 @@ class TestMaskableMultiCategoricalDistribution:
             dist.apply_masking(None)
 
         # But now we can
-        dist.proba_distribution(th.randn(1, DIMS_PER_CAT * NUM_CATS))
-        dist.log_prob(th.randint(DIMS_PER_CAT - 1, (3, NUM_CATS)))
+        action_logits = th.randn(1, DIMS_PER_CAT * NUM_CATS)
+        dist.proba_distribution(action_logits)
+        actions = th.randint(DIMS_PER_CAT - 1, (3, NUM_CATS))
+        dist.log_prob(actions)
         dist.entropy()
         dist.sample()
         dist.mode()
+        # Test api
+        dist.actions_from_params(action_logits)
+        dist.log_prob_from_params(action_logits)
         dist.apply_masking(None)
 
     def test_logits_must_align_with_dims(self):
@@ -258,11 +268,16 @@ class TestMaskableBernoulliDistribution:
             dist.apply_masking(None)
 
         # But now we can
-        dist.proba_distribution(th.randn(1, 2 * DIMS))
-        dist.log_prob(th.randint(1, (2, DIMS)))
+        action_logits = th.randn(1, 2 * DIMS)
+        dist.proba_distribution(action_logits)
+        actions = th.randint(1, (2, DIMS))
+        dist.log_prob(actions)
         dist.entropy()
         dist.sample()
         dist.mode()
+        # Test api
+        dist.actions_from_params(action_logits)
+        dist.log_prob_from_params(action_logits)
         dist.apply_masking(None)
 
     def test_logits_must_align_with_dims(self):
