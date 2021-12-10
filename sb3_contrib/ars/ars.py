@@ -9,10 +9,10 @@ import gym
 import torch as th
 import torch.nn.utils
 from stable_baselines3.common.base_class import BaseAlgorithm
+from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import get_schedule_fn, safe_mean
-from stable_baselines3.common.evaluation import evaluate_policy
 
 from sb3_contrib.ars.policies import ARSPolicy
 
@@ -60,7 +60,7 @@ class ARS(BaseAlgorithm):
         super().__init__(
             policy,
             env,
-            learning_rate=0.0, # This learning rate is ignored
+            learning_rate=0.0,  # This learning rate is ignored
             tensorboard_log=tensorboard_log,
             policy_base=policy_base,
             policy_kwargs=policy_kwargs,

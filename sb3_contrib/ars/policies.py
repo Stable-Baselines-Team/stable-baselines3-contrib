@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Union, Type
+from typing import Any, Dict, List, Optional, Type, Union
 
 import gym
 import torch as th
