@@ -86,7 +86,6 @@ class MaskableActorCriticPolicy(BasePolicy):
         self.features_dim = self.features_extractor.features_dim
 
         self.normalize_images = normalize_images
-
         # Action distribution
         self.action_dist = make_masked_proba_distribution(action_space)
 
@@ -106,7 +105,9 @@ class MaskableActorCriticPolicy(BasePolicy):
         :param action_masks: Action masks to apply to the action distribution
         :return: action, value and log probability of the action
         """
-        latent_pi, latent_vf = self._get_latent(obs)
+        # Preprocess the observation if needed
+        features = self.extract_features(obs)
+        latent_pi, latent_vf = self.mlp_extractor(features)
         # Evaluate the values for the given observations
         values = self.value_net(latent_vf)
         distribution = self._get_action_dist_from_latent(latent_pi)
@@ -179,21 +180,6 @@ class MaskableActorCriticPolicy(BasePolicy):
         # Setup optimizer with initial learning rate
         self.optimizer = self.optimizer_class(self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
 
-    def _get_latent(self, obs: th.Tensor) -> Tuple[th.Tensor, th.Tensor]:
-        """
-        Get the latent code (i.e., activations of the last layer of each network)
-        for the different networks.
-
-        :param obs: Observation
-        :return: Latent codes
-            for the actor, the value function and for gSDE function
-        """
-        # Preprocess the observation if needed
-        features = self.extract_features(obs)
-        latent_pi, latent_vf = self.mlp_extractor(features)
-
-        return latent_pi, latent_vf
-
     def _get_action_dist_from_latent(self, latent_pi: th.Tensor) -> MaskableDistribution:
         """
         Retrieve action distribution given the latent codes.
@@ -218,11 +204,7 @@ class MaskableActorCriticPolicy(BasePolicy):
         :param action_masks: Action masks to apply to the action distribution
         :return: Taken action according to the policy
         """
-        latent_pi, _ = self._get_latent(observation)
-        distribution = self._get_action_dist_from_latent(latent_pi)
-        if action_masks is not None:
-            distribution.apply_masking(action_masks)
-        return distribution.get_actions(deterministic=deterministic)
+        return self.get_distribution(observation, action_masks).get_actions(deterministic=deterministic)
 
     def predict(
         self,
@@ -291,13 +273,40 @@ class MaskableActorCriticPolicy(BasePolicy):
         :return: estimated value, log likelihood of taking those actions
             and entropy of the action distribution.
         """
-        latent_pi, latent_vf = self._get_latent(obs)
+        features = self.extract_features(obs)
+        latent_pi, latent_vf = self.mlp_extractor(features)
         distribution = self._get_action_dist_from_latent(latent_pi)
         if action_masks is not None:
             distribution.apply_masking(action_masks)
         log_prob = distribution.log_prob(actions)
         values = self.value_net(latent_vf)
         return values, log_prob, distribution.entropy()
+
+    def get_distribution(self, obs: th.Tensor, action_masks: Optional[np.ndarray] = None) -> MaskableDistribution:
+        """
+        Get the current policy distribution given the observations.
+
+        :param obs:
+        :param action_masks:
+        :return: the action distribution.
+        """
+        features = self.extract_features(obs)
+        latent_pi = self.mlp_extractor.forward_actor(features)
+        distribution = self._get_action_dist_from_latent(latent_pi)
+        if action_masks is not None:
+            distribution.apply_masking(action_masks)
+        return distribution
+
+    def predict_values(self, obs: th.Tensor) -> th.Tensor:
+        """
+        Get the estimated values according to the current policy given the observations.
+
+        :param obs:
+        :return: the estimated values.
+        """
+        features = self.extract_features(obs)
+        latent_vf = self.mlp_extractor.forward_critic(features)
+        return self.value_net(latent_vf)
 
 
 class MaskableActorCriticCnnPolicy(MaskableActorCriticPolicy):
