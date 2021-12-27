@@ -4,8 +4,7 @@ import pytest
 from gym import spaces
 from gym.envs.classic_control import CartPoleEnv
 from gym.wrappers.time_limit import TimeLimit
-
-# from stable_baselines3.common.callbacks import EvalCallback
+from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.evaluation import evaluate_policy
 
@@ -114,9 +113,9 @@ def test_dict_obs():
     evaluate_policy(model, env, warn=False)
 
 
+@pytest.mark.slow
 def test_ppo_lstm_performance():
     # env = make_vec_env("CartPole-v1", n_envs=16)
-
     def make_env():
         env = CartPoleNoVelEnv()
         env = TimeLimit(env, max_episode_steps=500)
@@ -124,11 +123,11 @@ def test_ppo_lstm_performance():
 
     env = make_vec_env(make_env, n_envs=8)
 
-    # eval_callback = EvalCallback(
-    #     make_vec_env(make_env, n_envs=4),
-    #     n_eval_episodes=20,
-    #     eval_freq=250 // env.num_envs,
-    # )
+    eval_callback = EvalCallback(
+        make_vec_env(make_env, n_envs=4),
+        n_eval_episodes=20,
+        eval_freq=5000 // env.num_envs,
+    )
 
     model = RecurrentPPO(
         "MlpLstmPolicy",
@@ -138,14 +137,15 @@ def test_ppo_lstm_performance():
         verbose=1,
         batch_size=256,
         seed=0,
-        n_epochs=20,
-        # max_grad_norm=1,
+        n_epochs=10,
+        max_grad_norm=1,
         gae_lambda=0.98,
         policy_kwargs=dict(net_arch=[dict(vf=[64])], ortho_init=False),
-        # policy_kwargs=dict(net_arch=[dict(pi=[64], vf=[64])])
     )
 
-    # model.learn(total_timesteps=250)
-    model.learn(total_timesteps=100_000)
-    # model.learn(total_timesteps=1000, callback=eval_callback)
-    evaluate_policy(model, env, reward_threshold=100)
+    model.learn(total_timesteps=50_000, callback=eval_callback)
+    # Maximum episode reward is 500.
+    # In CartPole-v1, a non-recurrent policy can easily get >= 450.
+    # In CartPoleNoVelEnv, a non-recurrent policy doesn't get more than ~50.
+    # LSTM policies can reach above 400, but it varies a lot between runs; consistently get >=150.
+    evaluate_policy(model, env, reward_threshold=160)
