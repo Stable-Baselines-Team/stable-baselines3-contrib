@@ -62,7 +62,23 @@ def test_qrdqn():
 
 @pytest.mark.parametrize("env_id", ["CartPole-v1", "Pendulum-v0"])
 def test_trpo(env_id):
-    model = TRPO("MlpPolicy", env_id, n_steps=64, seed=0, policy_kwargs=dict(net_arch=[16]), verbose=1)
+    model = TRPO("MlpPolicy", env_id, n_steps=128, seed=0, policy_kwargs=dict(net_arch=[16]), verbose=1)
+    model.learn(total_timesteps=500)
+
+
+def test_trpo_params():
+    # Test with gSDE and subsampling
+    model = TRPO(
+        "MlpPolicy",
+        "Pendulum-v0",
+        n_steps=64,
+        batch_size=32,
+        use_sde=True,
+        sub_sampling_factor=4,
+        seed=0,
+        policy_kwargs=dict(net_arch=[dict(pi=[32], vf=[32])]),
+        verbose=1,
+    )
     model.learn(total_timesteps=500)
 
 

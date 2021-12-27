@@ -160,4 +160,4 @@ def flat_grad(
         retain_graph=retain_graph,
         allow_unused=True,
     )
-    return th.cat([grad.view(-1) for grad in grads if grad is not None])
+    return th.cat([th.ravel(grad) for grad in grads if grad is not None])

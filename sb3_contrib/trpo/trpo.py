@@ -50,6 +50,7 @@ class TRPO(OnPolicyAlgorithm):
         instead of action noise exploration (default: False)
     :param sde_sample_freq: Sample a new noise matrix every n steps when using gSDE
         Default: -1 (only sample at the beginning of the rollout)
+    :param normalize_advantage: Whether to normalize or not the advantage
     :param target_kl: Limit the KL divergence between updates,
         because the clipping is not enough to prevent large update
         see issue #213 (cf https://github.com/hill-a/stable-baselines/issues/213)
@@ -83,6 +84,7 @@ class TRPO(OnPolicyAlgorithm):
         gae_lambda: float = 0.95,
         use_sde: bool = False,
         sde_sample_freq: int = -1,
+        normalize_advantage: bool = True,
         target_kl: float = 0.01,
         sub_sampling_factor: int = 1,
         tensorboard_log: Optional[str] = None,
@@ -101,8 +103,8 @@ class TRPO(OnPolicyAlgorithm):
             n_steps=n_steps,
             gamma=gamma,
             gae_lambda=gae_lambda,
-            ent_coef=0.0,  # TODO: add entropy bonus to surrogate objective
-            vf_coef=0.0,
+            ent_coef=0.0,  # entropy bonus is not used by TRPO
+            vf_coef=0.0,  # Value function is optimized separately
             max_grad_norm=0.0,
             use_sde=use_sde,
             sde_sample_freq=sde_sample_freq,
@@ -122,15 +124,17 @@ class TRPO(OnPolicyAlgorithm):
             ),
         )
 
+        self.normalize_advantage = normalize_advantage
         # Sanity check, otherwise it will lead to noisy gradient and NaN
         # because of the advantage normalization
         if self.env is not None:
             # Check that `n_steps * n_envs > 1` to avoid NaN
             # when doing advantage normalization
             buffer_size = self.env.num_envs * self.n_steps
-            assert (
-                buffer_size > 1
-            ), f"`n_steps * n_envs` must be greater than 1. Currently n_steps={self.n_steps} and n_envs={self.env.num_envs}"
+            if normalize_advantage:
+                assert (
+                    buffer_size > 1
+                ), f"`n_steps * n_envs` must be greater than 1. Currently n_steps={self.n_steps} and n_envs={self.env.num_envs}"
             # Check that the rollout buffer size is a multiple of the mini-batch size
             untruncated_batches = buffer_size // batch_size
             if buffer_size % batch_size > 0:
@@ -143,8 +147,10 @@ class TRPO(OnPolicyAlgorithm):
                     f"Info: (n_steps={self.n_steps} and n_envs={self.env.num_envs})"
                 )
         self.batch_size = batch_size
+        # Conjugate gradients parameters
         self.cg_max_steps = cg_max_steps
         self.cg_damping = cg_damping
+        # Backtracking line search parameters
         self.line_search_shrinking_factor = line_search_shrinking_factor
         self.line_search_max_iter = line_search_max_iter
         self.target_kl = target_kl
@@ -245,7 +251,8 @@ class TRPO(OnPolicyAlgorithm):
 
             # Re-sample the noise matrix because the log_std has changed
             if self.use_sde:
-                self.policy.reset_noise(self.batch_size)
+                # batch_size is only used for the value function
+                self.policy.reset_noise(actions.shape[0])
 
             with th.no_grad():
                 # Note: is copy enough, no need for deepcopy?
@@ -257,7 +264,8 @@ class TRPO(OnPolicyAlgorithm):
             log_prob = distribution.log_prob(actions)
 
             advantages = rollout_data.advantages
-            advantages = (advantages - advantages.mean()) / (rollout_data.advantages.std() + 1e-8)
+            if self.normalize_advantage:
+                advantages = (advantages - advantages.mean()) / (rollout_data.advantages.std() + 1e-8)
 
             # ratio between old and new policy, should be one at the first iteration
             ratio = th.exp(log_prob - rollout_data.old_log_prob)
