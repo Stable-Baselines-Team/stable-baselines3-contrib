@@ -40,7 +40,6 @@ class RecurrentRolloutBuffer(RolloutBuffer):
         sampling_strategy: str = "default",  # "default" or "per_env"
     ):
         self.lstm_states = lstm_states
-        # self.dones = None
         self.initial_lstm_states = None
         self.sampling_strategy = sampling_strategy
         self.starts, self.ends = None, None
@@ -237,12 +236,11 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
         n_envs: int = 1,
         sampling_strategy: str = "default",  # "default" or "per_env"
     ):
-        super(RecurrentDictRolloutBuffer, self).__init__(
-            buffer_size, observation_space, action_space, device, gae_lambda, gamma, n_envs=n_envs
-        )
         self.lstm_states = lstm_states
+        self.initial_lstm_states = None
         self.sampling_strategy = sampling_strategy
         assert sampling_strategy == "default", "'per_env' strategy not supported with dict obs"
+        super().__init__(buffer_size, observation_space, action_space, device, gae_lambda, gamma, n_envs=n_envs)
 
     def reset(self):
         super().reset()
@@ -272,8 +270,10 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
             for tensor in ["hidden_states_pi", "cell_states_pi", "hidden_states_vf", "cell_states_vf"]:
                 self.__dict__[tensor] = self.__dict__[tensor].swapaxes(1, 2)
 
+            for key, obs in self.observations.items():
+                self.observations[key] = self.swap_and_flatten(obs)
+
             for tensor in [
-                "observations",
                 "actions",
                 "values",
                 "log_probs",
@@ -348,7 +348,7 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
 
         observations = {key: self.pad(obs[batch_inds]) for (key, obs) in self.observations.items()}
         observations = {
-            key: obs.swapaxes(0, 1).reshape((padded_batch_size,) + self.obs_shape) for (key, obs) in observations.items()
+            key: obs.swapaxes(0, 1).reshape((padded_batch_size,) + self.obs_shape[key]) for (key, obs) in observations.items()
         }
 
         return RecurrentDictRolloutBufferSamples(

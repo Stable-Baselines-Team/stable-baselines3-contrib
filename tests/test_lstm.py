@@ -1,3 +1,4 @@
+import gym
 import numpy as np
 import pytest
 from gym import spaces
@@ -9,6 +10,23 @@ from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.evaluation import evaluate_policy
 
 from sb3_contrib import RecurrentPPO
+
+
+class ToDictWrapper(gym.Wrapper):
+    """
+    Simple wrapper to test MultInputPolicy on Dict obs.
+    """
+
+    def __init__(self, env):
+        super().__init__(env)
+        self.observation_space = gym.spaces.Dict({"obs": self.env.observation_space})
+
+    def reset(self):
+        return {"obs": self.env.reset()}
+
+    def step(self, action):
+        obs, reward, done, infos = self.env.step(action)
+        return {"obs": obs}, reward, done, infos
 
 
 class CartPoleNoVelEnv(CartPoleEnv):
@@ -90,17 +108,21 @@ def test_run_sde():
     model.learn(total_timesteps=32, eval_freq=16)
 
 
-def test_ppo_lstm_performance():
+def test_dict_obs():
+    env = make_vec_env("CartPole-v1", n_envs=1, wrapper_class=ToDictWrapper)
+    model = RecurrentPPO("MultiInputLstmPolicy", env, n_steps=32).learn(64)
+    evaluate_policy(model, env, warn=False)
 
+
+def test_ppo_lstm_performance():
     # env = make_vec_env("CartPole-v1", n_envs=16)
-    # env = make_vec_env("Pendulum-v0", n_envs=16)
 
     def make_env():
         env = CartPoleNoVelEnv()
         env = TimeLimit(env, max_episode_steps=500)
         return env
 
-    env = make_vec_env(make_env, n_envs=16)
+    env = make_vec_env(make_env, n_envs=8)
 
     # eval_callback = EvalCallback(
     #     make_vec_env(make_env, n_envs=4),
@@ -111,7 +133,7 @@ def test_ppo_lstm_performance():
     model = RecurrentPPO(
         "MlpLstmPolicy",
         env,
-        n_steps=32,
+        n_steps=128,
         learning_rate=0.0007,
         verbose=1,
         batch_size=256,
@@ -123,7 +145,7 @@ def test_ppo_lstm_performance():
         # policy_kwargs=dict(net_arch=[dict(pi=[64], vf=[64])])
     )
 
-    model.learn(total_timesteps=250)
-    # model.learn(total_timesteps=100_000)
+    # model.learn(total_timesteps=250)
+    model.learn(total_timesteps=100_000)
     # model.learn(total_timesteps=1000, callback=eval_callback)
-    evaluate_policy(model, env)
+    evaluate_policy(model, env, reward_threshold=100)
