@@ -23,7 +23,7 @@ class TRPO(OnPolicyAlgorithm):
 
     Paper: https://arxiv.org/abs/1502.05477
     Code: This implementation borrows code from OpenAI Spinning Up (https://github.com/openai/spinningup/)
-        and Stable Baselines (TRPO from https://github.com/hill-a/stable-baselines)
+    and Stable Baselines (TRPO from https://github.com/hill-a/stable-baselines)
 
     Introduction to TRPO: https://spinningup.openai.com/en/latest/algorithms/trpo.html
 
