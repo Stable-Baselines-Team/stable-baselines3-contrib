@@ -21,8 +21,8 @@ from sb3_contrib.common.recurrent.type_aliases import RNNStates
 
 class RecurrentActorCriticPolicy(ActorCriticPolicy):
     """
-    CNN policy class for actor-critic algorithms (has both policy and value prediction).
-    Used by A2C, PPO and the likes.
+    Recurrent policy class for actor-critic algorithms (has both policy and value prediction).
+    To be used with A2C, PPO and the likes.
 
     :param observation_space: Observation space
     :param action_space: Action space
@@ -51,6 +51,11 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         ``th.optim.Adam`` by default
     :param optimizer_kwargs: Additional keyword arguments,
         excluding the learning rate, to pass to the optimizer
+    :param lstm_hidden_size: Number of hidden units for each LSTM layer.
+    :param n_lstm_layers: Number of LSTM layers.
+    :param shared_lstm: Whether the LSTM is shared between the actor and the critic.
+        By default, only the actor has a recurrent network.
+    :param enable_critic_lstm: Use a seperate LSTM for the critic.
     """
 
     def __init__(
@@ -72,7 +77,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         normalize_images: bool = True,
         optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
-        lstm_hidden_size: int = 64,
+        lstm_hidden_size: int = 256,
         n_lstm_layers: int = 1,
         shared_lstm: bool = False,
         enable_critic_lstm: bool = False,
@@ -168,7 +173,10 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         """
         Forward pass in all the networks (actor and critic)
 
-        :param obs: Observation
+        :param obs: Observation. Observation
+        :param lstm_states: The last hidden and memory states for the LSTM.
+        :param episode_starts: Whether the observations correspond to new episodes
+            or not (we reset the lstm states in that case).
         :param deterministic: Whether to sample or use deterministic actions
         :return: action, value and log probability of the action
         """
@@ -205,7 +213,10 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         """
         Get the current policy distribution given the observations.
 
-        :param obs:
+        :param obs: Observation.
+        :param lstm_states: The last hidden and memory states for the LSTM.
+        :param episode_starts: Whether the observations correspond to new episodes
+            or not (we reset the lstm states in that case).
         :return: the action distribution and new hidden states.
         """
         features = self.extract_features(obs)
@@ -222,7 +233,10 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         """
         Get the estimated values according to the current policy given the observations.
 
-        :param obs:
+        :param obs: Observation.
+        :param lstm_states: The last hidden and memory states for the LSTM.
+        :param episode_starts: Whether the observations correspond to new episodes
+            or not (we reset the lstm states in that case).
         :return: the estimated values.
         """
         features = self.extract_features(obs)
@@ -249,8 +263,11 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         Evaluate actions according to the current policy,
         given the observations.
 
-        :param obs:
+        :param obs: Observation.
         :param actions:
+        :param lstm_states: The last hidden and memory states for the LSTM.
+        :param episode_starts: Whether the observations correspond to new episodes
+            or not (we reset the lstm states in that case).
         :return: estimated value, log likelihood of taking those actions
             and entropy of the action distribution.
         """
@@ -284,7 +301,9 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         Get the action according to the policy for a given observation.
 
         :param observation:
-        :param lstm_states:
+        :param lstm_states: The last hidden and memory states for the LSTM.
+        :param episode_starts: Whether the observations correspond to new episodes
+            or not (we reset the lstm states in that case).
         :param deterministic: Whether to use stochastic or deterministic actions
         :return: Taken action according to the policy and hidden states of the RNN
         """
@@ -303,10 +322,9 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         Includes sugar-coating to handle different observations (e.g. normalizing images).
 
         :param observation: the input observation
-        :param state: The last hidden states (can be None, used in recurrent policies)
-        :param episode_start: The last masks (can be None, used in recurrent policies)
-            this correspond to beginning of episodes,
-            where the hidden states of the RNN must be reset.
+        :param lstm_states: The last hidden and memory states for the LSTM.
+        :param episode_starts: Whether the observations correspond to new episodes
+            or not (we reset the lstm states in that case).
         :param deterministic: Whether or not to return deterministic actions.
         :return: the model's action and the next hidden state
             (used in recurrent policies)
@@ -319,6 +337,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         n_envs = observation.shape[0]
         # state : (n_layers, n_envs, dim)
         if state is None:
+            # Initialize hidden states to zeros
             state = np.concatenate([np.zeros(self.lstm_shape) for _ in range(n_envs)], axis=1)
             state = (state, state)
 
@@ -355,7 +374,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
 
 class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
     """
-    CNN policy class for actor-critic algorithms (has both policy and value prediction).
+    CNN recurrent policy class for actor-critic algorithms (has both policy and value prediction).
     Used by A2C, PPO and the likes.
 
     :param observation_space: Observation space
@@ -385,6 +404,12 @@ class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
         ``th.optim.Adam`` by default
     :param optimizer_kwargs: Additional keyword arguments,
         excluding the learning rate, to pass to the optimizer
+    :param lstm_hidden_size: Number of hidden units for each LSTM layer.
+    :param n_lstm_layers: Number of LSTM layers.
+    :param shared_lstm: Whether the LSTM is shared between the actor and the critic.
+        By default, only the actor has a recurrent network.
+    :param enable_critic_lstm: Use a seperate LSTM for the critic.
+
     """
 
     def __init__(
@@ -406,7 +431,7 @@ class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
         normalize_images: bool = True,
         optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
-        lstm_hidden_size: int = 64,
+        lstm_hidden_size: int = 256,
         n_lstm_layers: int = 1,
         enable_critic_lstm: bool = False,
     ):
@@ -434,7 +459,7 @@ class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
         )
 
 
-class MultiInputRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
+class RecurrentMultiInputActorCriticPolicy(RecurrentActorCriticPolicy):
     """
     MultiInputActorClass policy class for actor-critic algorithms (has both policy and value prediction).
     Used by A2C, PPO and the likes.
@@ -466,6 +491,11 @@ class MultiInputRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
         ``th.optim.Adam`` by default
     :param optimizer_kwargs: Additional keyword arguments,
         excluding the learning rate, to pass to the optimizer
+    :param lstm_hidden_size: Number of hidden units for each LSTM layer.
+    :param n_lstm_layers: Number of LSTM layers.
+    :param shared_lstm: Whether the LSTM is shared between the actor and the critic.
+        By default, only the actor has a recurrent network.
+    :param enable_critic_lstm: Use a seperate LSTM for the critic.
     """
 
     def __init__(
@@ -487,7 +517,7 @@ class MultiInputRecurrentActorCriticPolicy(RecurrentActorCriticPolicy):
         normalize_images: bool = True,
         optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
-        lstm_hidden_size: int = 64,
+        lstm_hidden_size: int = 256,
         n_lstm_layers: int = 1,
         enable_critic_lstm: bool = False,
     ):

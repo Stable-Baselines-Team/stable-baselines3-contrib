@@ -16,6 +16,7 @@ Breaking Changes:
 New Features:
 ^^^^^^^^^^^^^
 - Added experimental support to train off-policy algorithms with multiple envs (note: ``HerReplayBuffer`` currently not supported)
+- Added ``RecurrentPPO``
 
 Bug Fixes:
 ^^^^^^^^^^

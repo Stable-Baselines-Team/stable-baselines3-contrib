@@ -1,7 +1,7 @@
 import os
 
-from sb3_contrib.ppo_lstm import RecurrentPPO
 from sb3_contrib.ppo_mask import MaskablePPO
+from sb3_contrib.ppo_recurrent import RecurrentPPO
 from sb3_contrib.qrdqn import QRDQN
 from sb3_contrib.tqc import TQC
 
