@@ -40,6 +40,7 @@ RL Baselines3 Zoo also offers a simple interface to train, evaluate agents and d
   :maxdepth: 1
   :caption: Common
 
+  common/utils
   common/wrappers
 
 .. toctree::
