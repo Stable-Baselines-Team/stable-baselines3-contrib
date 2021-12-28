@@ -132,9 +132,10 @@ class TRPO(OnPolicyAlgorithm):
             # when doing advantage normalization
             buffer_size = self.env.num_envs * self.n_steps
             if normalize_advantage:
-                assert (
-                    buffer_size > 1
-                ), f"`n_steps * n_envs` must be greater than 1. Currently n_steps={self.n_steps} and n_envs={self.env.num_envs}"
+                assert buffer_size > 1, (
+                    "`n_steps * n_envs` must be greater than 1. "
+                    f"Currently n_steps={self.n_steps} and n_envs={self.env.num_envs}"
+                )
             # Check that the rollout buffer size is a multiple of the mini-batch size
             untruncated_batches = buffer_size // batch_size
             if buffer_size % batch_size > 0:
@@ -282,11 +283,11 @@ class TRPO(OnPolicyAlgorithm):
             actor_params, policy_objective_gradients, grad_kl, grad_shape = self._compute_actor_grad(kl_div, policy_objective)
 
             # Hessian-vector dot product function used in the conjugate gradient step
-            hessian_vector_product = partial(self.hessian_vector_product, actor_params, grad_kl)
+            hessian_vector_product_fn = partial(self.hessian_vector_product, actor_params, grad_kl)
 
             # Computing search direction
             search_direction = conjugate_gradient_solver(
-                hessian_vector_product,
+                hessian_vector_product_fn,
                 policy_objective_gradients,
                 max_iter=self.cg_max_steps,
             )
@@ -294,7 +295,7 @@ class TRPO(OnPolicyAlgorithm):
             # Maximal step length
             line_search_max_step_size = 2 * self.target_kl
             line_search_max_step_size /= th.matmul(
-                search_direction, hessian_vector_product(search_direction, retain_graph=False)
+                search_direction, hessian_vector_product_fn(search_direction, retain_graph=False)
             )
             line_search_max_step_size = th.sqrt(line_search_max_step_size)
 
@@ -389,7 +390,7 @@ class TRPO(OnPolicyAlgorithm):
         :param grad_kl: flattened gradient of the KL divergence between the old and new policy
         :param vector: vector to compute the dot product the hessian-vector dot product with
         :param retain_graph: if True, the graph will be kept after computing the Hessian
-        :return: Hessian-vector dot product
+        :return: Hessian-vector dot product (with damping)
         """
         jacobian_vector_product = (grad_kl * vector).sum()
         return flat_grad(jacobian_vector_product, params, retain_graph=retain_graph) + self.cg_damping * vector

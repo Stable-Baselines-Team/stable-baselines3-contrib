@@ -70,7 +70,6 @@ def quantile_huber_loss(
     return loss
 
 
-# TODO: write regression tests
 def conjugate_gradient_solver(
     matrix_vector_dot_func: Callable[[th.Tensor], th.Tensor],
     b,
@@ -96,7 +95,7 @@ def conjugate_gradient_solver(
     :param residual_tol:
         residual tolerance for early stopping of the solving (default is 1e-10)
     :return x:
-        the approximate solution to the system of equations defined by Avp_fun
+        the approximate solution to the system of equations defined by `matrix_vector_dot_func`
         and b
     """
 
@@ -134,7 +133,6 @@ def conjugate_gradient_solver(
         p = residual + beta * p
 
 
-# TODO: test
 def flat_grad(
     output,
     parameters: Sequence[nn.parameter.Parameter],
@@ -146,7 +144,7 @@ def flat_grad(
     Order of parameters is preserved.
 
     :param output: functional output to compute the gradient for
-    :param parameters: sequence of `Parameter`
+    :param parameters: sequence of ``Parameter``
     :param retain_graph – If ``False``, the graph used to compute the grad will be freed.
         Defaults to the value of ``create_graph``.
     :param create_graph – If ``True``, graph of the derivative will be constructed,
