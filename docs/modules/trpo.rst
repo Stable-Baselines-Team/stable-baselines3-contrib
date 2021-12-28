@@ -7,6 +7,7 @@ TRPO
 
 `Trust Region Policy Optimization (TRPO) <https://arxiv.org/abs/1502.05477>`_
 is an iterative approach for optimizing policies with guaranteed monotonic improvement.
+
 .. rubric:: Available Policies
 
 .. autosummary::
@@ -15,7 +16,6 @@ is an iterative approach for optimizing policies with guaranteed monotonic impro
     MlpPolicy
     CnnPolicy
     MultiInputPolicy
-
 
 
 Notes
@@ -76,18 +76,19 @@ Example
 Results
 -------
 
-Result on the PyBullet benchmark (1M steps) using 3 seeds.
+Result on the MuJoCo benchmark (1M steps on ``-v3`` envs with MuJoCo v2.1.0) using 3 seeds.
 The complete learning curves are available in the `associated PR <https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/pull/40>`_.
 
 
-===================== ============ ============
-Environments          PPO          TRPO
-===================== ============ ============
-HalfCheetah           1976 +/- 479 0000 +/- 157
-Ant                   2364 +/- 120 0000 +/- 37
-Hopper                1567 +/- 339 0000 +/- 62
-Walker2D              1230 +/- 147 0000 +/- 94
-===================== ============ ============
+===================== ============
+Environments          TRPO
+===================== ============
+HalfCheetah           1803 +/- 46
+Ant                   3554 +/- 591
+Hopper                3372 +/- 215
+Walker2d              4502 +/- 234
+Swimmer               359 +/- 2
+===================== ============
 
 
 How to replicate the results?
@@ -97,22 +98,21 @@ Clone RL-Zoo and checkout the branch ``feat/trpo``:
 
 .. code-block:: bash
 
-  git clone https://github.com/DLR-RM/rl-baselines3-zoo
+  git clone https://github.com/cyprienc/rl-baselines3-zoo
   cd rl-baselines3-zoo/
-  git checkout feat/trpo
 
 Run the benchmark (replace ``$ENV_ID`` by the envs mentioned above):
 
 .. code-block:: bash
 
-  python train.py --algo tqc --env $ENV_ID --eval-episodes 10 --eval-freq 10000
+  python train.py --algo tqc --env $ENV_ID --n-eval-envs 10 --eval-episodes 20 --eval-freq 50000
 
 
 Plot the results:
 
 .. code-block:: bash
 
-  python scripts/all_plots.py -a trpo -e HalfCheetah Ant Hopper Walker2D BipedalWalkerHardcore -f logs/ -o logs/trpo_results
+  python scripts/all_plots.py -a trpo -e HalfCheetah Ant Hopper Walker2d Swimmer -f logs/ -o logs/trpo_results
   python scripts/plot_from_file.py -i logs/trpo_results.pkl -latex -l TRPO
 
 
