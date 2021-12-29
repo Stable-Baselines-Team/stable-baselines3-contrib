@@ -91,9 +91,8 @@ def test_ars(policy_str, env_id):
 
 def test_ars_multi_env():
     env = make_vec_env("Pendulum-v0", n_envs=2)
-    with pytest.warns(UserWarning):
-        model = ARS("MlpPolicy", env, n_delta=1)
-        model.learn(total_timesteps=500)
+    model = ARS("MlpPolicy", env, n_delta=1)
+    model.learn(total_timesteps=500)
 
 
 @pytest.mark.parametrize("n_top", [2, 8])

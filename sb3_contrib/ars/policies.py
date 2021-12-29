@@ -1,8 +1,8 @@
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Type
 
 import gym
 import torch as th
-from stable_baselines3.common.policies import BaseModel, BasePolicy, register_policy
+from stable_baselines3.common.policies import BasePolicy, register_policy
 from stable_baselines3.common.preprocessing import get_action_dim
 from stable_baselines3.common.torch_layers import create_mlp
 from torch import nn
@@ -10,11 +10,12 @@ from torch import nn
 
 class ARSPolicy(BasePolicy):
     """
-    Policy network for ARS
+    Policy network for ARS.
 
     :param observation_space: The observation space of the environment
     :param action_space: The action space of the environment
     :param net_arch: Network architecture, defaults to a linear policy with bias
+    :param activation_fn: Activation function
     """
 
     def __init__(
@@ -37,6 +38,7 @@ class ARSPolicy(BasePolicy):
         self.net_arch = net_arch
         self.features_extractor = self.make_features_extractor()
         self.features_dim = self.features_extractor.features_dim
+        self.activation_fn = activation_fn
 
         if isinstance(action_space, gym.spaces.Box):
             action_dim = get_action_dim(action_space)
@@ -48,13 +50,14 @@ class ARSPolicy(BasePolicy):
 
         self.action_net = nn.Sequential(*actor_net)
 
-    @classmethod  # override to set default device to cpu
-    def load(cls, path: str, device: Union[th.device, str] = "cpu") -> "BaseModel":
-        return super().load(path, device)
-
     def _get_constructor_parameters(self) -> Dict[str, Any]:
         # data = super()._get_constructor_parameters() this adds normalize_images, which we don't support...
-        data = dict(observation_space=self.observation_space, action_space=self.action_space, net_arch=self.net_arch)
+        data = dict(
+            observation_space=self.observation_space,
+            action_space=self.action_space,
+            net_arch=self.net_arch,
+            activation_fn=self.activation_fn,
+        )
         return data
 
     def forward(self, obs: th.Tensor) -> th.Tensor:
@@ -74,17 +77,27 @@ class ARSPolicy(BasePolicy):
 
 
 class ARSLinearPolicy(ARSPolicy):
-    def __init__(self, observation_space: gym.spaces.Space, action_space: gym.spaces.Space, squash_outputs=False):
+    """
+    Linear policy network for ARS.
+
+    :param observation_space: The observation space of the environment
+    :param action_space: The action space of the environment
+    :param net_arch: Network architecture, defaults to a linear policy with bias
+    :param activation_fn: Activation function
+    :param with_bias: With or without bias
+    """
+
+    def __init__(self, observation_space: gym.spaces.Space, action_space: gym.spaces.Space, with_bias: bool = False):
 
         super().__init__(observation_space, action_space)
 
         if isinstance(action_space, gym.spaces.Box):
             action_dim = get_action_dim(action_space)
-            self.action_net = nn.Linear(self.features_dim, action_dim, bias=False)
+            self.action_net = nn.Linear(self.features_dim, action_dim, bias=with_bias)
         elif isinstance(action_space, gym.spaces.Discrete):
-            self.action_net = nn.Linear(self.features_dim, action_space.n, bias=False)
+            self.action_net = nn.Linear(self.features_dim, action_space.n, bias=with_bias)
         else:
-            raise NotImplementedError("Error: ARS policy not implemented for action space" f"of type {type(action_space)}.")
+            raise NotImplementedError(f"Error: ARS policy not implemented for action space of type {type(action_space)}.")
 
 
 MlpPolicy = ARSPolicy
