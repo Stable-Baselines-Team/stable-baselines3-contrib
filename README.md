@@ -29,6 +29,7 @@ See documentation for the full list of included features.
 - [Quantile Regression DQN (QR-DQN)](https://arxiv.org/abs/1710.10044)
 - [PPO with invalid action masking (MaskablePPO)](https://arxiv.org/abs/2006.14171)
 - [Trust Region Policy Optimization (TRPO)](https://arxiv.org/abs/1502.05477)
+- [PPO with recurrent policy (RecurrentPPO)](https://arxiv.org/abs/1707.06347)
 
 **Gym Wrappers**:
 - [Time Feature Wrapper](https://arxiv.org/abs/1712.00378)
