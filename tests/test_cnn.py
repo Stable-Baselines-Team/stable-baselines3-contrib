@@ -8,10 +8,10 @@ from stable_baselines3.common.envs import FakeImageEnv
 from stable_baselines3.common.utils import zip_strict
 from stable_baselines3.common.vec_env import VecTransposeImage, is_vecenv_wrapped
 
-from sb3_contrib import QRDQN, TQC
+from sb3_contrib import QRDQN, TQC, TRPO
 
 
-@pytest.mark.parametrize("model_class", [TQC, QRDQN])
+@pytest.mark.parametrize("model_class", [TQC, QRDQN, TRPO])
 def test_cnn(tmp_path, model_class):
     SAVE_NAME = "cnn_model.zip"
     # Fake grayscale with frameskip

@@ -44,3 +44,16 @@ Train a PPO with invalid action masking agent on a toy environment.
   model = MaskablePPO("MlpPolicy", env, verbose=1)
   model.learn(5000)
   model.save("qrdqn_cartpole")
+
+  TRPO
+  ----
+
+  Train a Trust Region Policy Optimization (TRPO) agent on the Pendulum environment.
+
+  .. code-block:: python
+
+    from sb3_contrib import TRPO
+
+    model = TRPO("MlpPolicy", "Pendulum-v0", gamma=0.9, verbose=1)
+    model.learn(total_timesteps=100_000, log_interval=4)
+    model.save("trpo_pendulum")

@@ -2,7 +2,7 @@ import gym
 import pytest
 from stable_baselines3.common.env_util import make_vec_env
 
-from sb3_contrib import QRDQN, TQC
+from sb3_contrib import QRDQN, TQC, TRPO
 
 
 @pytest.mark.parametrize("ent_coef", ["auto", 0.01, "auto_0.01"])
@@ -58,6 +58,28 @@ def test_qrdqn():
         create_eval_env=True,
     )
     model.learn(total_timesteps=500, eval_freq=250)
+
+
+@pytest.mark.parametrize("env_id", ["CartPole-v1", "Pendulum-v0"])
+def test_trpo(env_id):
+    model = TRPO("MlpPolicy", env_id, n_steps=128, seed=0, policy_kwargs=dict(net_arch=[16]), verbose=1)
+    model.learn(total_timesteps=500)
+
+
+def test_trpo_params():
+    # Test with gSDE and subsampling
+    model = TRPO(
+        "MlpPolicy",
+        "Pendulum-v0",
+        n_steps=64,
+        batch_size=32,
+        use_sde=True,
+        sub_sampling_factor=4,
+        seed=0,
+        policy_kwargs=dict(net_arch=[dict(pi=[32], vf=[32])]),
+        verbose=1,
+    )
+    model.learn(total_timesteps=500)
 
 
 @pytest.mark.parametrize("model_class", [TQC, QRDQN])
