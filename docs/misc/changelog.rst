@@ -4,8 +4,9 @@ Changelog
 ==========
 
 
-Release 1.3.1a6 (WIP)
+Release 1.3.1a7 (WIP)
 -------------------------------
+**Add TRPO**
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
@@ -15,6 +16,7 @@ Breaking Changes:
 
 New Features:
 ^^^^^^^^^^^^^
+- Added ``TRPO`` (@cyprienc)
 - Added experimental support to train off-policy algorithms with multiple envs (note: ``HerReplayBuffer`` currently not supported)
 
 Bug Fixes:
@@ -34,7 +36,7 @@ Documentation:
 Release 1.3.0 (2021-10-23)
 -------------------------------
 
-**Invalid action masking for PPO**
+**Add Invalid action masking for PPO**
 
 .. warning::
 
@@ -51,6 +53,7 @@ New Features:
 ^^^^^^^^^^^^^
 - Added ``MaskablePPO`` algorithm (@kronion)
 - ``MaskablePPO`` Dictionary Observation support (@glmcdona)
+
 
 Bug Fixes:
 ^^^^^^^^^^
@@ -74,9 +77,6 @@ Release 1.2.0 (2021-09-08)
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
 - Upgraded to Stable-Baselines3 >= 1.2.0
-
-New Features:
-^^^^^^^^^^^^^
 
 Bug Fixes:
 ^^^^^^^^^^
@@ -221,4 +221,4 @@ Stable-Baselines3 is currently maintained by `Antonin Raffin`_ (aka `@araffin`_)
 Contributors:
 -------------
 
-@ku2482 @guyk1971 @minhlong94 @ayeright @kronion @glmcdona
+@ku2482 @guyk1971 @minhlong94 @ayeright @kronion @glmcdona @cyprienc

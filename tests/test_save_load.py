@@ -12,9 +12,9 @@ from stable_baselines3.common.envs import FakeImageEnv, IdentityEnv, IdentityEnv
 from stable_baselines3.common.utils import get_device
 from stable_baselines3.common.vec_env import DummyVecEnv
 
-from sb3_contrib import ARS, QRDQN, TQC
+from sb3_contrib import ARS, QRDQN, TQC, TRPO
 
-MODEL_LIST = [TQC, QRDQN, ARS]
+MODEL_LIST = [ARS, QRDQN, TQC, TRPO]
 
 
 def select_env(model_class: BaseAlgorithm) -> gym.Env:
@@ -279,6 +279,11 @@ def test_save_load_policy(tmp_path, model_class, policy_str):
             kwargs = dict(
                 buffer_size=250,
                 learning_starts=100,
+                policy_kwargs=dict(features_extractor_kwargs=dict(features_dim=32)),
+            )
+        else:
+            kwargs = dict(
+                n_steps=128,
                 policy_kwargs=dict(features_extractor_kwargs=dict(features_dim=32)),
             )
         env = FakeImageEnv(screen_height=40, screen_width=40, n_channels=2, discrete=model_class == QRDQN)

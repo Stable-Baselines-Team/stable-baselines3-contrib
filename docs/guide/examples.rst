@@ -43,13 +43,26 @@ Train a PPO with invalid action masking agent on a toy environment.
   env = InvalidActionEnvDiscrete(dim=80, n_invalid_actions=60)
   model = MaskablePPO("MlpPolicy", env, verbose=1)
   model.learn(5000)
-  model.save("maskable_ppo_toy_env")
+  model.save("maskable_toy_env")
+
+TRPO
+----
+
+Train a Trust Region Policy Optimization (TRPO) agent on the Pendulum environment.
+
+.. code-block:: python
+
+  from sb3_contrib import TRPO
+
+  model = TRPO("MlpPolicy", "Pendulum-v0", gamma=0.9, verbose=1)
+  model.learn(total_timesteps=100_000, log_interval=4)
+  model.save("trpo_pendulum")
 
 
 ARS
 ---
 
-Train an agent using Augmented Random Search (ARS) on the Pendulum environment
+Train an agent using Augmented Random Search (ARS) agent on the Pendulum environment
 
 .. code-block:: python
 

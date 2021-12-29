@@ -1,6 +1,7 @@
-from typing import Optional
+from typing import Callable, Optional, Sequence
 
 import torch as th
+from torch import nn
 
 
 def quantile_huber_loss(
@@ -67,3 +68,96 @@ def quantile_huber_loss(
     else:
         loss = loss.mean()
     return loss
+
+
+def conjugate_gradient_solver(
+    matrix_vector_dot_fn: Callable[[th.Tensor], th.Tensor],
+    b,
+    max_iter=10,
+    residual_tol=1e-10,
+) -> th.Tensor:
+    """
+    Finds an approximate solution to a set of linear equations Ax = b
+
+    Sources:
+     - https://github.com/ajlangley/trpo-pytorch/blob/master/conjugate_gradient.py
+     - https://github.com/joschu/modular_rl/blob/master/modular_rl/trpo.py#L122
+
+    Reference:
+     - https://epubs.siam.org/doi/abs/10.1137/1.9781611971446.ch6
+
+    :param matrix_vector_dot_fn:
+        a function that right multiplies a matrix A by a vector v
+    :param b:
+        the right hand term in the set of linear equations Ax = b
+    :param max_iter:
+        the maximum number of iterations (default is 10)
+    :param residual_tol:
+        residual tolerance for early stopping of the solving (default is 1e-10)
+    :return x:
+        the approximate solution to the system of equations defined by `matrix_vector_dot_fn`
+        and b
+    """
+
+    # The vector is not initialized at 0 because of the instability issues when the gradient becomes small.
+    # A small random gaussian noise is used for the initialization.
+    x = 1e-4 * th.randn_like(b)
+    residual = b - matrix_vector_dot_fn(x)
+    # Equivalent to th.linalg.norm(residual) ** 2 (L2 norm squared)
+    residual_squared_norm = th.matmul(residual, residual)
+
+    if residual_squared_norm < residual_tol:
+        # If the gradient becomes extremely small
+        # The denominator in alpha will become zero
+        # Leading to a division by zero
+        return x
+
+    p = residual.clone()
+
+    for i in range(max_iter):
+        # A @ p (matrix vector multiplication)
+        A_dot_p = matrix_vector_dot_fn(p)
+
+        alpha = residual_squared_norm / p.dot(A_dot_p)
+        x += alpha * p
+
+        if i == max_iter - 1:
+            return x
+
+        residual -= alpha * A_dot_p
+        new_residual_squared_norm = th.matmul(residual, residual)
+
+        if new_residual_squared_norm < residual_tol:
+            return x
+
+        beta = new_residual_squared_norm / residual_squared_norm
+        residual_squared_norm = new_residual_squared_norm
+        p = residual + beta * p
+
+
+def flat_grad(
+    output,
+    parameters: Sequence[nn.parameter.Parameter],
+    create_graph: bool = False,
+    retain_graph: bool = False,
+) -> th.Tensor:
+    """
+    Returns the gradients of the passed sequence of parameters into a flat gradient.
+    Order of parameters is preserved.
+
+    :param output: functional output to compute the gradient for
+    :param parameters: sequence of ``Parameter``
+    :param retain_graph: – If ``False``, the graph used to compute the grad will be freed.
+        Defaults to the value of ``create_graph``.
+    :param create_graph: – If ``True``, graph of the derivative will be constructed,
+        allowing to compute higher order derivative products. Default: ``False``.
+    :return: Tensor containing the flattened gradients
+    """
+    grads = th.autograd.grad(
+        output,
+        parameters,
+        create_graph=create_graph,
+        retain_graph=retain_graph,
+        allow_unused=True,
+    )
+    return th.cat([th.ravel(grad) for grad in grads if grad is not None])

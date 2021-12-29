@@ -2,7 +2,7 @@ import gym
 import pytest
 from stable_baselines3.common.env_util import make_vec_env
 
-from sb3_contrib import ARS, QRDQN, TQC
+from sb3_contrib import ARS, QRDQN, TQC, TRPO
 
 
 @pytest.mark.parametrize("ent_coef", ["auto", 0.01, "auto_0.01"])
@@ -60,24 +60,38 @@ def test_qrdqn():
     model.learn(total_timesteps=500, eval_freq=250)
 
 
-@pytest.mark.parametrize("env_str", ["CartPole-v1", "Pendulum-v0"])
+@pytest.mark.parametrize("env_id", ["CartPole-v1", "Pendulum-v0"])
+def test_trpo(env_id):
+    model = TRPO("MlpPolicy", env_id, n_steps=128, seed=0, policy_kwargs=dict(net_arch=[16]), verbose=1)
+    model.learn(total_timesteps=500)
+
+
+def test_trpo_params():
+    # Test with gSDE and subsampling
+    model = TRPO(
+        "MlpPolicy",
+        "Pendulum-v0",
+        n_steps=64,
+        batch_size=32,
+        use_sde=True,
+        sub_sampling_factor=4,
+        seed=0,
+        policy_kwargs=dict(net_arch=[dict(pi=[32], vf=[32])]),
+        verbose=1,
+    )
+    model.learn(total_timesteps=500)
+
+
+@pytest.mark.parametrize("env_id", ["CartPole-v1", "Pendulum-v0"])
 @pytest.mark.parametrize("policy_str", ["LinearPolicy", "MlpPolicy"])
-def test_ars(policy_str, env_str):
-    model = ARS(policy_str, env_str, n_delta=1, verbose=1, seed=0)
+def test_ars(policy_str, env_id):
+    model = ARS(policy_str, env_id, n_delta=1, verbose=1, seed=0)
     model.learn(total_timesteps=500, log_interval=1, eval_freq=250)
 
 
-@pytest.mark.parametrize("n_envs", [1, 2])
-def test_ars_n_env(n_envs):
-    from stable_baselines3.common.env_util import make_vec_env
-
-    env = make_vec_env("Pendulum-v0", n_envs=n_envs)
-
-    if n_envs > 1:
-        with pytest.warns(UserWarning):
-            model = ARS("MlpPolicy", env, n_delta=1)
-            model.learn(total_timesteps=500)
-    else:
+def test_ars_multi_env():
+    env = make_vec_env("Pendulum-v0", n_envs=2)
+    with pytest.warns(UserWarning):
         model = ARS("MlpPolicy", env, n_delta=1)
         model.learn(total_timesteps=500)
 
