@@ -57,3 +57,28 @@ Train a Trust Region Policy Optimization (TRPO) agent on the Pendulum environmen
   model = TRPO("MlpPolicy", "Pendulum-v0", gamma=0.9, verbose=1)
   model.learn(total_timesteps=100_000, log_interval=4)
   model.save("trpo_pendulum")
+
+RecurrentPPO
+------------
+
+Train a PPO agent with a recurrent policy on the CartPole environment.
+
+.. code-block:: python
+
+  import numpy as np
+
+  from sb3_contrib import RecurrentPPO
+
+  model = RecurrentPPO("MlpLstmPolicy", "CartPole-v1", verbose=1)
+  model.learn(5000)
+
+  env = model.get_env()
+  obs = env.reset()
+  lstm_states = None
+  num_envs = 1
+  episode_starts = np.ones((num_envs,), dtype=bool)
+  while True:
+      action, lstm_states = model.predict(obs, state=lstm_states, episode_start=episode_starts, deterministic=True)
+      obs, rewards, dones, info = env.step(action)
+      episode_starts = dones
+      env.render()

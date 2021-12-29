@@ -59,7 +59,8 @@ Example
   model = RecurrentPPO("MlpLstmPolicy", "CartPole-v1", verbose=1)
   model.learn(5000)
 
-  mean_reward, std_reward = evaluate_policy(model, model.get_env(), n_eval_episodes=20, warn=False)
+  env = model.get_env()
+  mean_reward, std_reward = evaluate_policy(model, env, n_eval_episodes=20, warn=False)
   print(mean_reward)
 
   model.save("ppo_recurrent")
@@ -67,13 +68,12 @@ Example
 
   model = RecurrentPPO.load("ppo_recurrent")
 
-  env = model.get_env()
   obs = env.reset()
-  states = None
+  lstm_states = None
   num_envs = 1
   episode_starts = np.ones((num_envs,), dtype=bool)
   while True:
-      action, states = model.predict(obs, state=states, episode_start=episode_starts, deterministic=True)
+      action, lstm_states = model.predict(obs, state=lstm_states, episode_start=episode_starts, deterministic=True)
       obs, rewards, dones, info = env.step(action)
       episode_starts = dones
       env.render()
