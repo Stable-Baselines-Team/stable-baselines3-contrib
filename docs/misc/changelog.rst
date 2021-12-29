@@ -4,8 +4,9 @@ Changelog
 ==========
 
 
-Release 1.3.1a6 (WIP)
+Release 1.3.1a7 (WIP)
 -------------------------------
+**Add TRPO**
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
@@ -51,7 +52,6 @@ Breaking Changes:
 New Features:
 ^^^^^^^^^^^^^
 - Added ``MaskablePPO`` algorithm (@kronion)
-- Added ``TRPO`` (@cyprienc)
 - ``MaskablePPO`` Dictionary Observation support (@glmcdona)
 
 
