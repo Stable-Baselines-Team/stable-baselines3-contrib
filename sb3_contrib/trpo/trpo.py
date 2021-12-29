@@ -44,17 +44,15 @@ class TRPO(OnPolicyAlgorithm):
         (i.e., ``theta_new = theta + alpha^i * step``)
     :param line_search_max_iter: maximum number of iteration
         for the backtracking line-search
-    :param n_critic_updates: number of critic updates per policy updates
+    :param n_critic_updates: number of critic updates per policy update
     :param gae_lambda: Factor for trade-off of bias vs variance for Generalized Advantage Estimator
     :param use_sde: Whether to use generalized State Dependent Exploration (gSDE)
         instead of action noise exploration (default: False)
     :param sde_sample_freq: Sample a new noise matrix every n steps when using gSDE
         Default: -1 (only sample at the beginning of the rollout)
     :param normalize_advantage: Whether to normalize or not the advantage
-    :param target_kl: Limit the KL divergence between updates,
-        because the clipping is not enough to prevent large update
-        see issue #213 (cf https://github.com/hill-a/stable-baselines/issues/213)
-        By default, there is no limit on the kl div.
+    :param target_kl: Target Kullback-Leibler divergence between updates.
+        Should be small for stability. Values like 0.01, 0.05.
     :param sub_sampling_factor: Sub-sample the batch to make computation faster
         see p40-42 of John Schulman thesis http://joschu.net/docs/thesis.pdf
     :param tensorboard_log: the log location for tensorboard (if None, no logging)
@@ -104,7 +102,7 @@ class TRPO(OnPolicyAlgorithm):
             gamma=gamma,
             gae_lambda=gae_lambda,
             ent_coef=0.0,  # entropy bonus is not used by TRPO
-            vf_coef=0.0,  # Value function is optimized separately
+            vf_coef=0.0,  # value function is optimized separately
             max_grad_norm=0.0,
             use_sde=use_sde,
             sde_sample_freq=sde_sample_freq,
@@ -167,7 +165,7 @@ class TRPO(OnPolicyAlgorithm):
         """
         Compute actor gradients for kl div and surrogate objectives.
 
-        :param kl_div: The KL div objective
+        :param kl_div: The KL divergence objective
         :param policy_objective: The surrogate objective ("classic" policy gradient)
         :return: List of actor params, gradients and gradients shape.
         """
@@ -330,7 +328,9 @@ class TRPO(OnPolicyAlgorithm):
                     # New KL-divergence
                     kl_div = kl_divergence(distribution.distribution, old_distribution.distribution).mean()
 
-                    # Constraint criteria
+                    # Constraint criteria:
+                    # we need to improve the surrogate policy objective
+                    # while being close enough (in term of kl div) to the old policy
                     if (kl_div < self.target_kl) and (new_policy_objective > policy_objective):
                         is_line_search_success = True
                         break

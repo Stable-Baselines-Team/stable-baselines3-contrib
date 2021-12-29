@@ -3,6 +3,7 @@ import pytest
 import torch as th
 from stable_baselines3.common.utils import set_random_seed
 
+from sb3_contrib import TRPO
 from sb3_contrib.common.utils import conjugate_gradient_solver, flat_grad, quantile_huber_loss
 
 
@@ -46,3 +47,18 @@ def test_flat_grad():
     assert len(flat_grad_out.shape) == 1
     # dy/dx = 2
     assert th.allclose(flat_grad_out, th.ones(n_parameters) * 2)
+
+
+def test_trpo_warnings():
+    """Test that TRPO warns and errors correctly on
+    problematic rollout buffer sizes"""
+
+    # Only 1 step: advantage normalization will return NaN
+    with pytest.raises(AssertionError):
+        TRPO("MlpPolicy", "Pendulum-v0", n_steps=1)
+    # One step not advantage normalization: ok
+    TRPO("MlpPolicy", "Pendulum-v0", n_steps=1, normalize_advantage=False, batch_size=1)
+
+    # Truncated mini-batch
+    with pytest.warns(UserWarning):
+        TRPO("MlpPolicy", "Pendulum-v0", n_steps=6, batch_size=8)
