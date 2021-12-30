@@ -12,10 +12,10 @@ from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.policies import BasePolicy
+from stable_baselines3.common.running_mean_std import RunningMeanStd
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import get_schedule_fn, safe_mean
-from stable_baselines3.common.vec_env import VecEnv, VecNormalize, unwrap_vec_normalize
-from stable_baselines3.common.running_mean_std import RunningMeanStd
+from stable_baselines3.common.vec_env import VecEnv, unwrap_vec_normalize
 
 from sb3_contrib.ars.policies import ARSPolicy
 
@@ -165,7 +165,8 @@ class ARS(BaseAlgorithm):
 
                 for weights_idx, (episode_rewards, episode_lengths) in results:
 
-                    candidate_returns[weights_idx] = np.sum(episode_rewards) + self.alive_bonus_offset * np.sum(episode_lengths)
+                    # Check when using multiple episodes for evaluation
+                    candidate_returns[weights_idx] = sum(episode_rewards) + self.alive_bonus_offset * sum(episode_lengths)
                     batch_steps += np.sum(episode_lengths)
                     # Mimic Monitor Wrapper
                     infos = [
