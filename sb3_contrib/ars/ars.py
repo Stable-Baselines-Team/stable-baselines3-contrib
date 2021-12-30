@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional, Tuple, Type, Union
 import gym
 import torch as th
 import torch.nn.utils
+from mpire import WorkerPool
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.evaluation import evaluate_policy
@@ -14,11 +15,16 @@ from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedul
 from stable_baselines3.common.utils import get_schedule_fn, safe_mean
 
 from sb3_contrib.ars.policies import ARSPolicy
+from sb3_contrib.common.vec_env import VecSingleEnvWrapper
 
 
 class ARS(BaseAlgorithm):
     """
     Augmented Random Search: https://arxiv.org/abs/1803.07055
+
+    Original implementation: https://github.com/modestyachts/ARS
+    C++/Cuda Implementation: https://github.com/google-research/tiny-differentiable-simulator/
+    Numpy Implementation: https://github.com/alexis-jacq/numpy_ARS/blob/master/asr.py
 
     :param policy: The policy to train, can be an instance of ARSPolicy, or a string
     :param env: The environment to train on, may be a string if registred with gym
@@ -73,6 +79,7 @@ class ARS(BaseAlgorithm):
         )
 
         self.n_delta = n_delta
+        self.pop_size = 2 * n_delta
         self.delta_std_schedule = get_schedule_fn(delta_std)
         self.n_eval_episodes = n_eval_episodes
 
@@ -92,31 +99,81 @@ class ARS(BaseAlgorithm):
         self.set_random_seed(self.seed)
 
         self.policy = self.policy_class(self.observation_space, self.action_space, **self.policy_kwargs)
-        self.dtype = self.policy.parameters().__next__().dtype  # This seems sort of like a hack
+        self.policy = self.policy.to(self.device)
         self.weights = th.nn.utils.parameters_to_vector(self.policy.parameters()).detach()
+        self.n_params = len(self.weights)
 
         if self.zero_policy:
-            self.weights = th.zeros_like(self.weights, requires_grad=False, dtype=self.dtype)
-            th.nn.utils.vector_to_parameters(self.weights, self.policy.parameters())
+            self.weights = th.zeros_like(self.weights, requires_grad=False)
+            self.policy.load_from_vector(self.weights)
 
-        self.n_params = len(self.weights)
-        self.policy = self.policy.to(self.device)
+    # def _sync_running_stats(rms_1, rms_2):
+    #     # from https://github.com/modestyachts/ARS/blob/master/code/filter.py
+    #     count_1 = rms_1.count
+    #     count_2 = rms_2.count
+    #     total_count = count_1 + count_2
+    #     delta = rms_1.mean - rms_2.mean
+    #     rms_1.count = total_count
+    #     rms_1.mean = (count_1 * rms_1.mean + count_2 * rms_2.mean) / total_count
+    #     rms_1.var = rms_1.var + rms_2.var + np.square(delta) * count_1 * count_2 / total_count
+    #     # rms_2.count = rms_1.count
+    #     # rms_2.mean = rms_1.mean.copy()
+    #     # rms_2.var = rms_1.var.copy()
 
-    def _collect_rollouts(self, policy_deltas: th.Tensor, callback: BaseCallback) -> Tuple[th.Tensor, int]:
-        with th.no_grad():
-            batch_steps = 0
-            weight_idx = 0
+    def _collect_rollouts(self, policy_deltas: th.Tensor, callback: BaseCallback, envs) -> Tuple[th.Tensor, int]:
+        batch_steps = 0
 
-            # Generate 2*n_delta candidate policies by adding noise to the current weight
-            candidate_weights = th.cat([self.weights + policy_deltas, self.weights - policy_deltas])
-            candidate_returns = th.zeros(candidate_weights.shape[0])  # returns == sum of rewards
-            train_policy = copy.deepcopy(self.policy)
-            self.ep_info_buffer = []
+        # Generate 2*n_delta candidate policies by adding noise to the current weight
+        candidate_weights = th.cat([self.weights + policy_deltas, self.weights - policy_deltas])
+        candidate_returns = th.zeros(self.pop_size)  # returns == sum of rewards
+        train_policy = copy.deepcopy(self.policy)
+        self.ep_info_buffer = []
 
-            for weight_idx in range(candidate_returns.shape[0]):
+        if len(envs) > 0:
+
+            def worker_init(worker_state: Dict[str, Any]) -> None:
+                worker_state["n_envs"] = len(envs)
+                worker_state["candidate_weights"] = candidate_weights
+                worker_state["train_policy"] = copy.deepcopy(train_policy)
+
+            def evaluate(worker_state: Dict[str, Any], weights_idx: int):
+                worker_state["train_policy"].load_from_vector(worker_state["candidate_weights"][weights_idx])
+
+                episode_rewards, episode_lengths = evaluate_policy(
+                    worker_state["train_policy"],
+                    envs[weights_idx % worker_state["n_envs"]],
+                    n_eval_episodes=self.n_eval_episodes,
+                    return_episode_rewards=True,
+                    # Note: callback will be called by every process,
+                    # there will be a race condition...
+                    callback=lambda _locals, _globals: callback.on_step(),
+                    warn=False,
+                )
+                return weights_idx, (episode_rewards, episode_lengths)
+
+            callback.on_rollout_start()
+
+            with WorkerPool(len(envs), use_worker_state=True, keep_alive=False) as pool:
+                results = pool.map(evaluate, range(self.pop_size), worker_init=worker_init, chunk_size=1)
+
+                for weights_idx, (episode_rewards, episode_lengths) in results:
+
+                    candidate_returns[weights_idx] = sum(episode_rewards) + self.alive_bonus_offset * sum(episode_lengths)
+                    batch_steps += sum(episode_lengths)
+                    # Mimic Monitor Wrapper
+                    infos = [
+                        {"episode": {"r": episode_reward, "l": episode_length}}
+                        for episode_reward, episode_length in zip(episode_rewards, episode_lengths)
+                    ]
+
+                    self._update_info_buffer(infos)
+
+            callback.on_rollout_end()
+        else:
+            for weights_idx in range(self.pop_size):
 
                 callback.on_rollout_start()
-                th.nn.utils.vector_to_parameters(candidate_weights[weight_idx], train_policy.parameters())
+                train_policy.load_from_vector(candidate_weights[weights_idx])
 
                 episode_rewards, episode_lengths = evaluate_policy(
                     train_policy,
@@ -127,7 +184,7 @@ class ARS(BaseAlgorithm):
                     warn=False,
                 )
 
-                candidate_returns[weight_idx] = sum(episode_rewards) + self.alive_bonus_offset * sum(episode_lengths)
+                candidate_returns[weights_idx] = sum(episode_rewards) + self.alive_bonus_offset * sum(episode_lengths)
                 batch_steps += sum(episode_lengths)
 
                 # Mimic Monitor Wrapper
@@ -148,15 +205,6 @@ class ARS(BaseAlgorithm):
             warnings.warn(f"n_top = {self.n_top} > n_delta = {self.n_top}, setting n_top = n_delta")
             self.n_top = self.n_delta
 
-        # This makes sense if we switch from evaluate_policy to the old vectorized approach.
-        # if self.n_delta % self.n_workers:
-        #     new_n_delta = self.n_delta + (self.n_workers - self.n_delta % self.n_workers)
-        #     warnings.warn(
-        #         f"n_delta = {self.n_delta} should be a multiple of the number of workers = {self.n_workers}"
-        #         f" automatically bumping n_delta to {new_n_delta}"
-        #     )
-        #    self.n_delta = new_n_delta
-
     def _log_and_dump(self) -> None:
         fps = int(self.num_timesteps / (time.time() - self.start_time))
         self.logger.record("time/iterations", self._n_updates, exclude="tensorboard")
@@ -168,21 +216,19 @@ class ARS(BaseAlgorithm):
         self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
         self.logger.dump(step=self.num_timesteps)
 
-    def _do_one_update(self, callback: BaseCallback) -> None:
+    def _do_one_update(self, callback: BaseCallback, envs) -> None:
         delta_std = self.delta_std_schedule(self._current_progress_remaining)
         learning_rate = self.lr_schedule(self._current_progress_remaining)
 
         deltas = th.normal(mean=0.0, std=1.0, size=(self.n_delta, self.n_params))
 
-        candidate_returns, batch_steps = self._collect_rollouts(deltas * delta_std, callback)
+        with th.no_grad():
+            candidate_returns, batch_steps = self._collect_rollouts(deltas * delta_std, callback, envs)
 
         plus_returns = candidate_returns[: self.n_delta]
         minus_returns = candidate_returns[self.n_delta :]
 
-        # TODO: vectorize: (th.max(th.cat(plus_returns, minus_returns), axis=0))
-        top_returns = th.zeros_like(plus_returns)
-        for i in range(len(top_returns)):
-            top_returns[i] = max([plus_returns[i], minus_returns[i]])
+        top_returns, _ = th.max(th.vstack((plus_returns, minus_returns)), dim=0)
 
         top_idx = th.argsort(top_returns, descending=True)[: self.n_top]
         plus_returns = plus_returns[top_idx]
@@ -192,7 +238,7 @@ class ARS(BaseAlgorithm):
         return_std = th.cat([plus_returns, minus_returns]).std()
         step_size = learning_rate / (self.n_top * return_std + 1e-6)
         self.weights = self.weights + step_size * ((plus_returns - minus_returns) @ deltas)
-        th.nn.utils.vector_to_parameters(self.weights, self.policy.parameters())
+        self.policy.load_from_vector(self.weights)
 
         self._n_updates += 1
         self.num_timesteps += batch_steps
@@ -201,7 +247,7 @@ class ARS(BaseAlgorithm):
         self,
         total_timesteps: int,
         callback: MaybeCallback = None,
-        log_interval: int = 100,
+        log_interval: int = 1,
         tb_log_name: str = "ARS",
         eval_env: Optional[GymEnv] = None,
         eval_freq: int = -1,
@@ -215,18 +261,16 @@ class ARS(BaseAlgorithm):
             total_steps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
         )
 
+        # Split envs so we can use parallel workers with different polcies
+        envs = [VecSingleEnvWrapper(self.env, index) for index in range(self.env.num_envs)]
         self._validate_hyper_params()
         callback.on_training_start(locals(), globals())
 
         while self.num_timesteps < total_steps:
             self._update_current_progress_remaining(self.num_timesteps, total_timesteps)
-            # assert self.lr_schedule is not None
-            self._do_one_update(callback)
-
+            self._do_one_update(callback, envs)
             if log_interval is not None and self._n_updates % log_interval == 0:
                 self._log_and_dump()
-
-        torch.nn.utils.vector_to_parameters(self.weights, self.policy.parameters())
 
         callback.on_training_end()
 

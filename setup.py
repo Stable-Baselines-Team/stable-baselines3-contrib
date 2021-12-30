@@ -64,6 +64,7 @@ setup(
     package_data={"sb3_contrib": ["py.typed", "version.txt"]},
     install_requires=[
         "stable_baselines3>=1.3.1a4",
+        "mpire",
     ],
     description="Contrib package of Stable Baselines3, experimental code.",
     author="Antonin Raffin",

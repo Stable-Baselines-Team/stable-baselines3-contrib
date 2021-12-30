@@ -1,0 +1,1 @@
+from sb3_contrib.common.vec_env.single_env_wrapper import VecSingleEnvWrapper
