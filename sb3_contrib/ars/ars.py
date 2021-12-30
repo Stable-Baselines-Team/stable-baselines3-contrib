@@ -153,7 +153,7 @@ class ARS(BaseAlgorithm):
                     return_episode_rewards=True,
                     # Note: callback will be called by every process,
                     # there will be a race condition...
-                    callback=lambda _locals, _globals: callback.on_step(),
+                    # callback=lambda _locals, _globals: callback.on_step(),
                     warn=False,
                 )
                 return weights_idx, (episode_rewards, episode_lengths)
@@ -167,6 +167,7 @@ class ARS(BaseAlgorithm):
 
                     # Check when using multiple episodes for evaluation
                     candidate_returns[weights_idx] = sum(episode_rewards) + self.alive_bonus_offset * sum(episode_lengths)
+
                     batch_steps += np.sum(episode_lengths)
                     # Mimic Monitor Wrapper
                     infos = [
@@ -189,6 +190,11 @@ class ARS(BaseAlgorithm):
                 for i in range(len(envs)):
                     self._sync_running_stats(self._vec_normalize_env.obs_rms, vec_normalize_envs[i].obs_rms)
 
+            # Hack to have Callback events
+            for _ in range(batch_steps // len(envs)):
+                self.num_timesteps += len(envs)
+                callback.on_step()
+
         else:
             for weights_idx in range(self.pop_size):
 
@@ -200,6 +206,7 @@ class ARS(BaseAlgorithm):
                     self.env,
                     n_eval_episodes=self.n_eval_episodes,
                     return_episode_rewards=True,
+                    # TODO: increment num_timesteps too (doesn't work with multi envs)
                     callback=lambda _locals, _globals: callback.on_step(),
                     warn=False,
                 )
@@ -216,6 +223,7 @@ class ARS(BaseAlgorithm):
                 self._update_info_buffer(infos)
 
                 callback.on_rollout_end()
+            self.num_timesteps += batch_steps
 
         return candidate_returns, batch_steps
 
@@ -261,7 +269,6 @@ class ARS(BaseAlgorithm):
         self.policy.load_from_vector(self.weights)
 
         self._n_updates += 1
-        self.num_timesteps += batch_steps
 
     def learn(
         self,
