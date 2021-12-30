@@ -1,9 +1,10 @@
 import copy
 import time
 import warnings
-from typing import Any, Dict, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import gym
+import numpy as np
 import torch as th
 import torch.nn.utils
 from mpire import WorkerPool
@@ -13,9 +14,10 @@ from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import get_schedule_fn, safe_mean
+from stable_baselines3.common.vec_env import VecEnv, VecNormalize, unwrap_vec_normalize
+from stable_baselines3.common.running_mean_std import RunningMeanStd
 
 from sb3_contrib.ars.policies import ARSPolicy
-from sb3_contrib.common.vec_env import VecSingleEnvWrapper
 
 
 class ARS(BaseAlgorithm):
@@ -107,20 +109,24 @@ class ARS(BaseAlgorithm):
             self.weights = th.zeros_like(self.weights, requires_grad=False)
             self.policy.load_from_vector(self.weights)
 
-    # def _sync_running_stats(rms_1, rms_2):
-    #     # from https://github.com/modestyachts/ARS/blob/master/code/filter.py
-    #     count_1 = rms_1.count
-    #     count_2 = rms_2.count
-    #     total_count = count_1 + count_2
-    #     delta = rms_1.mean - rms_2.mean
-    #     rms_1.count = total_count
-    #     rms_1.mean = (count_1 * rms_1.mean + count_2 * rms_2.mean) / total_count
-    #     rms_1.var = rms_1.var + rms_2.var + np.square(delta) * count_1 * count_2 / total_count
-    #     # rms_2.count = rms_1.count
-    #     # rms_2.mean = rms_1.mean.copy()
-    #     # rms_2.var = rms_1.var.copy()
+    @staticmethod
+    def _update_running_stats(rms_1: RunningMeanStd, rms_2: RunningMeanStd) -> None:
+        # from https://github.com/modestyachts/ARS/blob/master/code/filter.py
+        count_1 = rms_1.count
+        count_2 = rms_2.count
+        total_count = count_1 + count_2
+        delta = rms_1.mean - rms_2.mean
+        rms_1.count = total_count
+        rms_1.mean = (count_1 * rms_1.mean + count_2 * rms_2.mean) / total_count
+        rms_1.var = rms_1.var + rms_2.var + np.square(delta) * count_1 * count_2 / total_count
 
-    def _collect_rollouts(self, policy_deltas: th.Tensor, callback: BaseCallback, envs) -> Tuple[th.Tensor, int]:
+    @staticmethod
+    def _sync_running_stats(rms_1: RunningMeanStd, rms_2: RunningMeanStd) -> None:
+        rms_2.count = rms_1.count
+        rms_2.mean = rms_1.mean.copy()
+        rms_2.var = rms_1.var.copy()
+
+    def _collect_rollouts(self, policy_deltas: th.Tensor, callback: BaseCallback, envs: List[VecEnv]) -> Tuple[th.Tensor, int]:
         batch_steps = 0
 
         # Generate 2*n_delta candidate policies by adding noise to the current weight
@@ -129,7 +135,8 @@ class ARS(BaseAlgorithm):
         train_policy = copy.deepcopy(self.policy)
         self.ep_info_buffer = []
 
-        if len(envs) > 0:
+        # Multiprocess version
+        if len(envs) > 1:
 
             def worker_init(worker_state: Dict[str, Any]) -> None:
                 worker_state["n_envs"] = len(envs)
@@ -158,8 +165,8 @@ class ARS(BaseAlgorithm):
 
                 for weights_idx, (episode_rewards, episode_lengths) in results:
 
-                    candidate_returns[weights_idx] = sum(episode_rewards) + self.alive_bonus_offset * sum(episode_lengths)
-                    batch_steps += sum(episode_lengths)
+                    candidate_returns[weights_idx] = np.sum(episode_rewards) + self.alive_bonus_offset * np.sum(episode_lengths)
+                    batch_steps += np.sum(episode_lengths)
                     # Mimic Monitor Wrapper
                     infos = [
                         {"episode": {"r": episode_reward, "l": episode_length}}
@@ -169,6 +176,18 @@ class ARS(BaseAlgorithm):
                     self._update_info_buffer(infos)
 
             callback.on_rollout_end()
+            # Sync VecNormalize if needed
+            if self._vec_normalize_env is not None:
+                vec_normalize_envs = [unwrap_vec_normalize(env) for env in envs]
+                # Update normalization from the workers
+                # Note: we are not updating the return rms
+                for i in range(len(envs)):
+                    self._update_running_stats(self._vec_normalize_env.obs_rms, vec_normalize_envs[i].obs_rms)
+
+                # Sync normalization with workers
+                for i in range(len(envs)):
+                    self._sync_running_stats(self._vec_normalize_env.obs_rms, vec_normalize_envs[i].obs_rms)
+
         else:
             for weights_idx in range(self.pop_size):
 
@@ -216,7 +235,7 @@ class ARS(BaseAlgorithm):
         self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
         self.logger.dump(step=self.num_timesteps)
 
-    def _do_one_update(self, callback: BaseCallback, envs) -> None:
+    def _do_one_update(self, callback: BaseCallback, envs: List[VecEnv]) -> None:
         delta_std = self.delta_std_schedule(self._current_progress_remaining)
         learning_rate = self.lr_schedule(self._current_progress_remaining)
 
@@ -254,6 +273,7 @@ class ARS(BaseAlgorithm):
         n_eval_episodes: int = 5,
         eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
+        envs: Optional[List[VecEnv]] = None,
     ) -> "ARS":
 
         total_steps = total_timesteps
@@ -262,13 +282,12 @@ class ARS(BaseAlgorithm):
         )
 
         # Split envs so we can use parallel workers with different polcies
-        envs = [VecSingleEnvWrapper(self.env, index) for index in range(self.env.num_envs)]
         self._validate_hyper_params()
         callback.on_training_start(locals(), globals())
 
         while self.num_timesteps < total_steps:
             self._update_current_progress_remaining(self.num_timesteps, total_timesteps)
-            self._do_one_update(callback, envs)
+            self._do_one_update(callback, envs or [self.env])
             if log_interval is not None and self._n_updates % log_interval == 0:
                 self._log_and_dump()
 
