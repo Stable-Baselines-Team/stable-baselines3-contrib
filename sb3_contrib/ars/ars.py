@@ -20,6 +20,32 @@ from stable_baselines3.common.vec_env import VecEnv, unwrap_vec_normalize
 from sb3_contrib.ars.policies import ARSPolicy
 
 
+# Patch RunningMeanStd
+# TODO: remove when merged with SB3
+def _copy(self) -> "RunningMeanStd":
+    """
+    :return: Return a copy of the current object.
+    """
+    new_object = RunningMeanStd(shape=self.mean.shape)
+    new_object.mean = self.mean.copy()
+    new_object.var = self.var.copy()
+    new_object.count = float(self.count)
+    return new_object
+
+
+def _combine(self, other: "RunningMeanStd") -> None:
+    """
+    Combine stats from another ``RunningMeanStd`` object.
+
+    :param other: The other object to combine with.
+    """
+    self.update_from_moments(other.mean, other.var, other.count)
+
+
+RunningMeanStd.copy = _copy
+RunningMeanStd.combine = _combine
+
+
 class ARS(BaseAlgorithm):
     """
     Augmented Random Search: https://arxiv.org/abs/1803.07055
@@ -109,23 +135,6 @@ class ARS(BaseAlgorithm):
             self.weights = th.zeros_like(self.weights, requires_grad=False)
             self.policy.load_from_vector(self.weights)
 
-    @staticmethod
-    def _update_running_stats(rms_1: RunningMeanStd, rms_2: RunningMeanStd) -> None:
-        # from https://github.com/modestyachts/ARS/blob/master/code/filter.py
-        count_1 = rms_1.count
-        count_2 = rms_2.count
-        total_count = count_1 + count_2
-        delta = rms_1.mean - rms_2.mean
-        rms_1.count = total_count
-        rms_1.mean = (count_1 * rms_1.mean + count_2 * rms_2.mean) / total_count
-        rms_1.var = rms_1.var + rms_2.var + np.square(delta) * count_1 * count_2 / total_count
-
-    @staticmethod
-    def _sync_running_stats(rms_1: RunningMeanStd, rms_2: RunningMeanStd) -> None:
-        rms_2.count = rms_1.count
-        rms_2.mean = rms_1.mean.copy()
-        rms_2.var = rms_1.var.copy()
-
     def _collect_rollouts(self, policy_deltas: th.Tensor, callback: BaseCallback, envs: List[VecEnv]) -> Tuple[th.Tensor, int]:
         batch_steps = 0
 
@@ -183,12 +192,14 @@ class ARS(BaseAlgorithm):
                 vec_normalize_envs = [unwrap_vec_normalize(env) for env in envs]
                 # Update normalization from the workers
                 # Note: we are not updating the return rms
-                for i in range(len(envs)):
-                    self._update_running_stats(self._vec_normalize_env.obs_rms, vec_normalize_envs[i].obs_rms)
+                for i in range(1, len(envs)):
+                    vec_normalize_envs[0].obs_rms.combine(vec_normalize_envs[i].obs_rms)
+
+                self._vec_normalize_env.obs_rms = vec_normalize_envs[0].obs_rms.copy()
 
                 # Sync normalization with workers
-                for i in range(len(envs)):
-                    self._sync_running_stats(self._vec_normalize_env.obs_rms, vec_normalize_envs[i].obs_rms)
+                for i in range(1, len(envs)):
+                    vec_normalize_envs[i].obs_rms = self._vec_normalize_env.obs_rms.copy()
 
             # Hack to have Callback events
             for _ in range(batch_steps // len(envs)):
