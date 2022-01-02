@@ -192,13 +192,11 @@ class ARS(BaseAlgorithm):
                 vec_normalize_envs = [unwrap_vec_normalize(env) for env in envs]
                 # Update normalization from the workers
                 # Note: we are not updating the return rms
-                for i in range(1, len(envs)):
-                    vec_normalize_envs[0].obs_rms.combine(vec_normalize_envs[i].obs_rms)
-
-                self._vec_normalize_env.obs_rms = vec_normalize_envs[0].obs_rms.copy()
+                for i in range(len(envs)):
+                    self._vec_normalize_env.obs_rms.combine(vec_normalize_envs[i].obs_rms)
 
                 # Sync normalization with workers
-                for i in range(1, len(envs)):
+                for i in range(len(envs)):
                     vec_normalize_envs[i].obs_rms = self._vec_normalize_env.obs_rms.copy()
 
             # Hack to have Callback events
