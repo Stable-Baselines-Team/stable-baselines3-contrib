@@ -1,13 +1,23 @@
 import copy
 import time
 import warnings
+from multiprocessing import Pool
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import gym
 import numpy as np
 import torch as th
 import torch.nn.utils
-from mpire import WorkerPool
+
+try:
+    from mpire import WorkerPool
+
+    # WorkerPool = None
+except ImportError:
+    WorkerPool = None
+
+from functools import partial
+
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.evaluation import evaluate_policy
@@ -40,6 +50,47 @@ def _combine(self, other: "RunningMeanStd") -> None:
     :param other: The other object to combine with.
     """
     self.update_from_moments(other.mean, other.var, other.count)
+
+
+def worker_init(worker_state: Dict[str, Any], envs, candidate_weights, train_policy) -> None:
+    worker_state["n_envs"] = len(envs)
+    worker_state["envs"] = envs
+    worker_state["candidate_weights"] = candidate_weights
+    worker_state["train_policy"] = copy.deepcopy(train_policy)
+
+
+def evaluate(worker_state: Dict[str, Any], weights_idx: int):
+    worker_state["train_policy"].load_from_vector(worker_state["candidate_weights"][weights_idx])
+    worker_env = worker_state["envs"][weights_idx % worker_state["n_envs"]]
+
+    episode_rewards, episode_lengths = evaluate_policy(
+        worker_state["train_policy"],
+        worker_env,
+        n_eval_episodes=1,
+        return_episode_rewards=True,
+        # Note: callback will be called by every process,
+        # there will be a race condition...
+        # callback=lambda _locals, _globals: callback.on_step(),
+        warn=False,
+    )
+    return (weights_idx, worker_env), (episode_rewards, episode_lengths)
+
+
+def mp_evaluate(train_policy, candidate_weights, env, venv, weights_idx: int):
+    train_policy = copy.deepcopy(train_policy)
+    train_policy.load_from_vector(candidate_weights[weights_idx])
+    env.set_venv(venv)
+    episode_rewards, episode_lengths = evaluate_policy(
+        train_policy,
+        env,
+        n_eval_episodes=1,
+        return_episode_rewards=True,
+        # Note: callback will be called by every process,
+        # there will be a race condition...
+        # callback=lambda _locals, _globals: callback.on_step(),
+        warn=False,
+    )
+    return (weights_idx, env), (episode_rewards, episode_lengths)
 
 
 if not hasattr(RunningMeanStd, "copy"):
@@ -127,7 +178,7 @@ class ARS(BaseAlgorithm):
     def _setup_model(self) -> None:
         self._setup_lr_schedule()
         self.set_random_seed(self.seed)
-
+        self.old_count = 0
         self.policy = self.policy_class(self.observation_space, self.action_space, **self.policy_kwargs)
         self.policy = self.policy.to(self.device)
         self.weights = th.nn.utils.parameters_to_vector(self.policy.parameters()).detach()
@@ -149,54 +200,64 @@ class ARS(BaseAlgorithm):
         # Multiprocess version
         if len(envs) > 1:
 
-            def worker_init(worker_state: Dict[str, Any]) -> None:
-                worker_state["n_envs"] = len(envs)
-                worker_state["candidate_weights"] = candidate_weights
-                worker_state["train_policy"] = copy.deepcopy(train_policy)
-
-            def evaluate(worker_state: Dict[str, Any], weights_idx: int):
-                worker_state["train_policy"].load_from_vector(worker_state["candidate_weights"][weights_idx])
-
-                episode_rewards, episode_lengths = evaluate_policy(
-                    worker_state["train_policy"],
-                    envs[weights_idx % worker_state["n_envs"]],
-                    n_eval_episodes=self.n_eval_episodes,
-                    return_episode_rewards=True,
-                    # Note: callback will be called by every process,
-                    # there will be a race condition...
-                    # callback=lambda _locals, _globals: callback.on_step(),
-                    warn=False,
-                )
-                return weights_idx, (episode_rewards, episode_lengths)
-
             callback.on_rollout_start()
+            _worker_init = partial(worker_init, envs=envs, candidate_weights=candidate_weights, train_policy=train_policy)
+            if WorkerPool is not None:
+                with WorkerPool(len(envs), use_worker_state=True, keep_alive=False, start_method="fork") as pool:
+                    results = pool.map(evaluate, range(self.pop_size), worker_init=_worker_init, chunk_size=1)
+            else:
+                with Pool(len(envs)) as pool:
+                    results = pool.starmap(
+                        mp_evaluate,
+                        [
+                            (
+                                train_policy,
+                                candidate_weights,
+                                envs[weights_idx % len(envs)],
+                                envs[weights_idx % len(envs)].venv,
+                                weights_idx,
+                            )
+                            for weights_idx in range(self.pop_size)
+                        ],
+                    )
 
-            with WorkerPool(len(envs), use_worker_state=True, keep_alive=False) as pool:
-                results = pool.map(evaluate, range(self.pop_size), worker_init=worker_init, chunk_size=1)
+            worker_envs = set()
+            for (weights_idx, worker_env), (episode_rewards, episode_lengths) in results:
 
-                for weights_idx, (episode_rewards, episode_lengths) in results:
+                # Check when using multiple episodes for evaluation
+                candidate_returns[weights_idx] = sum(episode_rewards) + self.alive_bonus_offset * sum(episode_lengths)
 
-                    # Check when using multiple episodes for evaluation
-                    candidate_returns[weights_idx] = sum(episode_rewards) + self.alive_bonus_offset * sum(episode_lengths)
+                batch_steps += np.sum(episode_lengths)
+                # Mimic Monitor Wrapper
+                infos = [
+                    {"episode": {"r": episode_reward, "l": episode_length}}
+                    for episode_reward, episode_length in zip(episode_rewards, episode_lengths)
+                ]
 
-                    batch_steps += np.sum(episode_lengths)
-                    # Mimic Monitor Wrapper
-                    infos = [
-                        {"episode": {"r": episode_reward, "l": episode_length}}
-                        for episode_reward, episode_length in zip(episode_rewards, episode_lengths)
-                    ]
+                self._update_info_buffer(infos)
+                worker_envs.add(worker_env)
 
-                    self._update_info_buffer(infos)
+            for idx, worker_env in enumerate(worker_envs):
+                if self._vec_normalize_env is not None:
+                    # print(unwrap_vec_normalize(worker_env).obs_rms.count)
+                    env_rms = unwrap_vec_normalize(worker_env).obs_rms
+                    self._vec_normalize_env.obs_rms.combine(env_rms)
+                    # Hack: in practice we would need two RunningMeanStats
+                    self._vec_normalize_env.obs_rms.count -= self.old_count
 
             callback.on_rollout_end()
             # Sync VecNormalize if needed
             if self._vec_normalize_env is not None:
                 vec_normalize_envs = [unwrap_vec_normalize(env) for env in envs]
+                # print(self._vec_normalize_env.obs_rms.count)
+
                 # Update normalization from the workers
                 # Note: we are not updating the return rms
-                for i in range(len(envs)):
-                    self._vec_normalize_env.obs_rms.combine(vec_normalize_envs[i].obs_rms)
+                # for i in range(len(envs)):
+                #     self._vec_normalize_env.obs_rms.combine(vec_normalize_envs[i].obs_rms)
+                #     print(vec_normalize_envs[i].obs_rms.count)
 
+                self.old_count = self._vec_normalize_env.obs_rms.count
                 # Sync normalization with workers
                 for i in range(len(envs)):
                     vec_normalize_envs[i].obs_rms = self._vec_normalize_env.obs_rms.copy()
