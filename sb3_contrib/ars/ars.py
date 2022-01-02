@@ -42,8 +42,9 @@ def _combine(self, other: "RunningMeanStd") -> None:
     self.update_from_moments(other.mean, other.var, other.count)
 
 
-RunningMeanStd.copy = _copy
-RunningMeanStd.combine = _combine
+if not hasattr(RunningMeanStd, "copy"):
+    RunningMeanStd.copy = _copy
+    RunningMeanStd.combine = _combine
 
 
 class ARS(BaseAlgorithm):
@@ -88,7 +89,7 @@ class ARS(BaseAlgorithm):
         tensorboard_log: Optional[str] = None,
         seed: Optional[int] = None,
         verbose: int = 0,
-        device: Union[th.device, str] = "auto",
+        device: Union[th.device, str] = "cpu",
         _init_setup_model: bool = True,
     ):
 
@@ -106,6 +107,7 @@ class ARS(BaseAlgorithm):
             seed=seed,
         )
 
+        assert self.device == th.device("cpu"), f"This implementation only supports CPU device, not {device}"
         self.n_delta = n_delta
         self.pop_size = 2 * n_delta
         self.delta_std_schedule = get_schedule_fn(delta_std)
