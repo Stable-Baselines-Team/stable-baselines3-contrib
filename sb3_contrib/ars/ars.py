@@ -11,8 +11,6 @@ import torch.nn.utils
 
 try:
     from mpire import WorkerPool
-
-    # WorkerPool = None
 except ImportError:
     WorkerPool = None
 
@@ -28,6 +26,7 @@ from stable_baselines3.common.utils import get_schedule_fn, safe_mean
 from stable_baselines3.common.vec_env import VecEnv, unwrap_vec_normalize
 
 from sb3_contrib.ars.policies import ARSPolicy
+from sb3_contrib.common.vec_env.async_eval import EnvEvalProcess
 
 
 # Patch RunningMeanStd
@@ -171,6 +170,7 @@ class ARS(BaseAlgorithm):
         self.alive_bonus_offset = alive_bonus_offset
         self.zero_policy = zero_policy
         self.weights = None  # Need to call init model to initialize weight
+        self.processes = None
 
         if _init_setup_model:
             self._setup_model()
@@ -198,7 +198,52 @@ class ARS(BaseAlgorithm):
         self.ep_info_buffer = []
 
         # Multiprocess version
-        if len(envs) > 1:
+        if self.processes is not None:
+            for weights_idx in range(self.pop_size):
+                self.job_queues[weights_idx % len(self.processes)].put((weights_idx, candidate_weights[weights_idx]))
+
+            results = []
+            while len(results) < self.pop_size:
+                results.append(self.result_queue.get())
+
+            worker_envs = set()
+            for (weights_idx, worker_env), (episode_rewards, episode_lengths) in results:
+
+                # Check when using multiple episodes for evaluation
+                candidate_returns[weights_idx] = sum(episode_rewards) + self.alive_bonus_offset * sum(episode_lengths)
+
+                batch_steps += np.sum(episode_lengths)
+                # Mimic Monitor Wrapper
+                infos = [
+                    {"episode": {"r": episode_reward, "l": episode_length}}
+                    for episode_reward, episode_length in zip(episode_rewards, episode_lengths)
+                ]
+
+                self._update_info_buffer(infos)
+                worker_envs.add(worker_env)
+
+            for _, worker_env in enumerate(worker_envs):
+                if self._vec_normalize_env is not None:
+                    # print(unwrap_vec_normalize(worker_env).obs_rms.count)
+                    env_rms = unwrap_vec_normalize(worker_env).obs_rms
+                    self._vec_normalize_env.obs_rms.combine(env_rms)
+                    # Hack: in practice we would need two RunningMeanStats
+                    self._vec_normalize_env.obs_rms.count -= self.old_count
+
+            callback.on_rollout_end()
+            # Sync VecNormalize if needed
+            if self._vec_normalize_env is not None:
+                vec_normalize_envs = [unwrap_vec_normalize(env) for env in envs]
+                self.old_count = self._vec_normalize_env.obs_rms.count
+                # Sync normalization with workers
+                for i in range(len(envs)):
+                    vec_normalize_envs[i].obs_rms = self._vec_normalize_env.obs_rms.copy()
+
+            # Hack to have Callback events
+            for _ in range(batch_steps // len(envs)):
+                self.num_timesteps += len(envs)
+                callback.on_step()
+        elif len(envs) > 1:
 
             callback.on_rollout_start()
             _worker_init = partial(worker_init, envs=envs, candidate_weights=candidate_weights, train_policy=train_policy)
@@ -237,7 +282,7 @@ class ARS(BaseAlgorithm):
                 self._update_info_buffer(infos)
                 worker_envs.add(worker_env)
 
-            for idx, worker_env in enumerate(worker_envs):
+            for _, worker_env in enumerate(worker_envs):
                 if self._vec_normalize_env is not None:
                     # print(unwrap_vec_normalize(worker_env).obs_rms.count)
                     env_rms = unwrap_vec_normalize(worker_env).obs_rms
@@ -365,12 +410,32 @@ class ARS(BaseAlgorithm):
         self._validate_hyper_params()
         callback.on_training_start(locals(), globals())
 
+        if envs is not None or False:
+            from multiprocessing import Queue
+
+            self.processes = []
+            self.job_queues = []
+            self.result_queue = Queue()
+            for worker_env in envs:
+                self.job_queues.append(Queue())
+                self.processes.append(EnvEvalProcess(worker_env, self.policy, self.job_queues[-1], self.result_queue))
+                self.processes[-1].start()
+
         while self.num_timesteps < total_steps:
             self._update_current_progress_remaining(self.num_timesteps, total_timesteps)
             self._do_one_update(callback, envs or [self.env])
             if log_interval is not None and self._n_updates % log_interval == 0:
                 self._log_and_dump()
 
+        if self.processes is not None:
+            for idx in range(len(self.processes)):
+                self.job_queues[idx].put((None, None))
+            for process in self.processes:
+                process.join()
+
         callback.on_training_end()
 
         return self
+
+    def _excluded_save_params(self) -> List[str]:
+        return super()._excluded_save_params() + ["processes", "job_queues", "result_queue"]
