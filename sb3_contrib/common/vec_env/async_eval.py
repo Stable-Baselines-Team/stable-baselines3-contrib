@@ -12,7 +12,6 @@ def _worker(
     remote: mp.connection.Connection,
     parent_remote: mp.connection.Connection,
     worker_env_wrapper: CloudpickleWrapper,
-    venv_wrapper: CloudpickleWrapper,
     train_policy_wrapper: CloudpickleWrapper,
     n_eval_episodes: int = 1,
 ) -> None:
@@ -22,7 +21,6 @@ def _worker(
     vec_normalize = unwrap_vec_normalize(env)
     if vec_normalize is not None:
         obs_rms = vec_normalize.obs_rms
-        # vec_normalize.set_venv(venv_wrapper.var)
     else:
         obs_rms = None
     while True:
@@ -75,13 +73,10 @@ class AsyncEval(object):
         self.remotes, self.work_remotes = zip(*[ctx.Pipe() for _ in range(n_envs)])
         self.processes = []
         for work_remote, remote, worker_env in zip(self.work_remotes, self.remotes, envs_fn):
-            # venv = worker_env.venv if unwrap_vec_normalize(worker_env) is not None else None
-            venv = None
             args = (
                 work_remote,
                 remote,
                 CloudpickleWrapper(worker_env),
-                CloudpickleWrapper(venv),
                 CloudpickleWrapper(train_policy),
             )
             # daemon=True: if the main process crashes, we should not cause things to hang
