@@ -1,10 +1,14 @@
 import multiprocessing
 import multiprocessing as mp
 from collections import defaultdict
-from typing import List, Optional, Union
+from typing import Callable, List, Optional, Tuple, Union
 
+import numpy as np
+import torch as th
 from stable_baselines3.common.evaluation import evaluate_policy
-from stable_baselines3.common.vec_env import unwrap_vec_normalize
+from stable_baselines3.common.policies import BasePolicy
+from stable_baselines3.common.running_mean_std import RunningMeanStd
+from stable_baselines3.common.vec_env import VecEnv, unwrap_vec_normalize
 from stable_baselines3.common.vec_env.base_vec_env import CloudpickleWrapper
 
 
@@ -57,7 +61,36 @@ def _worker(
 
 
 class AsyncEval(object):
-    def __init__(self, envs_fn, train_policy, start_method: Optional[str] = None):
+    """
+    Helper class to do asynchronous evaluation of different policies with multiple processes.
+    It is useful when implementing population based methods like Evolution Strategies (ES),
+    Cross Entropy Method (CEM) or Augmented Random Search (ARS).
+
+    .. warning::
+
+        Only 'forkserver' and 'spawn' start methods are thread-safe,
+        which is important to avoid race conditions.
+        However, compared to
+        'fork' they incur a small start-up cost and have restrictions on
+        global variables. With those methods, users must wrap the code in an
+        ``if __name__ == "__main__":`` block.
+        For more information, see the multiprocessing documentation.
+
+    :param envs_fn: Vectorized environments to run in subprocesses (callable)
+    :param train_policy:
+    :param start_method: method used to start the subprocesses.
+           Must be one of the methods returned by ``multiprocessing.get_all_start_methods()``.
+           Defaults to 'forkserver' on available platforms, and 'spawn' otherwise.
+    :param n_eval_episodes: The number of episodes to test each agent
+    """
+
+    def __init__(
+        self,
+        envs_fn: List[Callable[[], VecEnv]],
+        train_policy: BasePolicy,
+        start_method: Optional[str] = None,
+        n_eval_episodes: int = 1,
+    ):
         self.waiting = False
         self.closed = False
         n_envs = len(envs_fn)
@@ -78,6 +111,7 @@ class AsyncEval(object):
                 remote,
                 CloudpickleWrapper(worker_env),
                 CloudpickleWrapper(train_policy),
+                n_eval_episodes,
             )
             # daemon=True: if the main process crashes, we should not cause things to hang
             process = ctx.Process(target=_worker, args=args, daemon=True)  # pytype:disable=attribute-error
@@ -85,7 +119,7 @@ class AsyncEval(object):
             self.processes.append(process)
             work_remote.close()
 
-    def send_jobs(self, candidate_weights, pop_size):
+    def send_jobs(self, candidate_weights: th.Tensor, pop_size: int) -> None:
         jobs_per_worker = defaultdict(list)
         for weights_idx in range(pop_size):
             jobs_per_worker[weights_idx % len(self.remotes)].append((weights_idx, candidate_weights[weights_idx]))
@@ -99,19 +133,19 @@ class AsyncEval(object):
             remote.send(("seed", seed + idx))
         return [remote.recv() for remote in self.remotes]
 
-    def get_results(self):
+    def get_results(self) -> List[Tuple[int, Tuple[np.ndarray, np.ndarray]]]:
         results = [remote.recv() for remote in self.remotes]
         flat_results = [result for worker_results in results for result in worker_results]
         self.waiting = False
         return flat_results
 
-    def get_obs_rms(self):
+    def get_obs_rms(self) -> List[RunningMeanStd]:
         for remote in self.remotes:
             remote.send(("get_obs_rms", None))
         # TODO: set waiting flag?
         return [remote.recv() for remote in self.remotes]
 
-    def sync_obs_rms(self, obs_rms):
+    def sync_obs_rms(self, obs_rms: RunningMeanStd) -> None:
         for remote in self.remotes:
             remote.send(("sync_obs_rms", obs_rms))
 

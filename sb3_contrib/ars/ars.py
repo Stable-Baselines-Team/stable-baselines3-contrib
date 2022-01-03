@@ -170,9 +170,13 @@ class ARS(BaseAlgorithm):
             # Combine the filter stats for normalization
             for worker_obs_rms in async_eval.get_obs_rms():
                 if self._vec_normalize_env is not None:
+                    # Hack: don't count timesteps twice (between the two are synced)
+                    # otherwise it will lead to overflow,
+                    # in practice we would need two RunningMeanStats
+                    worker_obs_rms.count -= self.old_count
                     self._vec_normalize_env.obs_rms.combine(worker_obs_rms)
-                    # Hack: in practice we would need two RunningMeanStats
-                    self._vec_normalize_env.obs_rms.count -= self.old_count
+                    # Alternatively, we can substract the old count there:
+                    # self._vec_normalize_env.obs_rms.count -= self.old_count
 
             callback.on_rollout_end()
             # Sync VecNormalize if needed
