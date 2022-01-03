@@ -16,6 +16,8 @@ class ARSPolicy(BasePolicy):
     :param action_space: The action space of the environment
     :param net_arch: Network architecture, defaults to a linear policy with bias
     :param activation_fn: Activation function
+    :param squash_output: For continuous actions, whether the output is squashed
+        or not using a ``tanh()`` function.
     """
 
     def __init__(
@@ -24,12 +26,13 @@ class ARSPolicy(BasePolicy):
         action_space: gym.spaces.Space,
         net_arch: Optional[List[int]] = None,
         activation_fn: Type[nn.Module] = nn.ReLU,
+        squash_output: bool = True,
     ):
 
         super().__init__(
             observation_space,
             action_space,
-            squash_output=isinstance(action_space, gym.spaces.Box),
+            squash_output=isinstance(action_space, gym.spaces.Box) and squash_output,
         )
 
         if net_arch is None:
@@ -85,15 +88,25 @@ class ARSLinearPolicy(ARSPolicy):
     :param net_arch: Network architecture, defaults to a linear policy with bias
     :param activation_fn: Activation function
     :param with_bias: With or without bias
+    :param squash_output: For continuous actions, whether the output is squashed
+        or not using a ``tanh()`` function.
     """
 
-    def __init__(self, observation_space: gym.spaces.Space, action_space: gym.spaces.Space, with_bias: bool = False):
+    def __init__(
+        self,
+        observation_space: gym.spaces.Space,
+        action_space: gym.spaces.Space,
+        with_bias: bool = False,
+        squash_output: bool = False,
+    ):
 
-        super().__init__(observation_space, action_space)
+        super().__init__(observation_space, action_space, squash_output=squash_output)
 
         if isinstance(action_space, gym.spaces.Box):
             action_dim = get_action_dim(action_space)
             self.action_net = nn.Linear(self.features_dim, action_dim, bias=with_bias)
+            if squash_output:
+                self.action_net = nn.Sequential(self.action_net, nn.Tanh())
         elif isinstance(action_space, gym.spaces.Discrete):
             self.action_net = nn.Linear(self.features_dim, action_space.n, bias=with_bias)
         else:
