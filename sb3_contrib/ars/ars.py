@@ -1,21 +1,12 @@
 import copy
 import time
 import warnings
-from multiprocessing import Pool
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, Optional, Tuple, Type, Union
 
 import gym
 import numpy as np
 import torch as th
 import torch.nn.utils
-
-try:
-    from mpire import WorkerPool
-except ImportError:
-    WorkerPool = None
-
-from functools import partial
-
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.evaluation import evaluate_policy
@@ -23,10 +14,9 @@ from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.running_mean_std import RunningMeanStd
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import get_schedule_fn, safe_mean
-from stable_baselines3.common.vec_env import VecEnv, unwrap_vec_normalize
 
 from sb3_contrib.ars.policies import ARSPolicy
-from sb3_contrib.common.vec_env.async_eval import EnvEvalProcess
+from sb3_contrib.common.vec_env.async_eval import AsyncEval
 
 
 # Patch RunningMeanStd
@@ -49,47 +39,6 @@ def _combine(self, other: "RunningMeanStd") -> None:
     :param other: The other object to combine with.
     """
     self.update_from_moments(other.mean, other.var, other.count)
-
-
-def worker_init(worker_state: Dict[str, Any], envs, candidate_weights, train_policy) -> None:
-    worker_state["n_envs"] = len(envs)
-    worker_state["envs"] = envs
-    worker_state["candidate_weights"] = candidate_weights
-    worker_state["train_policy"] = copy.deepcopy(train_policy)
-
-
-def evaluate(worker_state: Dict[str, Any], weights_idx: int):
-    worker_state["train_policy"].load_from_vector(worker_state["candidate_weights"][weights_idx])
-    worker_env = worker_state["envs"][weights_idx % worker_state["n_envs"]]
-
-    episode_rewards, episode_lengths = evaluate_policy(
-        worker_state["train_policy"],
-        worker_env,
-        n_eval_episodes=1,
-        return_episode_rewards=True,
-        # Note: callback will be called by every process,
-        # there will be a race condition...
-        # callback=lambda _locals, _globals: callback.on_step(),
-        warn=False,
-    )
-    return (weights_idx, worker_env), (episode_rewards, episode_lengths)
-
-
-def mp_evaluate(train_policy, candidate_weights, env, venv, weights_idx: int):
-    train_policy = copy.deepcopy(train_policy)
-    train_policy.load_from_vector(candidate_weights[weights_idx])
-    env.set_venv(venv)
-    episode_rewards, episode_lengths = evaluate_policy(
-        train_policy,
-        env,
-        n_eval_episodes=1,
-        return_episode_rewards=True,
-        # Note: callback will be called by every process,
-        # there will be a race condition...
-        # callback=lambda _locals, _globals: callback.on_step(),
-        warn=False,
-    )
-    return (weights_idx, env), (episode_rewards, episode_lengths)
 
 
 if not hasattr(RunningMeanStd, "copy"):
@@ -188,7 +137,9 @@ class ARS(BaseAlgorithm):
             self.weights = th.zeros_like(self.weights, requires_grad=False)
             self.policy.load_from_vector(self.weights)
 
-    def _collect_rollouts(self, policy_deltas: th.Tensor, callback: BaseCallback, envs: List[VecEnv]) -> Tuple[th.Tensor, int]:
+    def _collect_rollouts(
+        self, policy_deltas: th.Tensor, callback: BaseCallback, async_eval: Optional[AsyncEval]
+    ) -> Tuple[th.Tensor, int]:
         batch_steps = 0
 
         # Generate 2*n_delta candidate policies by adding noise to the current weight
@@ -198,16 +149,11 @@ class ARS(BaseAlgorithm):
         self.ep_info_buffer = []
 
         # Multiprocess version
-        if self.processes is not None:
-            for weights_idx in range(self.pop_size):
-                self.job_queues[weights_idx % len(self.processes)].put((weights_idx, candidate_weights[weights_idx]))
+        if async_eval is not None:
+            async_eval.send_jobs(candidate_weights, self.pop_size)
+            results = async_eval.get_results()
 
-            results = []
-            while len(results) < self.pop_size:
-                results.append(self.result_queue.get())
-
-            worker_envs = set()
-            for (weights_idx, worker_env), (episode_rewards, episode_lengths) in results:
+            for weights_idx, (episode_rewards, episode_lengths) in results:
 
                 # Check when using multiple episodes for evaluation
                 candidate_returns[weights_idx] = sum(episode_rewards) + self.alive_bonus_offset * sum(episode_lengths)
@@ -220,98 +166,24 @@ class ARS(BaseAlgorithm):
                 ]
 
                 self._update_info_buffer(infos)
-                worker_envs.add(worker_env)
 
-            for _, worker_env in enumerate(worker_envs):
+            # Combine the filter stats for normalization
+            for worker_obs_rms in async_eval.get_obs_rms():
                 if self._vec_normalize_env is not None:
-                    # print(unwrap_vec_normalize(worker_env).obs_rms.count)
-                    env_rms = unwrap_vec_normalize(worker_env).obs_rms
-                    self._vec_normalize_env.obs_rms.combine(env_rms)
+                    self._vec_normalize_env.obs_rms.combine(worker_obs_rms)
                     # Hack: in practice we would need two RunningMeanStats
                     self._vec_normalize_env.obs_rms.count -= self.old_count
 
             callback.on_rollout_end()
             # Sync VecNormalize if needed
             if self._vec_normalize_env is not None:
-                vec_normalize_envs = [unwrap_vec_normalize(env) for env in envs]
+                async_eval.sync_obs_rms(self._vec_normalize_env.obs_rms.copy())
                 self.old_count = self._vec_normalize_env.obs_rms.count
-                # Sync normalization with workers
-                for i in range(len(envs)):
-                    vec_normalize_envs[i].obs_rms = self._vec_normalize_env.obs_rms.copy()
 
             # Hack to have Callback events
-            for _ in range(batch_steps // len(envs)):
-                self.num_timesteps += len(envs)
+            for _ in range(batch_steps // len(async_eval.remotes)):
+                self.num_timesteps += len(async_eval.remotes)
                 callback.on_step()
-        elif len(envs) > 1:
-
-            callback.on_rollout_start()
-            _worker_init = partial(worker_init, envs=envs, candidate_weights=candidate_weights, train_policy=train_policy)
-            if WorkerPool is not None:
-                with WorkerPool(len(envs), use_worker_state=True, keep_alive=False, start_method="fork") as pool:
-                    results = pool.map(evaluate, range(self.pop_size), worker_init=_worker_init, chunk_size=1)
-            else:
-                with Pool(len(envs)) as pool:
-                    results = pool.starmap(
-                        mp_evaluate,
-                        [
-                            (
-                                train_policy,
-                                candidate_weights,
-                                envs[weights_idx % len(envs)],
-                                envs[weights_idx % len(envs)].venv,
-                                weights_idx,
-                            )
-                            for weights_idx in range(self.pop_size)
-                        ],
-                    )
-
-            worker_envs = set()
-            for (weights_idx, worker_env), (episode_rewards, episode_lengths) in results:
-
-                # Check when using multiple episodes for evaluation
-                candidate_returns[weights_idx] = sum(episode_rewards) + self.alive_bonus_offset * sum(episode_lengths)
-
-                batch_steps += np.sum(episode_lengths)
-                # Mimic Monitor Wrapper
-                infos = [
-                    {"episode": {"r": episode_reward, "l": episode_length}}
-                    for episode_reward, episode_length in zip(episode_rewards, episode_lengths)
-                ]
-
-                self._update_info_buffer(infos)
-                worker_envs.add(worker_env)
-
-            for _, worker_env in enumerate(worker_envs):
-                if self._vec_normalize_env is not None:
-                    # print(unwrap_vec_normalize(worker_env).obs_rms.count)
-                    env_rms = unwrap_vec_normalize(worker_env).obs_rms
-                    self._vec_normalize_env.obs_rms.combine(env_rms)
-                    # Hack: in practice we would need two RunningMeanStats
-                    self._vec_normalize_env.obs_rms.count -= self.old_count
-
-            callback.on_rollout_end()
-            # Sync VecNormalize if needed
-            if self._vec_normalize_env is not None:
-                vec_normalize_envs = [unwrap_vec_normalize(env) for env in envs]
-                # print(self._vec_normalize_env.obs_rms.count)
-
-                # Update normalization from the workers
-                # Note: we are not updating the return rms
-                # for i in range(len(envs)):
-                #     self._vec_normalize_env.obs_rms.combine(vec_normalize_envs[i].obs_rms)
-                #     print(vec_normalize_envs[i].obs_rms.count)
-
-                self.old_count = self._vec_normalize_env.obs_rms.count
-                # Sync normalization with workers
-                for i in range(len(envs)):
-                    vec_normalize_envs[i].obs_rms = self._vec_normalize_env.obs_rms.copy()
-
-            # Hack to have Callback events
-            for _ in range(batch_steps // len(envs)):
-                self.num_timesteps += len(envs)
-                callback.on_step()
-
         else:
             for weights_idx in range(self.pop_size):
 
@@ -361,14 +233,14 @@ class ARS(BaseAlgorithm):
         self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
         self.logger.dump(step=self.num_timesteps)
 
-    def _do_one_update(self, callback: BaseCallback, envs: List[VecEnv]) -> None:
+    def _do_one_update(self, callback: BaseCallback, async_eval: Optional[AsyncEval]) -> None:
         delta_std = self.delta_std_schedule(self._current_progress_remaining)
         learning_rate = self.lr_schedule(self._current_progress_remaining)
 
         deltas = th.normal(mean=0.0, std=1.0, size=(self.n_delta, self.n_params))
 
         with th.no_grad():
-            candidate_returns, batch_steps = self._collect_rollouts(deltas * delta_std, callback, envs)
+            candidate_returns, batch_steps = self._collect_rollouts(deltas * delta_std, callback, async_eval)
 
         plus_returns = candidate_returns[: self.n_delta]
         minus_returns = candidate_returns[self.n_delta :]
@@ -398,7 +270,7 @@ class ARS(BaseAlgorithm):
         n_eval_episodes: int = 5,
         eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
-        envs: Optional[List[VecEnv]] = None,
+        async_eval: Optional[AsyncEval] = None,
     ) -> "ARS":
 
         total_steps = total_timesteps
@@ -410,32 +282,18 @@ class ARS(BaseAlgorithm):
         self._validate_hyper_params()
         callback.on_training_start(locals(), globals())
 
-        if envs is not None or False:
-            from multiprocessing import Queue
-
-            self.processes = []
-            self.job_queues = []
-            self.result_queue = Queue()
-            for worker_env in envs:
-                self.job_queues.append(Queue())
-                self.processes.append(EnvEvalProcess(worker_env, self.policy, self.job_queues[-1], self.result_queue))
-                self.processes[-1].start()
-
         while self.num_timesteps < total_steps:
             self._update_current_progress_remaining(self.num_timesteps, total_timesteps)
-            self._do_one_update(callback, envs or [self.env])
+            self._do_one_update(callback, async_eval)
             if log_interval is not None and self._n_updates % log_interval == 0:
                 self._log_and_dump()
 
-        if self.processes is not None:
-            for idx in range(len(self.processes)):
-                self.job_queues[idx].put((None, None))
-            for process in self.processes:
-                process.join()
+        if async_eval is not None:
+            async_eval.close()
 
         callback.on_training_end()
 
         return self
 
-    def _excluded_save_params(self) -> List[str]:
-        return super()._excluded_save_params() + ["processes", "job_queues", "result_queue"]
+    # def _excluded_save_params(self) -> List[str]:
+    #     return super()._excluded_save_params() + ["processes"]
