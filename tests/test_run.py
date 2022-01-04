@@ -1,8 +1,10 @@
 import gym
 import pytest
 from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.vec_env import VecNormalize
 
 from sb3_contrib import ARS, QRDQN, TQC, TRPO
+from sb3_contrib.common.vec_env import AsyncEval
 
 
 @pytest.mark.parametrize("ent_coef", ["auto", 0.01, "auto_0.01"])
@@ -92,7 +94,14 @@ def test_ars(policy_str, env_id):
 def test_ars_multi_env():
     env = make_vec_env("Pendulum-v0", n_envs=2)
     model = ARS("MlpPolicy", env, n_delta=1)
-    model.learn(total_timesteps=500)
+    model.learn(total_timesteps=250)
+
+    env = VecNormalize(make_vec_env("Pendulum-v0", n_envs=1))
+    model = ARS("MlpPolicy", env, n_delta=2, seed=0)
+    # with parallelism
+    async_eval = AsyncEval([lambda: VecNormalize(make_vec_env("Pendulum-v0", n_envs=1)) for _ in range(2)], model.policy)
+    async_eval.seed(0)
+    model.learn(500, async_eval=async_eval)
 
 
 @pytest.mark.parametrize("n_top", [2, 8])
