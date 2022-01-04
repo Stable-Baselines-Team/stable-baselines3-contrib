@@ -106,7 +106,10 @@ class ARS(BaseAlgorithm):
             seed=seed,
         )
 
-        assert self.device == th.device("cpu"), f"This implementation only supports CPU device, not {device}"
+        if self.device != th.device("cpu"):
+            warnings.warn(f"This implementation only supports CPU device, not {self.device}, setting it to cpu.")
+            self.device = th.device("cpu")
+
         self.n_delta = n_delta
         self.pop_size = 2 * n_delta
         self.delta_std_schedule = get_schedule_fn(delta_std)
@@ -114,6 +117,12 @@ class ARS(BaseAlgorithm):
 
         if n_top is None:
             n_top = n_delta
+
+        # Make sure our hyper parameters are valid and auto correct them if they are not
+        if n_top > n_delta:
+            warnings.warn(f"n_top = {n_top} > n_delta = {n_top}, setting n_top = n_delta")
+            n_top = n_delta
+
         self.n_top = n_top
 
         self.alive_bonus_offset = alive_bonus_offset
@@ -127,6 +136,9 @@ class ARS(BaseAlgorithm):
     def _setup_model(self) -> None:
         self._setup_lr_schedule()
         self.set_random_seed(self.seed)
+
+        # Keep track of how many steps where elapsed before a new rollout
+        # Important for syncing observation normalization between workers
         self.old_count = 0
         self.policy = self.policy_class(self.observation_space, self.action_space, **self.policy_kwargs)
         self.policy = self.policy.to(self.device)
@@ -219,12 +231,6 @@ class ARS(BaseAlgorithm):
 
         return candidate_returns, batch_steps
 
-    # Make sure our hyper parameters are valid and auto correct them if they are not
-    def _validate_hyper_params(self) -> None:
-        if self.n_top > self.n_delta:
-            warnings.warn(f"n_top = {self.n_top} > n_delta = {self.n_top}, setting n_top = n_delta")
-            self.n_top = self.n_delta
-
     def _log_and_dump(self) -> None:
         fps = int(self.num_timesteps / (time.time() - self.start_time))
         self.logger.record("time/iterations", self._n_updates, exclude="tensorboard")
@@ -237,15 +243,20 @@ class ARS(BaseAlgorithm):
         self.logger.dump(step=self.num_timesteps)
 
     def _do_one_update(self, callback: BaseCallback, async_eval: Optional[AsyncEval]) -> None:
+        # Retrieve current parameter noise standard deviation
+        # and current learning rate
         delta_std = self.delta_std_schedule(self._current_progress_remaining)
         learning_rate = self.lr_schedule(self._current_progress_remaining)
 
+        # Note: shouldn't the delta_std be used here?
         deltas = th.normal(mean=0.0, std=1.0, size=(self.n_delta, self.n_params))
 
         with th.no_grad():
             candidate_returns, batch_steps = self._collect_rollouts(deltas * delta_std, callback, async_eval)
 
+        # Returns corresponding to weights + deltas
         plus_returns = candidate_returns[: self.n_delta]
+        # Returns corresponding to weights - deltas
         minus_returns = candidate_returns[self.n_delta :]
 
         top_returns, _ = th.max(th.vstack((plus_returns, minus_returns)), dim=0)
@@ -257,6 +268,7 @@ class ARS(BaseAlgorithm):
 
         return_std = th.cat([plus_returns, minus_returns]).std()
         step_size = learning_rate / (self.n_top * return_std + 1e-6)
+        # Approximate gradient step
         self.weights = self.weights + step_size * ((plus_returns - minus_returns) @ deltas)
         self.policy.load_from_vector(self.weights)
 
@@ -281,8 +293,6 @@ class ARS(BaseAlgorithm):
             total_steps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
         )
 
-        # Split envs so we can use parallel workers with different polcies
-        self._validate_hyper_params()
         callback.on_training_start(locals(), globals())
 
         while self.num_timesteps < total_steps:
@@ -297,6 +307,3 @@ class ARS(BaseAlgorithm):
         callback.on_training_end()
 
         return self
-
-    # def _excluded_save_params(self) -> List[str]:
-    #     return super()._excluded_save_params() + ["processes"]
