@@ -11,39 +11,11 @@ from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.policies import BasePolicy
-from stable_baselines3.common.running_mean_std import RunningMeanStd
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import get_schedule_fn, safe_mean
 
 from sb3_contrib.ars.policies import ARSPolicy
 from sb3_contrib.common.vec_env.async_eval import AsyncEval
-
-
-# Patch RunningMeanStd
-# TODO: remove when merged with SB3
-def _copy(self) -> "RunningMeanStd":
-    """
-    :return: Return a copy of the current object.
-    """
-    new_object = RunningMeanStd(shape=self.mean.shape)
-    new_object.mean = self.mean.copy()
-    new_object.var = self.var.copy()
-    new_object.count = float(self.count)
-    return new_object
-
-
-def _combine(self, other: "RunningMeanStd") -> None:
-    """
-    Combine stats from another ``RunningMeanStd`` object.
-
-    :param other: The other object to combine with.
-    """
-    self.update_from_moments(other.mean, other.var, other.count)
-
-
-if not hasattr(RunningMeanStd, "copy"):
-    RunningMeanStd.copy = _copy
-    RunningMeanStd.combine = _combine
 
 
 class ARS(BaseAlgorithm):

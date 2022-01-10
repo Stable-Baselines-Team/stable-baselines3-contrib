@@ -14,6 +14,17 @@ SB3s implementation allows for linear policies without bias or squashing functio
 
 Normally one wants to train ARS with several seeds to properly evaluate. If multiprocess performance is desired, we recommend using a single environment per agent, and training several seeds in parralel, see the replicating results section below for an example.
 
+.. warning::
+
+	ARS only support cpu training.
+
+
+.. warning::
+
+  ARS multi-processing is different from the classic Stable-Baselines3 multi-processing: it runs n environments
+  in parallel but asynchronously. This asynchronous multi-processing is considered experimental
+  and does not fully support callbacks: the ``on_step()`` event is called artifically after the evaluation episodes are over.
+
 
 .. rubric:: Available Policies
 
@@ -35,7 +46,7 @@ Can I use?
 ----------
 
 -  Recurrent policies: ❌
--  Multi processing:  ❌
+-  Multi processing:  ✔️ (cf. example)
 -  Gym spaces:
 
 
@@ -63,17 +74,36 @@ Example
    model.save("ars_pendulum")
 
 
+With experimental asynchronous multi-processing:
+
+.. code-block:: python
+
+	from sb3_contrib import ARS
+	from sb3_contrib.common.vec_env import AsyncEval
+
+	from stable_baselines3.common.env_util import make_vec_env
+
+	env_id = "CartPole-v1"
+	n_envs = 2
+
+	model = ARS("LinearPolicy", env_id, n_delta=2, n_top=1, verbose=1)
+	# Create env for asynchronous evaluation (run in different processes)
+	async_eval = AsyncEval([lambda: make_vec_env(env_id) for _ in range(n_envs)], model.policy)
+
+	model.learn(total_timesteps=200_000, log_interval=4, async_eval=async_eval)
+
+
 Results
 -------
 
 Replicating results from the original paper, which used the Mujoco benchmarks. Same parameters from the original paper, using 8 seeds.
 
 ============= ============
-Environments     ARS     
+Environments     ARS
 ============= ============
 \
 HalfCheetah   4398 +/- 320
-Swimmer       241 +/- 51 
+Swimmer       241 +/- 51
 Hopper        3320 +/- 120
 ============= ============
 
@@ -106,7 +136,7 @@ Plot the results:
 
 .. code-block:: bash
 
-  python scripts/all_plots.py -a ars -e HalfCheetah Swimmer Hopper -f logs/ -o logs/ars_results -max 20000000 
+  python scripts/all_plots.py -a ars -e HalfCheetah Swimmer Hopper -f logs/ -o logs/ars_results -max 20000000
   python scripts/plot_from_file.py -i logs/ars_results.pkl -l ARS
 
 
