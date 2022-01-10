@@ -122,12 +122,10 @@ class ARS(BaseAlgorithm):
             self.policy.load_from_vector(self.weights)
 
     def _collect_rollouts(
-        self, policy_deltas: th.Tensor, callback: BaseCallback, async_eval: Optional[AsyncEval]
+        self, candidate_weights: th.Tensor, callback: BaseCallback, async_eval: Optional[AsyncEval]
     ) -> Tuple[th.Tensor, int]:
-        batch_steps = 0
 
-        # Generate 2*n_delta candidate policies by adding noise to the current weight
-        candidate_weights = th.cat([self.weights + policy_deltas, self.weights - policy_deltas])
+        batch_steps = 0
         candidate_returns = th.zeros(self.pop_size)  # returns == sum of rewards
         train_policy = copy.deepcopy(self.policy)
         self.ep_info_buffer = []
@@ -172,6 +170,7 @@ class ARS(BaseAlgorithm):
                 self.num_timesteps += len(async_eval.remotes)
                 callback.on_step()
         else:
+            # Single process version
             for weights_idx in range(self.pop_size):
 
                 callback.on_rollout_start()
@@ -219,25 +218,29 @@ class ARS(BaseAlgorithm):
         # and current learning rate
         delta_std = self.delta_std_schedule(self._current_progress_remaining)
         learning_rate = self.lr_schedule(self._current_progress_remaining)
-
-        # Note: shouldn't the delta_std be used here?
+        # Sample the parameter noise, it will be scaled by delta_std
         deltas = th.normal(mean=0.0, std=1.0, size=(self.n_delta, self.n_params))
+        policy_deltas = deltas * delta_std
+        # Generate 2 * n_delta candidate policies by adding noise to the current weights
+        candidate_weights = th.cat([self.weights + policy_deltas, self.weights - policy_deltas])
 
         with th.no_grad():
-            candidate_returns, batch_steps = self._collect_rollouts(deltas * delta_std, callback, async_eval)
+            candidate_returns, batch_steps = self._collect_rollouts(candidate_weights, callback, async_eval)
 
         # Returns corresponding to weights + deltas
         plus_returns = candidate_returns[: self.n_delta]
         # Returns corresponding to weights - deltas
         minus_returns = candidate_returns[self.n_delta :]
 
+        # Keep only the top performing candidates for update
         top_returns, _ = th.max(th.vstack((plus_returns, minus_returns)), dim=0)
-
         top_idx = th.argsort(top_returns, descending=True)[: self.n_top]
         plus_returns = plus_returns[top_idx]
         minus_returns = minus_returns[top_idx]
         deltas = deltas[top_idx]
 
+        # Scale learning rate by the return standard deviation:
+        # take smaller steps when there is a high variance in the returns
         return_std = th.cat([plus_returns, minus_returns]).std()
         step_size = learning_rate / (self.n_top * return_std + 1e-6)
         # Approximate gradient step
@@ -260,9 +263,8 @@ class ARS(BaseAlgorithm):
         async_eval: Optional[AsyncEval] = None,
     ) -> "ARS":
 
-        total_steps = total_timesteps
         total_steps, callback = self._setup_learn(
-            total_steps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
+            total_timesteps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
         )
 
         callback.on_training_start(locals(), globals())
