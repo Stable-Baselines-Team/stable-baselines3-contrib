@@ -203,13 +203,13 @@ class ARS(BaseAlgorithm):
         return candidate_returns, batch_steps
 
     def _log_and_dump(self) -> None:
-        fps = int(self.num_timesteps / (time.time() - self.start_time))
-        self.logger.record("time/iterations", self._n_updates, exclude="tensorboard")
+        time_elapsed = time.time() - self.start_time
+        fps = int((self.num_timesteps - self._num_timesteps_at_start) / (time_elapsed + 1e-8))
         if len(self.ep_info_buffer) > 0 and len(self.ep_info_buffer[0]) > 0:
             self.logger.record("rollout/ep_rew_mean", safe_mean([ep_info["r"] for ep_info in self.ep_info_buffer]))
             self.logger.record("rollout/ep_len_mean", safe_mean([ep_info["l"] for ep_info in self.ep_info_buffer]))
         self.logger.record("time/fps", fps)
-        self.logger.record("time/time_elapsed", int(time.time() - self.start_time), exclude="tensorboard")
+        self.logger.record("time/time_elapsed", int(time_elapsed), exclude="tensorboard")
         self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
         self.logger.dump(step=self.num_timesteps)
 
@@ -246,6 +246,12 @@ class ARS(BaseAlgorithm):
         # Approximate gradient step
         self.weights = self.weights + step_size * ((plus_returns - minus_returns) @ deltas)
         self.policy.load_from_vector(self.weights)
+
+        self.logger.record("train/iterations", self._n_updates, exclude="tensorboard")
+        self.logger.record("train/delta_std", delta_std)
+        self.logger.record("train/learning_rate", learning_rate)
+        self.logger.record("train/step_size", step_size.item())
+        self.logger.record("rollout/return_std", return_std.item())
 
         self._n_updates += 1
 
