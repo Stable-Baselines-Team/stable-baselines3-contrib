@@ -131,6 +131,10 @@ def test_save_load(tmp_path, model_class):
 
     # Check if the model loads as expected for every possible choice of device:
     for device in ["auto", "cpu", "cuda"]:
+        # Tmp fix: ARS does not support GPU training
+        if model_class == ARS and device in ["auto", "cuda"]:
+            continue
+
         model = model_class.load(str(tmp_path / "test_save.zip"), env=env, device=device)
 
         # check if the model was loaded to the correct device
