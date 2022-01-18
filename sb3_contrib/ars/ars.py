@@ -79,10 +79,6 @@ class ARS(BaseAlgorithm):
             seed=seed,
         )
 
-        # if self.device != th.device("cpu"):
-        #     warnings.warn(f"This implementation only supports CPU device, not {self.device}, setting it to cpu.")
-        #     self.device = th.device("cpu")
-
         self.n_delta = n_delta
         self.pop_size = 2 * n_delta
         self.delta_std_schedule = get_schedule_fn(delta_std)
@@ -102,6 +98,9 @@ class ARS(BaseAlgorithm):
         self.zero_policy = zero_policy
         self.weights = None  # Need to call init model to initialize weight
         self.processes = None
+        # Keep track of how many steps where elapsed before a new rollout
+        # Important for syncing observation normalization between workers
+        self.old_count = 0
 
         if _init_setup_model:
             self._setup_model()
@@ -110,9 +109,6 @@ class ARS(BaseAlgorithm):
         self._setup_lr_schedule()
         self.set_random_seed(self.seed)
 
-        # Keep track of how many steps where elapsed before a new rollout
-        # Important for syncing observation normalization between workers
-        self.old_count = 0
         self.policy = self.policy_class(self.observation_space, self.action_space, **self.policy_kwargs)
         self.policy = self.policy.to(self.device)
         self.weights = th.nn.utils.parameters_to_vector(self.policy.parameters()).detach()
@@ -314,6 +310,21 @@ class ARS(BaseAlgorithm):
         reset_num_timesteps: bool = True,
         async_eval: Optional[AsyncEval] = None,
     ) -> "ARS":
+        """
+        Return a trained model.
+
+        :param total_timesteps: The total number of samples (env steps) to train on
+        :param callback: callback(s) called at every step with state of the algorithm.
+        :param log_interval: The number of timesteps before logging.
+        :param tb_log_name: the name of the run for TensorBoard logging
+        :param eval_env: Environment that will be used to evaluate the agent
+        :param eval_freq: Evaluate the agent every ``eval_freq`` timesteps (this may vary a little)
+        :param n_eval_episodes: Number of episode to evaluate the agent
+        :param eval_log_path: Path to a folder where the evaluations will be saved
+        :param reset_num_timesteps: whether or not to reset the current timestep number (used in logging)
+        :param async_eval: The object for asynchronous evaluation of candidates.
+        :return: the trained model
+        """
 
         total_steps, callback = self._setup_learn(
             total_timesteps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name

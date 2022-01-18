@@ -43,6 +43,7 @@ def _worker(
             cmd, data = remote.recv()
             if cmd == "eval":
                 results = []
+                # Evaluate each candidate and save results
                 for weights_idx, candidate_weights in data:
                     train_policy.load_from_vector(candidate_weights.cpu())
                     episode_rewards, episode_lengths = evaluate_policy(
@@ -88,7 +89,8 @@ class AsyncEval(object):
         For more information, see the multiprocessing documentation.
 
     :param envs_fn: Vectorized environments to run in subprocesses (callable)
-    :param train_policy:
+    :param train_policy: The policy object that will load the different candidate
+        weights.
     :param start_method: method used to start the subprocesses.
            Must be one of the methods returned by ``multiprocessing.get_all_start_methods()``.
            Defaults to 'forkserver' on available platforms, and 'spawn' otherwise.
@@ -170,13 +172,19 @@ class AsyncEval(object):
         return flat_results
 
     def get_obs_rms(self) -> List[RunningMeanStd]:
+        """
+        Retrieve the observation filters (observation running mean std)
+        of each process, they will be combined in the main process.
+        Synchronisation is done afterward using ``sync_obs_rms()``.
+        :return: A list of ``RunningMeanStd`` objects (one per process)
+        """
         for remote in self.remotes:
             remote.send(("get_obs_rms", None))
         return [remote.recv() for remote in self.remotes]
 
     def sync_obs_rms(self, obs_rms: RunningMeanStd) -> None:
         """
-        Synchronise the observation filters
+        Synchronise (and update) the observation filters
         (observation running mean std)
         :param obs_rms: The updated ``RunningMeanStd`` to be used
             by workers for normalizing observations.
