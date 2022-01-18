@@ -2,7 +2,7 @@ import copy
 import time
 import warnings
 from functools import partial
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, Optional, Type, Union
 
 import gym
 import numpy as np
@@ -122,7 +122,7 @@ class ARS(BaseAlgorithm):
             self.weights = th.zeros_like(self.weights, requires_grad=False)
             self.policy.load_from_vector(self.weights)
 
-    def _mimic_monitor_wrapper(self, episode_rewards: List[float], episode_lengths: List[int]) -> None:
+    def _mimic_monitor_wrapper(self, episode_rewards: np.ndarray, episode_lengths: np.ndarray) -> None:
         """
         Helper to mimic Monitor wrapper and report episode statistics (mean reward, mean episode length).
 
