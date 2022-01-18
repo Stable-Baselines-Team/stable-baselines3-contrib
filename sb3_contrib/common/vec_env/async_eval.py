@@ -19,6 +19,17 @@ def _worker(
     train_policy_wrapper: CloudpickleWrapper,
     n_eval_episodes: int = 1,
 ) -> None:
+    """
+    Function that will be run in each process.
+    It is in charge of creating environments, evaluating candidates
+    and communicating with the main process.
+
+    :param remote: Pipe to communicate with the parent process.
+    :param parent_remote:
+    :param worker_env_wrapper: Callable used to create the environment inside the process.
+    :param train_policy_wrapper: Callable used to create the policy inside the process.
+    :param n_eval_episodes: Number of evaluation episodes per candidate.
+    """
     parent_remote.close()
     env = worker_env_wrapper.var()
     train_policy = train_policy_wrapper.var
@@ -33,7 +44,7 @@ def _worker(
             if cmd == "eval":
                 results = []
                 for weights_idx, candidate_weights in data:
-                    train_policy.load_from_vector(candidate_weights)
+                    train_policy.load_from_vector(candidate_weights.cpu())
                     episode_rewards, episode_lengths = evaluate_policy(
                         train_policy,
                         env,
@@ -120,6 +131,12 @@ class AsyncEval(object):
             work_remote.close()
 
     def send_jobs(self, candidate_weights: th.Tensor, pop_size: int) -> None:
+        """
+        Send jobs to the workers to evaluate new candidates.
+
+        :param candidate_weights: The weights to be evaluated.
+        :pop_size: The number of candidate (size of the population)
+        """
         jobs_per_worker = defaultdict(list)
         for weights_idx in range(pop_size):
             jobs_per_worker[weights_idx % len(self.remotes)].append((weights_idx, candidate_weights[weights_idx]))
@@ -129,11 +146,24 @@ class AsyncEval(object):
         self.waiting = True
 
     def seed(self, seed: Optional[int] = None) -> List[Union[None, int]]:
+        """
+        Seed the environments.
+
+        :param seed: The seed for the pseudo-random generators.
+        :return:
+        """
         for idx, remote in enumerate(self.remotes):
             remote.send(("seed", seed + idx))
         return [remote.recv() for remote in self.remotes]
 
     def get_results(self) -> List[Tuple[int, Tuple[np.ndarray, np.ndarray]]]:
+        """
+        Retreive episode rewards and lengths from each worker
+        for all candidates (there might be multiple candidates per worker)
+
+        :return: A list of tuples containing each candidate index and its
+            result (episodic reward and episode length)
+        """
         results = [remote.recv() for remote in self.remotes]
         flat_results = [result for worker_results in results for result in worker_results]
         self.waiting = False
@@ -142,14 +172,22 @@ class AsyncEval(object):
     def get_obs_rms(self) -> List[RunningMeanStd]:
         for remote in self.remotes:
             remote.send(("get_obs_rms", None))
-        # TODO: set waiting flag?
         return [remote.recv() for remote in self.remotes]
 
     def sync_obs_rms(self, obs_rms: RunningMeanStd) -> None:
+        """
+        Synchronise the observation filters
+        (observation running mean std)
+        :param obs_rms: The updated ``RunningMeanStd`` to be used
+            by workers for normalizing observations.
+        """
         for remote in self.remotes:
             remote.send(("sync_obs_rms", obs_rms))
 
     def close(self) -> None:
+        """
+        Close the processes.
+        """
         if self.closed:
             return
         if self.waiting:
