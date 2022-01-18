@@ -79,9 +79,9 @@ class ARS(BaseAlgorithm):
             seed=seed,
         )
 
-        if self.device != th.device("cpu"):
-            warnings.warn(f"This implementation only supports CPU device, not {self.device}, setting it to cpu.")
-            self.device = th.device("cpu")
+        # if self.device != th.device("cpu"):
+        #     warnings.warn(f"This implementation only supports CPU device, not {self.device}, setting it to cpu.")
+        #     self.device = th.device("cpu")
 
         self.n_delta = n_delta
         self.pop_size = 2 * n_delta
@@ -120,7 +120,7 @@ class ARS(BaseAlgorithm):
 
         if self.zero_policy:
             self.weights = th.zeros_like(self.weights, requires_grad=False)
-            self.policy.load_from_vector(self.weights)
+            self.policy.load_from_vector(self.weights.cpu())
 
     def _mimic_monitor_wrapper(self, episode_rewards: np.ndarray, episode_lengths: np.ndarray) -> None:
         """
@@ -171,7 +171,8 @@ class ARS(BaseAlgorithm):
         """
 
         batch_steps = 0
-        candidate_returns = th.zeros(self.pop_size)  # returns == sum of rewards
+        # returns == sum of rewards
+        candidate_returns = th.zeros(self.pop_size, device=self.device)
         train_policy = copy.deepcopy(self.policy)
         self.ep_info_buffer = []
 
@@ -213,7 +214,7 @@ class ARS(BaseAlgorithm):
 
                 callback.on_rollout_start()
                 # Load current candidate weights
-                train_policy.load_from_vector(candidate_weights[weights_idx])
+                train_policy.load_from_vector(candidate_weights[weights_idx].cpu())
                 # Evaluate the candidate
                 episode_rewards, episode_lengths = evaluate_policy(
                     train_policy,
@@ -264,7 +265,7 @@ class ARS(BaseAlgorithm):
         delta_std = self.delta_std_schedule(self._current_progress_remaining)
         learning_rate = self.lr_schedule(self._current_progress_remaining)
         # Sample the parameter noise, it will be scaled by delta_std
-        deltas = th.normal(mean=0.0, std=1.0, size=(self.n_delta, self.n_params))
+        deltas = th.normal(mean=0.0, std=1.0, size=(self.n_delta, self.n_params), device=self.device)
         policy_deltas = deltas * delta_std
         # Generate 2 * n_delta candidate policies by adding noise to the current weights
         candidate_weights = th.cat([self.weights + policy_deltas, self.weights - policy_deltas])
@@ -290,7 +291,7 @@ class ARS(BaseAlgorithm):
         step_size = learning_rate / (self.n_top * return_std + 1e-6)
         # Approximate gradient step
         self.weights = self.weights + step_size * ((plus_returns - minus_returns) @ deltas)
-        self.policy.load_from_vector(self.weights)
+        self.policy.load_from_vector(self.weights.cpu())
 
         self.logger.record("train/iterations", self._n_updates, exclude="tensorboard")
         self.logger.record("train/delta_std", delta_std)

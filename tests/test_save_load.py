@@ -131,10 +131,6 @@ def test_save_load(tmp_path, model_class):
 
     # Check if the model loads as expected for every possible choice of device:
     for device in ["auto", "cpu", "cuda"]:
-        # Tmp fix: ARS does not support GPU training
-        if model_class == ARS and device in ["auto", "cuda"]:
-            continue
-
         model = model_class.load(str(tmp_path / "test_save.zip"), env=env, device=device)
 
         # check if the model was loaded to the correct device
@@ -216,8 +212,7 @@ def test_exclude_include_saved_params(tmp_path, model_class):
     # Check if exclude works
     model.save(tmp_path / "test_save", exclude=["verbose"])
     del model
-    # Force device to cpu to remove ARS warning
-    model = model_class.load(str(tmp_path / "test_save.zip"), device="cpu")
+    model = model_class.load(str(tmp_path / "test_save.zip"))
     # check if verbose was not saved
     assert model.verbose != 2
 
@@ -226,7 +221,7 @@ def test_exclude_include_saved_params(tmp_path, model_class):
     # Check if include works
     model.save(tmp_path / "test_save", exclude=["verbose"], include=["verbose"])
     del model
-    model = model_class.load(str(tmp_path / "test_save.zip"), device="cpu")
+    model = model_class.load(str(tmp_path / "test_save.zip"))
     assert model.verbose == 2
 
     # clear file from os
@@ -346,10 +341,6 @@ def test_save_load_policy(tmp_path, model_class, policy_str):
     policy = policy_class.load(tmp_path / "policy.pkl")
     if actor_class is not None:
         actor = actor_class.load(tmp_path / "actor.pkl")
-
-    # TMP fix: ARS only supports CPU for now
-    if model_class == ARS:
-        policy.to("cpu")
 
     # check if params are still the same after load
     new_params = policy.state_dict()
