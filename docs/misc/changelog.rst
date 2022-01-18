@@ -4,20 +4,21 @@ Changelog
 ==========
 
 
-Release 1.3.1a7 (WIP)
+Release 1.3.1a9 (WIP)
 -------------------------------
-**Add TRPO**
+**Add TRPO and ARS**
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
 - Dropped python 3.6 support
-- Upgraded to Stable-Baselines3 >= 1.3.1a4
+- Upgraded to Stable-Baselines3 >= 1.3.1a9
 - ``MaskablePPO`` was updated to match latest SB3 ``PPO`` version (timeout handling and new method for the policy object)
 
 New Features:
 ^^^^^^^^^^^^^
 - Added ``TRPO`` (@cyprienc)
 - Added experimental support to train off-policy algorithms with multiple envs (note: ``HerReplayBuffer`` currently not supported)
+- Added Augmented Random Search (ARS) (@sgillen)
 
 Bug Fixes:
 ^^^^^^^^^^
@@ -221,4 +222,4 @@ Stable-Baselines3 is currently maintained by `Antonin Raffin`_ (aka `@araffin`_)
 Contributors:
 -------------
 
-@ku2482 @guyk1971 @minhlong94 @ayeright @kronion @glmcdona @cyprienc
+@ku2482 @guyk1971 @minhlong94 @ayeright @kronion @glmcdona @cyprienc @sgillen
