@@ -49,9 +49,9 @@ class ARS(BaseAlgorithm):
         self,
         policy: Union[str, Type[ARSPolicy]],
         env: Union[GymEnv, str],
-        n_delta: int = 64,
+        n_delta: int = 8,
         n_top: Optional[int] = None,
-        learning_rate: Union[float, Schedule] = 0.05,
+        learning_rate: Union[float, Schedule] = 0.02,
         delta_std: Union[float, Schedule] = 0.05,
         zero_policy: bool = True,
         alive_bonus_offset: float = 0,
@@ -170,7 +170,9 @@ class ARS(BaseAlgorithm):
         # returns == sum of rewards
         candidate_returns = th.zeros(self.pop_size, device=self.device)
         train_policy = copy.deepcopy(self.policy)
+        # Empty buffer to show only mean over one iteration (one set of candidates) in the logs
         self.ep_info_buffer = []
+        callback.on_rollout_start()
 
         if async_eval is not None:
             # Multiprocess asynchronous version
@@ -194,7 +196,6 @@ class ARS(BaseAlgorithm):
                     # in practice we would need two RunningMeanStats
                     self._vec_normalize_env.obs_rms.count -= self.old_count
 
-            callback.on_rollout_end()
             # Synchronise VecNormalize if needed
             if self._vec_normalize_env is not None:
                 async_eval.sync_obs_rms(self._vec_normalize_env.obs_rms.copy())
@@ -208,7 +209,6 @@ class ARS(BaseAlgorithm):
             # Single process, synchronous version
             for weights_idx in range(self.pop_size):
 
-                callback.on_rollout_start()
                 # Load current candidate weights
                 train_policy.load_from_vector(candidate_weights[weights_idx].cpu())
                 # Evaluate the candidate
@@ -226,12 +226,13 @@ class ARS(BaseAlgorithm):
                 batch_steps += sum(episode_lengths)
                 self._mimic_monitor_wrapper(episode_rewards, episode_lengths)
 
-                callback.on_rollout_end()
             # Note: we increment the num_timesteps inside the evaluate_policy()
             # however when using multiple environments, there will be a slight
             # mismatch between the number of timesteps used and the number
             # of calls to the step() method (cf. implementation of evaluate_policy())
             # self.num_timesteps += batch_steps
+
+        callback.on_rollout_end()
 
         return candidate_returns
 
