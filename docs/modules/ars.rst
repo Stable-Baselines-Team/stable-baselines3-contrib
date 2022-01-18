@@ -12,13 +12,13 @@ parameters. It can be surprisingly effective compared to more sophisticated algo
 
 SB3s implementation allows for linear policies without bias or squashing function, it also allows for training MLP policies, which include linear policies with bias and squashing functions as a special case.
 
-Normally one wants to train ARS with several seeds to properly evaluate. If multiprocess performance is desired, we recommend using a single environment per agent, and training several seeds in parralel, see the replicating results section below for an example.
+Normally one wants to train ARS with several seeds to properly evaluate.
 
 .. warning::
 
   ARS multi-processing is different from the classic Stable-Baselines3 multi-processing: it runs n environments
   in parallel but asynchronously. This asynchronous multi-processing is considered experimental
-  and does not fully support callbacks: the ``on_step()`` event is called artifically after the evaluation episodes are over.
+  and does not fully support callbacks: the ``on_step()`` event is called artificially after the evaluation episodes are over.
 
 
 .. rubric:: Available Policies

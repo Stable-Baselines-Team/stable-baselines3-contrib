@@ -28,8 +28,8 @@ class ARS(BaseAlgorithm):
     150 LOC Numpy Implementation: https://github.com/alexis-jacq/numpy_ARS/blob/master/asr.py
 
     :param policy: The policy to train, can be an instance of ``ARSPolicy``, or a string from ["LinearPolicy", "MlpPolicy"]
-    :param env: The environment to train on, may be a string if registred with gym
-    :param n_delta: How many random pertubations of the policy to try at each update step.
+    :param env: The environment to train on, may be a string if registered with gym
+    :param n_delta: How many random perturbations of the policy to try at each update step.
     :param n_top: How many of the top delta to use in each update step. Default is n_delta
     :param learning_rate: Float or schedule for the step size
     :param delta_std: Float or schedule for the exploration noise
