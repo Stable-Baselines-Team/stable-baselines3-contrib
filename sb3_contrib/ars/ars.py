@@ -1,6 +1,7 @@
 import copy
 import time
 import warnings
+from functools import partial
 from typing import Any, Dict, Optional, Tuple, Type, Union
 
 import gym
@@ -121,35 +122,72 @@ class ARS(BaseAlgorithm):
             self.weights = th.zeros_like(self.weights, requires_grad=False)
             self.policy.load_from_vector(self.weights)
 
-    def _collect_rollouts(
+    def _mimic_monitor_wrapper(self, episode_rewards: List[float], episode_lengths: List[int]) -> None:
+        """
+        Helper to mimic Monitor wrapper and report episode statistics (mean reward, mean episode length).
+
+        :param episode_rewards: List containing per-episode rewards
+        :param episode_lengths:  List containing per-episode lengths (in number of steps)
+        """
+        # Mimic Monitor Wrapper
+        infos = [
+            {"episode": {"r": episode_reward, "l": episode_length}}
+            for episode_reward, episode_length in zip(episode_rewards, episode_lengths)
+        ]
+
+        self._update_info_buffer(infos)
+
+    def _trigger_callback(
+        self,
+        _locals: Dict[str, Any],
+        _globals: Dict[str, Any],
+        callback: BaseCallback,
+        n_envs: int,
+    ) -> None:
+        """
+        Callback passed to the ``evaluate_policy()`` helper
+        in order to increment the number of timesteps
+        and trigger events in the single process version.
+
+        :param _locals:
+        :param _globals:
+        :param callback: Callback that will be called at every step
+        :param n_envs: Number of environments
+        """
+        self.num_timesteps += n_envs
+        callback.on_step()
+
+    def evaluate_candidates(
         self, candidate_weights: th.Tensor, callback: BaseCallback, async_eval: Optional[AsyncEval]
-    ) -> Tuple[th.Tensor, int]:
+    ) -> th.Tensor:
+        """
+        Evaluate each candidate.
+
+        :param candidate_weights: The candidate weights to be evaluated.
+        :param callback: Callback that will be called at each step
+            (or after evaluation in the multiprocess version)
+        :param async_eval: The object for asynchronous evaluation of candidates.
+        :return: The episodic return for each candidate.
+        """
 
         batch_steps = 0
         candidate_returns = th.zeros(self.pop_size)  # returns == sum of rewards
         train_policy = copy.deepcopy(self.policy)
         self.ep_info_buffer = []
 
-        # Multiprocess version
         if async_eval is not None:
+            # Multiprocess asynchronous version
             async_eval.send_jobs(candidate_weights, self.pop_size)
             results = async_eval.get_results()
 
             for weights_idx, (episode_rewards, episode_lengths) in results:
 
-                # Check when using multiple episodes for evaluation
+                # Update reward to cancel out alive bonus if needed
                 candidate_returns[weights_idx] = sum(episode_rewards) + self.alive_bonus_offset * sum(episode_lengths)
-
                 batch_steps += np.sum(episode_lengths)
-                # Mimic Monitor Wrapper
-                infos = [
-                    {"episode": {"r": episode_reward, "l": episode_length}}
-                    for episode_reward, episode_length in zip(episode_rewards, episode_lengths)
-                ]
+                self._mimic_monitor_wrapper(episode_rewards, episode_lengths)
 
-                self._update_info_buffer(infos)
-
-            # Combine the filter stats for normalization
+            # Combine the filter stats of each process for normalization
             for worker_obs_rms in async_eval.get_obs_rms():
                 if self._vec_normalize_env is not None:
                     # worker_obs_rms.count -= self.old_count
@@ -160,7 +198,7 @@ class ARS(BaseAlgorithm):
                     self._vec_normalize_env.obs_rms.count -= self.old_count
 
             callback.on_rollout_end()
-            # Sync VecNormalize if needed
+            # Synchronise VecNormalize if needed
             if self._vec_normalize_env is not None:
                 async_eval.sync_obs_rms(self._vec_normalize_env.obs_rms.copy())
                 self.old_count = self._vec_normalize_env.obs_rms.count
@@ -170,39 +208,40 @@ class ARS(BaseAlgorithm):
                 self.num_timesteps += len(async_eval.remotes)
                 callback.on_step()
         else:
-            # Single process version
+            # Single process, synchronous version
             for weights_idx in range(self.pop_size):
 
                 callback.on_rollout_start()
+                # Load current candidate weights
                 train_policy.load_from_vector(candidate_weights[weights_idx])
-
+                # Evaluate the candidate
                 episode_rewards, episode_lengths = evaluate_policy(
                     train_policy,
                     self.env,
                     n_eval_episodes=self.n_eval_episodes,
                     return_episode_rewards=True,
-                    # TODO: increment num_timesteps too (doesn't work with multi envs)
-                    callback=lambda _locals, _globals: callback.on_step(),
+                    # Increment num_timesteps too (slight mismatch with multi envs)
+                    callback=partial(self._trigger_callback, callback=callback, n_envs=self.env.num_envs),
                     warn=False,
                 )
-
+                # Update reward to cancel out alive bonus if needed
                 candidate_returns[weights_idx] = sum(episode_rewards) + self.alive_bonus_offset * sum(episode_lengths)
                 batch_steps += sum(episode_lengths)
-
-                # Mimic Monitor Wrapper
-                infos = [
-                    {"episode": {"r": episode_reward, "l": episode_length}}
-                    for episode_reward, episode_length in zip(episode_rewards, episode_lengths)
-                ]
-
-                self._update_info_buffer(infos)
+                self._mimic_monitor_wrapper(episode_rewards, episode_lengths)
 
                 callback.on_rollout_end()
-            self.num_timesteps += batch_steps
+            # Note: we increment the num_timesteps inside the evaluate_policy()
+            # however when using multiple environments, there will be a slight
+            # mismatch between the number of timesteps used and the number
+            # of calls to the step() method (cf. implementation of evaluate_policy())
+            # self.num_timesteps += batch_steps
 
-        return candidate_returns, batch_steps
+        return candidate_returns
 
     def _log_and_dump(self) -> None:
+        """
+        Dump information to the logger.
+        """
         time_elapsed = time.time() - self.start_time
         fps = int((self.num_timesteps - self._num_timesteps_at_start) / (time_elapsed + 1e-8))
         if len(self.ep_info_buffer) > 0 and len(self.ep_info_buffer[0]) > 0:
@@ -214,6 +253,12 @@ class ARS(BaseAlgorithm):
         self.logger.dump(step=self.num_timesteps)
 
     def _do_one_update(self, callback: BaseCallback, async_eval: Optional[AsyncEval]) -> None:
+        """
+        Sample new candidates, evaluate them and then update current policy.
+
+        :param callback: callback(s) called at every step with state of the algorithm.
+        :param async_eval: The object for asynchronous evaluation of candidates.
+        """
         # Retrieve current parameter noise standard deviation
         # and current learning rate
         delta_std = self.delta_std_schedule(self._current_progress_remaining)
@@ -225,7 +270,7 @@ class ARS(BaseAlgorithm):
         candidate_weights = th.cat([self.weights + policy_deltas, self.weights - policy_deltas])
 
         with th.no_grad():
-            candidate_returns, batch_steps = self._collect_rollouts(candidate_weights, callback, async_eval)
+            candidate_returns = self.evaluate_candidates(candidate_weights, callback, async_eval)
 
         # Returns corresponding to weights + deltas
         plus_returns = candidate_returns[: self.n_delta]
