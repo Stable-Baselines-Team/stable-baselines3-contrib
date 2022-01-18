@@ -14,10 +14,10 @@ class ARSPolicy(BasePolicy):
 
     :param observation_space: The observation space of the environment
     :param action_space: The action space of the environment
-    :param net_arch: Network architecture, defaults to a linear policy with bias
+    :param net_arch: Network architecture, defaults to a 2 layers MLP with 64 hidden nodes.
     :param activation_fn: Activation function
     :param squash_output: For continuous actions, whether the output is squashed
-        or not using a ``tanh()`` function.
+        or not using a ``tanh()`` function. If not squashed with tanh the output will instead be clipped.
     """
 
     def __init__(
@@ -49,7 +49,7 @@ class ARSPolicy(BasePolicy):
         elif isinstance(action_space, gym.spaces.Discrete):
             actor_net = create_mlp(self.features_dim, action_space.n, net_arch, activation_fn)
         else:
-            raise NotImplementedError("Error: ARS policy not implemented for action space" f"of type {type(action_space)}.")
+            raise NotImplementedError(f"Error: ARS policy not implemented for action space of type {type(action_space)}.")
 
         self.action_net = nn.Sequential(*actor_net)
 
@@ -85,11 +85,9 @@ class ARSLinearPolicy(ARSPolicy):
 
     :param observation_space: The observation space of the environment
     :param action_space: The action space of the environment
-    :param net_arch: Network architecture, defaults to a linear policy with bias
-    :param activation_fn: Activation function
-    :param with_bias: With or without bias
+    :param with_bias: With or without bias on the output
     :param squash_output: For continuous actions, whether the output is squashed
-        or not using a ``tanh()`` function.
+        or not using a ``tanh()`` function. If not squashed with tanh the output will instead be clipped.
     """
 
     def __init__(

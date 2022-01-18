@@ -24,23 +24,23 @@ class ARS(BaseAlgorithm):
 
     Original implementation: https://github.com/modestyachts/ARS
     C++/Cuda Implementation: https://github.com/google-research/tiny-differentiable-simulator/
-    Numpy Implementation: https://github.com/alexis-jacq/numpy_ARS/blob/master/asr.py
+    150 LOC Numpy Implementation: https://github.com/alexis-jacq/numpy_ARS/blob/master/asr.py
 
-    :param policy: The policy to train, can be an instance of ARSPolicy, or a string
+    :param policy: The policy to train, can be an instance of ARSPolicy, or a string from ["LinearPolicy", "MlpPolicy"]
     :param env: The environment to train on, may be a string if registred with gym
     :param n_delta: How many random pertubations of the policy to try at each update step.
     :param n_top: How many of the top delta to use in each update step. Default is n_delta
     :param learning_rate: Float or schedule for the step size
     :param delta_std: Float or schedule for the exploration noise
-    :param zero_policy: Boolean determining if the passed policy should have it's weights zeroed before training, default True.
-    :param alive_bonus_offset: Constant added to the reward at each step, a value of -1 is used in the original paper
+    :param zero_policy: Boolean determining if the passed policy should have it's weights zeroed before training.
+    :param alive_bonus_offset: Constant added to the reward at each step, used to cancel out alive bonuses.
     :param n_eval_episodes: Number of episodes to evaluate each candidate.
     :param policy_kwargs: Keyword arguments to pass to the policy on creation
     :param policy_base: Base class to use for the policy
     :param tensorboard_log: String with the directory to put tensorboard logs:
     :param seed: Random seed for the training
     :param verbose: Verbosity level: 0 no output, 1 info, 2 debug
-    :param device: Torch device to use for training, defaults to "auto"
+    :param device: Torch device to use for training, defaults to "cpu"
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
 
