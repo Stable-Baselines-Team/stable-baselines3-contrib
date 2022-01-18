@@ -336,9 +336,11 @@ def test_save_load_policy(tmp_path, model_class, policy_str):
     if actor is not None:
         actor.save(tmp_path / "actor.pkl")
 
+    device = policy.device
+
     del policy, actor
 
-    policy = policy_class.load(tmp_path / "policy.pkl")
+    policy = policy_class.load(tmp_path / "policy.pkl").to(device)
     if actor_class is not None:
         actor = actor_class.load(tmp_path / "actor.pkl")
 

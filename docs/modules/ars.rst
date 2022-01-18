@@ -16,11 +16,6 @@ Normally one wants to train ARS with several seeds to properly evaluate. If mult
 
 .. warning::
 
-	ARS only support cpu training.
-
-
-.. warning::
-
   ARS multi-processing is different from the classic Stable-Baselines3 multi-processing: it runs n environments
   in parallel but asynchronously. This asynchronous multi-processing is considered experimental
   and does not fully support callbacks: the ``on_step()`` event is called artifically after the evaluation episodes are over.
@@ -121,12 +116,12 @@ Run the benchmark. The following code snippet trains 8 seeds in parallel
 
 .. code-block:: bash
 
-   for ENV_ID in Swimmer-v2 HalfCheetah-v2 Hopper-v2
+   for ENV_ID in Swimmer-v3 HalfCheetah-v3 Hopper-v3
    do
        for SEED_NUM in {1..8}
        do
            SEED=$RANDOM
-           python train.py --algo ars --env $ENV_ID --eval-episodes 10 --eval-freq 10000 --seed  $SEED &
+           python train.py --algo ars --env $ENV_ID --eval-episodes 10 --eval-freq 10000 -n 20000000 --seed  $SEED &
            sleep 1
        done
        wait
@@ -138,7 +133,6 @@ Plot the results:
 
   python scripts/all_plots.py -a ars -e HalfCheetah Swimmer Hopper -f logs/ -o logs/ars_results -max 20000000
   python scripts/plot_from_file.py -i logs/ars_results.pkl -l ARS
-
 
 
 
