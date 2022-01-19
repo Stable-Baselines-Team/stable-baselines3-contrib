@@ -4,7 +4,7 @@ Changelog
 ==========
 
 
-Release 1.4.0 (2021-10-23)
+Release 1.4.0 (2022-01-19)
 -------------------------------
 **Add Trust Region Policy Optimization (TRPO)  and Augmented Random Search (ARS) algorithms**
 
