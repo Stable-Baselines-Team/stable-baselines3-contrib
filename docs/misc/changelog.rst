@@ -4,14 +4,14 @@ Changelog
 ==========
 
 
-Release 1.3.1a9 (WIP)
+Release 1.4.0 (2021-10-23)
 -------------------------------
-**Add TRPO and ARS**
+**Add Trust Region Policy Optimization (TRPO)  and Augmented Random Search (ARS) algorithms**
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
 - Dropped python 3.6 support
-- Upgraded to Stable-Baselines3 >= 1.3.1a9
+- Upgraded to Stable-Baselines3 >= 1.4.0
 - ``MaskablePPO`` was updated to match latest SB3 ``PPO`` version (timeout handling and new method for the policy object)
 
 New Features:
