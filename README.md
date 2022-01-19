@@ -25,11 +25,12 @@ We hope this allows us to provide reliable implementations following stable-base
 See documentation for the full list of included features.
 
 **RL Algorithms**:
-- [Truncated Quantile Critics (TQC)](https://arxiv.org/abs/2005.04269)
+- [Augmented Random Search (ARS)](https://arxiv.org/abs/1803.07055)
 - [Quantile Regression DQN (QR-DQN)](https://arxiv.org/abs/1710.10044)
 - [PPO with invalid action masking (MaskablePPO)](https://arxiv.org/abs/2006.14171)
-- [Trust Region Policy Optimization (TRPO)](https://arxiv.org/abs/1502.05477)
 - [PPO with recurrent policy (RecurrentPPO)](https://arxiv.org/abs/1707.06347)
+- [Truncated Quantile Critics (TQC)](https://arxiv.org/abs/2005.04269)
+- [Trust Region Policy Optimization (TRPO)](https://arxiv.org/abs/1502.05477)
 
 **Gym Wrappers**:
 - [Time Feature Wrapper](https://arxiv.org/abs/1712.00378)

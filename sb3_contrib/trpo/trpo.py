@@ -206,8 +206,8 @@ class TRPO(OnPolicyAlgorithm):
                 policy_objective_grad, *_ = th.autograd.grad(policy_objective, param, retain_graph=True, only_inputs=True)
 
                 grad_shape.append(kl_param_grad.shape)
-                grad_kl.append(kl_param_grad.view(-1))
-                policy_objective_gradients.append(policy_objective_grad.view(-1))
+                grad_kl.append(kl_param_grad.reshape(-1))
+                policy_objective_gradients.append(policy_objective_grad.reshape(-1))
                 actor_params.append(param)
 
         # Gradients are concatenated before the conjugate gradient step
