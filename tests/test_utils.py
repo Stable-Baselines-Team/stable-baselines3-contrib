@@ -42,7 +42,7 @@ def test_cg():
 def test_flat_grad():
     n_parameters = 12  # 3 * (2 *  2)
     x = th.nn.Parameter(th.ones(2, 2, requires_grad=True))
-    y = (x ** 2).sum()
+    y = (x**2).sum()
     flat_grad_out = flat_grad(y, [x, x, x])
     assert len(flat_grad_out.shape) == 1
     # dy/dx = 2
