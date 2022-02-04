@@ -3,6 +3,25 @@
 Changelog
 ==========
 
+Release 1.4.1a0 (WIP)
+-------------------------------
+
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+
+New Features:
+^^^^^^^^^^^^^
+
+Bug Fixes:
+^^^^^^^^^^
+
+Deprecations:
+^^^^^^^^^^^^^
+- Switched minimum Gym version to 0.21.0.
+
+Others:
+^^^^^^^
 
 Release 1.4.0 (2022-01-19)
 -------------------------------
