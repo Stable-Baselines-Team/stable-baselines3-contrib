@@ -32,7 +32,7 @@ def check_time_feature(obs, timestep, max_timesteps):
 
 
 def test_time_feature():
-    env = gym.make("Pendulum-v0")
+    env = gym.make("Pendulum-v1")
     env = TimeFeatureWrapper(env)
     check_env(env, warn=False)
     # Check for four episodes
@@ -58,7 +58,7 @@ def test_time_feature():
     check_time_feature(obs["observation"], timestep=1, max_timesteps=500)
 
     # In test mode, the time feature must be constant
-    env = gym.make("Pendulum-v0")
+    env = gym.make("Pendulum-v1")
     env = TimeFeatureWrapper(env, test_mode=True)
     obs = env.reset()
     check_time_feature(obs, timestep=0, max_timesteps=200)

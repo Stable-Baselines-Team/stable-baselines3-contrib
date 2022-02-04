@@ -12,7 +12,7 @@ Train a Truncated Quantile Critics (TQC) agent on the Pendulum environment.
 
   from sb3_contrib import TQC
 
-  model = TQC("MlpPolicy", "Pendulum-v0", top_quantiles_to_drop_per_net=2, verbose=1)
+  model = TQC("MlpPolicy", "Pendulum-v1", top_quantiles_to_drop_per_net=2, verbose=1)
   model.learn(total_timesteps=10_000, log_interval=4)
   model.save("tqc_pendulum")
 
@@ -54,7 +54,7 @@ Train a Trust Region Policy Optimization (TRPO) agent on the Pendulum environmen
 
   from sb3_contrib import TRPO
 
-  model = TRPO("MlpPolicy", "Pendulum-v0", gamma=0.9, verbose=1)
+  model = TRPO("MlpPolicy", "Pendulum-v1", gamma=0.9, verbose=1)
   model.learn(total_timesteps=100_000, log_interval=4)
   model.save("trpo_pendulum")
 
@@ -68,6 +68,6 @@ Train an agent using Augmented Random Search (ARS) agent on the Pendulum environ
 
    from sb3_contrib import ARS
 
-   model = ARS("LinearPolicy", "Pendulum-v0", verbose=1)
+   model = ARS("LinearPolicy", "Pendulum-v1", verbose=1)
    model.learn(total_timesteps=10000, log_interval=4)
    model.save("ars_pendulum")
