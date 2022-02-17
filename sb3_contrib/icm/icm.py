@@ -188,8 +188,8 @@ class ICM(Surgeon):
         new_actor_loss = (
             self.actor_loss_coef * actor_loss + self.inverse_loss_coef * inverse_loss + self.forward_loss_coef * forward_loss
         )
-        self.logger.record("ICM/forward_loss", forward_loss.item())
-        self.logger.record("ICM/inverse_loss", inverse_loss.item())
+        self.logger.record("ICM/loss_forward", forward_loss.item())
+        self.logger.record("ICM/loss_inverse", inverse_loss.item())
         return new_actor_loss
 
     def modify_reward(self, replay_data: ReplayBufferSamples) -> ReplayBufferSamples:
@@ -207,4 +207,6 @@ class ICM(Surgeon):
         new_replay_data = ReplayBufferSamples(
             replay_data.observations, replay_data.actions, replay_data.next_observations, replay_data.dones, new_rewards
         )
+        self.logger.record("ICM/rew_intr_mean", intrinsic_reward.mean().item())
+        self.logger.record("ICM/rew_extr_mean", replay_data.rewards.mean().item())
         return new_replay_data
