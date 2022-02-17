@@ -44,7 +44,7 @@ class InverseModel(nn.Module):
         # If the list of layers is empty, the network will just act as an Identity module
         self.net = nn.Sequential(*layers).to(device)
 
-    def forward(self, obs_feature, next_obs_feature):
+    def forward(self, obs_feature: th.Tensor, next_obs_feature: th.Tensor) -> th.Tensor:
         x = th.concat((obs_feature, next_obs_feature), dim=-1)
         action = self.net(x)
         return action
