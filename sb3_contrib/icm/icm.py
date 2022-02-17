@@ -3,7 +3,7 @@ from typing import Iterator, List, Optional, Type, Union
 
 import torch as th
 import torch.nn.functional as F
-from stable_baselines3.common.surgeon import ActorLossModifier, RewardModifier
+from stable_baselines3.common.surgeon import Surgeon
 from stable_baselines3.common.type_aliases import ReplayBufferSamples
 from stable_baselines3.common.utils import get_device
 from torch import nn
@@ -129,7 +129,7 @@ class FeatureExtractor(nn.Module):
         return obs_feature
 
 
-class ICM(ActorLossModifier, RewardModifier):
+class ICM(Surgeon):
     def __init__(
         self,
         scaling_factor: float,
@@ -143,7 +143,8 @@ class ICM(ActorLossModifier, RewardModifier):
         activation_fn: Type[nn.Module] = nn.ReLU,
         device: Union[th.device, str] = "auto",
     ):
-        """Intrinsic curiosity module.
+        """
+        Intrinsic curiosity module.
 
         :param scaling_factor: Scalar weights the intrinsic motivation
         :param actor_loss_coef: Coef for the actor loss in the loss computation
@@ -171,9 +172,11 @@ class ICM(ActorLossModifier, RewardModifier):
     def parameters(self) -> Iterator[Parameter]:
         return chain(self.forward_model.parameters(), self.inverse_model.parameters(), self.feature_extractor.parameters())
 
-    def modify_loss(self, actor_loss: th.Tensor, replay_data: ReplayBufferSamples) -> th.Tensor:
-        obs_feature = self.feature_extractor(replay_data.observations)
-        next_obs_feature = self.feature_extractor(replay_data.next_observations)
+    def modify_actor_loss(self, actor_loss: th.Tensor, replay_data: ReplayBufferSamples) -> th.Tensor:
+        obs = replay_data.observations.to(th.float32)
+        next_obs = replay_data.next_observations.to(th.float32)
+        obs_feature = self.feature_extractor(obs)
+        next_obs_feature = self.feature_extractor(next_obs)
         pred_action = self.inverse_model(obs_feature, next_obs_feature)
         pred_next_obs_feature = self.forward_model(replay_data.actions, obs_feature)
         # equation (5) of the original paper
@@ -185,12 +188,17 @@ class ICM(ActorLossModifier, RewardModifier):
         new_actor_loss = (
             self.actor_loss_coef * actor_loss + self.inverse_loss_coef * inverse_loss + self.forward_loss_coef * forward_loss
         )
+        self.logger.record("ICM/forward_loss", forward_loss.item())
+        self.logger.record("ICM/inverse_loss", inverse_loss.item())
         return new_actor_loss
 
     def modify_reward(self, replay_data: ReplayBufferSamples) -> ReplayBufferSamples:
-        obs_feature = self.feature_extractor(replay_data.observations.to(th.float32))
-        next_obs_feature = self.feature_extractor(replay_data.next_observations.to(th.float32))
-        pred_next_obs_feature = self.forward_model(replay_data.actions.to(th.float32), obs_feature)
+        obs = replay_data.observations.to(th.float32)
+        next_obs = replay_data.next_observations.to(th.float32)
+        action = replay_data.actions.to(th.float32)
+        obs_feature = self.feature_extractor(obs)
+        next_obs_feature = self.feature_extractor(next_obs)
+        pred_next_obs_feature = self.forward_model(action, obs_feature)
         # Equation (6) of the original paper
         # r^i = η/2*||φˆ(st+1)−φ(st+1)||
         pred_error = th.linalg.norm(pred_next_obs_feature - next_obs_feature, dim=1)
