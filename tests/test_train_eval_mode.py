@@ -161,7 +161,7 @@ def test_qrdqn_train_with_batch_norm():
 def test_tqc_train_with_batch_norm():
     model = TQC(
         "MlpPolicy",
-        "Pendulum-v0",
+        "Pendulum-v1",
         policy_kwargs=dict(net_arch=[16, 16], features_extractor_class=FlattenBatchNormDropoutExtractor),
         learning_starts=0,
         tau=0,  # do not copy the target
@@ -203,7 +203,7 @@ def test_offpolicy_collect_rollout_batch_norm(model_class):
     if model_class in [QRDQN]:
         env_id = "CartPole-v1"
     else:
-        env_id = "Pendulum-v0"
+        env_id = "Pendulum-v1"
 
     clone_helper = CLONE_HELPERS[model_class]
 
@@ -230,7 +230,7 @@ def test_offpolicy_collect_rollout_batch_norm(model_class):
 
 
 @pytest.mark.parametrize("model_class", [QRDQN, TQC])
-@pytest.mark.parametrize("env_id", ["Pendulum-v0", "CartPole-v1"])
+@pytest.mark.parametrize("env_id", ["Pendulum-v1", "CartPole-v1"])
 def test_predict_with_dropout_batch_norm(model_class, env_id):
     if env_id == "CartPole-v1":
         if model_class in [TQC]:

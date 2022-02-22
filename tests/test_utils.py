@@ -42,7 +42,7 @@ def test_cg():
 def test_flat_grad():
     n_parameters = 12  # 3 * (2 *  2)
     x = th.nn.Parameter(th.ones(2, 2, requires_grad=True))
-    y = (x ** 2).sum()
+    y = (x**2).sum()
     flat_grad_out = flat_grad(y, [x, x, x])
     assert len(flat_grad_out.shape) == 1
     # dy/dx = 2
@@ -55,10 +55,10 @@ def test_trpo_warnings():
 
     # Only 1 step: advantage normalization will return NaN
     with pytest.raises(AssertionError):
-        TRPO("MlpPolicy", "Pendulum-v0", n_steps=1)
+        TRPO("MlpPolicy", "Pendulum-v1", n_steps=1)
     # One step not advantage normalization: ok
-    TRPO("MlpPolicy", "Pendulum-v0", n_steps=1, normalize_advantage=False, batch_size=1)
+    TRPO("MlpPolicy", "Pendulum-v1", n_steps=1, normalize_advantage=False, batch_size=1)
 
     # Truncated mini-batch
     with pytest.warns(UserWarning):
-        TRPO("MlpPolicy", "Pendulum-v0", n_steps=6, batch_size=8)
+        TRPO("MlpPolicy", "Pendulum-v1", n_steps=6, batch_size=8)

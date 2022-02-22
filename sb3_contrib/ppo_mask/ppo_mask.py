@@ -317,7 +317,7 @@ class MaskablePPO(OnPolicyAlgorithm):
                 if use_masking:
                     action_masks = get_action_masks(env)
 
-                actions, values, log_probs = self.policy.forward(obs_tensor, action_masks=action_masks)
+                actions, values, log_probs = self.policy(obs_tensor, action_masks=action_masks)
 
             actions = actions.cpu().numpy()
             new_obs, rewards, dones, infos = env.step(actions)

@@ -3,12 +3,16 @@
 Changelog
 ==========
 
-Release 1.4.1a0 (WIP)
+Release 1.4.1a1 (WIP)
 -------------------------------
+
 **Add Recurrent PPO**
+
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
+- Switched minimum Gym version to 0.21.0.
+- Upgraded to Stable-Baselines3 >= 1.4.1a1
 
 New Features:
 ^^^^^^^^^^^^^
@@ -16,6 +20,7 @@ New Features:
 
 Bug Fixes:
 ^^^^^^^^^^
+- Removed explict calls to ``forward()`` method as per pytorch guidelines
 
 Deprecations:
 ^^^^^^^^^^^^^
@@ -25,7 +30,6 @@ Others:
 
 Documentation:
 ^^^^^^^^^^^^^^
-
 
 Release 1.4.0 (2022-01-19)
 -------------------------------

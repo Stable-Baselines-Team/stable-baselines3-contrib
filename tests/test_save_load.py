@@ -447,7 +447,7 @@ def test_save_load_q_net(tmp_path, model_class, policy_str):
 
 
 def test_save_load_pytorch_var(tmp_path):
-    model = TQC("MlpPolicy", "Pendulum-v0", seed=3, policy_kwargs=dict(net_arch=[64], n_critics=1))
+    model = TQC("MlpPolicy", "Pendulum-v1", seed=3, policy_kwargs=dict(net_arch=[64], n_critics=1))
     model.learn(200)
     save_path = str(tmp_path / "tqc_pendulum")
     model.save(save_path)
@@ -464,7 +464,7 @@ def test_save_load_pytorch_var(tmp_path):
     assert not th.allclose(log_ent_coef_before, log_ent_coef_after)
 
     # With a fixed entropy coef
-    model = TQC("MlpPolicy", "Pendulum-v0", seed=3, ent_coef=0.01, policy_kwargs=dict(net_arch=[64], n_critics=1))
+    model = TQC("MlpPolicy", "Pendulum-v1", seed=3, ent_coef=0.01, policy_kwargs=dict(net_arch=[64], n_critics=1))
     model.learn(200)
     save_path = str(tmp_path / "tqc_pendulum")
     model.save(save_path)

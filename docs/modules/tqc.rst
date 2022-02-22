@@ -57,7 +57,7 @@ Example
 
   from sb3_contrib import TQC
 
-  env = gym.make("Pendulum-v0")
+  env = gym.make("Pendulum-v1")
 
   policy_kwargs = dict(n_critics=2, n_quantiles=25)
   model = TQC("MlpPolicy", env, top_quantiles_to_drop_per_net=2, verbose=1, policy_kwargs=policy_kwargs)
