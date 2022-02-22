@@ -4,8 +4,8 @@ from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecNormalize
 
 from sb3_contrib import ARS, QRDQN, TQC, TRPO, MaskablePPO
-from sb3_contrib.common.vec_env import AsyncEval
 from sb3_contrib.common.envs import InvalidActionEnvDiscrete
+from sb3_contrib.common.vec_env import AsyncEval
 
 
 @pytest.mark.parametrize("ent_coef", ["auto", 0.01, "auto_0.01"])
