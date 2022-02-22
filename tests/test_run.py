@@ -3,7 +3,7 @@ import pytest
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecNormalize
 
-from sb3_contrib import ARS, QRDQN, TQC, TRPO
+from sb3_contrib import ARS, QRDQN, TQC, TRPO, MaskablePPO
 from sb3_contrib.common.vec_env import AsyncEval
 
 
@@ -142,3 +142,9 @@ def test_offpolicy_multi_env(model_class):
         train_freq=5,
     )
     model.learn(total_timesteps=150)
+
+
+@pytest.mark.parametrize("normalize_advantage", [False, True])
+def test_advantage_normalization(model_class, normalize_advantage):
+    model = MaskablePPO("MlpPolicy", "CartPole-v1", n_steps=64, normalize_advantage=normalize_advantage)
+    model.learn(64)
