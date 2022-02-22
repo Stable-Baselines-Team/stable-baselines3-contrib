@@ -1,8 +1,13 @@
-from typing import Union
+from typing import Dict, Tuple, Union
+
 import gym
-from gym import spaces
 import numpy as np
 import pygame
+from gym import spaces
+
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
+RED = (255, 0, 0)
 
 
 def get_intersect(A: np.ndarray, B: np.ndarray, C: np.ndarray, D: np.ndarray) -> Union[bool, np.ndarray]:
@@ -31,52 +36,117 @@ def get_intersect(A: np.ndarray, B: np.ndarray, C: np.ndarray, D: np.ndarray) ->
             return np.array([xi, yi])
 
 
-def to_pix(x, y):
-    return x * 20 + 250, -y * 20 + 250
+def to_pix(X: np.ndarray) -> np.ndarray:
+    return X * np.array([1, -1]) * 20 + 250
 
 
-class MyMaze(object):
+class MyMaze(gym.Env):
     """My custom maze."""
 
     action_space = spaces.Box(-1, 1, (2,))
     observation_space = spaces.Box(-10, 10, (2,))
 
     walls = [
-        [np.array([-3, 3]), np.array([3, 3])],
-        [np.array([3, 3]), np.array([3, -3])],
-        [np.array([3, -3]), np.array([-3, -3])],
-        [np.array([-3, -3]), np.array([-3, 3])],
-        [np.array([-3, 1]), np.array([1, 1])],
-        [np.array([-1, -1]), np.array([3, -1])],
+        [[-12, -12], [-12, 12]],
+        [[-10, 8], [-10, 10]],
+        [[-10, 0], [-10, 6]],
+        [[-10, -4], [-10, -2]],
+        [[-10, -10], [-10, -6]],
+        [[-8, 4], [-8, 8]],
+        [[-8, -4], [-8, 0]],
+        [[-8, -8], [-8, -6]],
+        [[-6, 8], [-6, 10]],
+        [[-6, 4], [-6, 6]],
+        [[-6, 0], [-6, 2]],
+        [[-6, -6], [-6, -4]],
+        [[-4, 2], [-4, 8]],
+        [[-4, -2], [-4, 0]],
+        [[-4, -10], [-4, -6]],
+        [[-2, 8], [-2, 12]],
+        [[-2, 2], [-2, 6]],
+        [[-2, -4], [-2, -2]],
+        [[0, 6], [0, 12]],
+        [[0, 2], [0, 4]],
+        [[0, -8], [0, -6]],
+        [[2, 8], [2, 10]],
+        [[2, -8], [2, 6]],
+        [[4, 10], [4, 12]],
+        [[4, 4], [4, 6]],
+        [[4, 0], [4, 2]],
+        [[4, -6], [4, -2]],
+        [[4, -10], [4, -8]],
+        [[6, 10], [6, 12]],
+        [[6, 6], [6, 8]],
+        [[6, 0], [6, 2]],
+        [[6, -8], [6, -6]],
+        [[8, 10], [8, 12]],
+        [[8, 4], [8, 6]],
+        [[8, -4], [8, 2]],
+        [[8, -10], [8, -8]],
+        [[10, 10], [10, 12]],
+        [[10, 4], [10, 8]],
+        [[10, -2], [10, 0]],
+        [[12, -12], [12, 12]],
+        [[-12, 12], [12, 12]],
+        [[-12, 10], [-10, 10]],
+        [[-8, 10], [-6, 10]],
+        [[-4, 10], [-2, 10]],
+        [[2, 10], [4, 10]],
+        [[-8, 8], [-2, 8]],
+        [[2, 8], [8, 8]],
+        [[-10, 6], [-8, 6]],
+        [[-6, 6], [-2, 6]],
+        [[6, 6], [8, 6]],
+        [[0, 4], [6, 4]],
+        [[-10, 2], [-6, 2]],
+        [[-2, 2], [0, 2]],
+        [[8, 2], [10, 2]],
+        [[-4, 0], [-2, 0]],
+        [[2, 0], [4, 0]],
+        [[6, 0], [8, 0]],
+        [[-6, -2], [2, -2]],
+        [[4, -2], [10, -2]],
+        [[-12, -4], [-8, -4]],
+        [[-4, -4], [-2, -4]],
+        [[0, -4], [6, -4]],
+        [[8, -4], [10, -4]],
+        [[-8, -6], [-6, -6]],
+        [[-2, -6], [0, -6]],
+        [[6, -6], [10, -6]],
+        [[-12, -8], [-6, -8]],
+        [[-2, -8], [2, -8]],
+        [[4, -8], [6, -8]],
+        [[8, -8], [10, -8]],
+        [[-10, -10], [-8, -10]],
+        [[-4, -10], [4, -10]],
+        [[-12, -12], [12, -12]],
     ]
 
     def __init__(self) -> None:
         self.win = None
 
-    def step(self, action):
+    def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, Dict]:
         new_pos = self.pos + action
         for wall in self.walls:
             intersection = get_intersect(wall[0], wall[1], self.pos, new_pos)
             if intersection is not False:
-                print("intersection!", intersection)
-                new_pos = 0.9 * intersection + 0.1 * self.pos
+                new_pos = self.pos
         self.pos = new_pos
+        self.render()
         return self.pos.copy(), 0.0, False, {}
 
-    def reset(self):
+    def reset(self) -> np.ndarray:
         self.pos = np.zeros(2)
+        return self.pos.copy()
 
-    def render(self, mode="human"):
+    def render(self, mode="human") -> None:
         if self.win is None:
             pygame.init()
             self.win = pygame.display.set_mode((500, 500))
-        black = (0, 0, 0)
-        red = (255, 0, 0)
-        # self.win.fill(black)
+            self.win.fill(BLACK)
+        center = to_pix(self.pos)
+        pygame.draw.circle(self.win, RED, center, radius=1)
         for wall in self.walls:
-            start_pos, end_pos = to_pix(*wall[0]), to_pix(*wall[1])
-            pygame.draw.line(self.win, red, start_pos, end_pos)
-        x, y = to_pix(*self.pos)
-        pygame.draw.circle(self.win, red, (x, y), 2)
+            start_pos, end_pos = to_pix(wall[0]), to_pix(wall[1])
+            pygame.draw.line(self.win, WHITE, start_pos, end_pos, width=3)
         pygame.display.update()
-        pygame.time.delay(50)
