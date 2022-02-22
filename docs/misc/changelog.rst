@@ -3,6 +3,27 @@
 Changelog
 ==========
 
+Release 1.4.1a1 (WIP)
+-------------------------------
+
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Switched minimum Gym version to 0.21.0.
+- Upgraded to Stable-Baselines3 >= 1.4.1a1
+
+New Features:
+^^^^^^^^^^^^^
+
+Bug Fixes:
+^^^^^^^^^^
+- Removed explict calls to ``forward()`` method as per pytorch guidelines
+
+Deprecations:
+^^^^^^^^^^^^^
+
+Others:
+^^^^^^^
 
 Release 1.4.0 (2022-01-19)
 -------------------------------

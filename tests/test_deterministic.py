@@ -17,7 +17,7 @@ def test_deterministic_training_common(algo):
     rewards = [[], []]
     # Smaller network
     kwargs = {"policy_kwargs": dict(net_arch=[64])}
-    env_id = "Pendulum-v0"
+    env_id = "Pendulum-v1"
     if algo == ARS_MULTI:
         algo = ARS
         ars_multi = True

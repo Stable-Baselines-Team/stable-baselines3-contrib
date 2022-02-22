@@ -54,7 +54,7 @@ Example
 
   from sb3_contrib import TRPO
 
-  env = gym.make("Pendulum-v0")
+  env = gym.make("Pendulum-v1")
 
   model = TRPO("MlpPolicy", env, verbose=1)
   model.learn(total_timesteps=10000, log_interval=4)

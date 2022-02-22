@@ -69,7 +69,7 @@ class QuantileNetwork(BasePolicy):
         return quantiles.view(-1, self.n_quantiles, self.action_space.n)
 
     def _predict(self, observation: th.Tensor, deterministic: bool = True) -> th.Tensor:
-        q_values = self.forward(observation).mean(dim=1)
+        q_values = self(observation).mean(dim=1)
         # Greedy action
         action = q_values.argmax(dim=1).reshape(-1)
         return action
