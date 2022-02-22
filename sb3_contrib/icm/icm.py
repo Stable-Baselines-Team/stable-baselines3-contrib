@@ -32,16 +32,16 @@ class InverseModel(nn.Module):
         super().__init__()
         device = get_device(device)
         layers = []
-        last_layer_dim = feature_dim + feature_dim
-        net_arch.append(action_dim)
+        previous_layer_dim = feature_dim + feature_dim
+
         # Iterate through the shared layers and build the shared parts of the network
         for layer_dim in net_arch:
-            layers.append(nn.Linear(last_layer_dim, layer_dim))  # add linear of size layer
+            layers.append(nn.Linear(previous_layer_dim, layer_dim))  # add linear of size layer
             layers.append(activation_fn())
-            last_layer_dim = layer_dim
+            previous_layer_dim = layer_dim
+        layers.append(nn.Linear(previous_layer_dim, action_dim))
 
-        # Create networks
-        # If the list of layers is empty, the network will just act as an Identity module
+        # Create network
         self.net = nn.Sequential(*layers).to(device)
 
     def forward(self, obs_feature: th.Tensor, next_obs_feature: th.Tensor) -> th.Tensor:
@@ -72,16 +72,15 @@ class ForwardModel(nn.Module):
         super().__init__()
         device = get_device(device)
         layers = []
-        last_layer_dim = feature_dim + action_dim
-        net_arch.append(feature_dim)
+        previous_layer_dim = feature_dim + action_dim
         # Iterate through the shared layers and build the shared parts of the network
         for layer_dim in net_arch:
-            layers.append(nn.Linear(last_layer_dim, layer_dim))  # add linear of size layer
+            layers.append(nn.Linear(previous_layer_dim, layer_dim))  # add linear of size layer
             layers.append(activation_fn())
-            last_layer_dim = layer_dim
+            previous_layer_dim = layer_dim
+        layers.append(nn.Linear(previous_layer_dim, feature_dim))
 
-        # Create networks
-        # If the list of layers is empty, the network will just act as an Identity module
+        # Create network
         self.net = nn.Sequential(*layers).to(device)
 
     def forward(self, action: th.Tensor, obs_feature: th.Tensor) -> th.Tensor:
@@ -112,16 +111,15 @@ class FeatureExtractor(nn.Module):
         super().__init__()
         device = get_device(device)
         layers = []
-        last_layer_dim = obs_dim
-        net_arch.append(feature_dim)
+        previous_layer_dim = obs_dim
         # Iterate through the shared layers and build the shared parts of the network
         for layer_dim in net_arch:
-            layers.append(nn.Linear(last_layer_dim, layer_dim))  # add linear of size layer
+            layers.append(nn.Linear(previous_layer_dim, layer_dim))  # add linear of size layer
             layers.append(activation_fn())
-            last_layer_dim = layer_dim
+            previous_layer_dim = layer_dim
+        layers.append(nn.Linear(previous_layer_dim, feature_dim))
 
-        # Create networks
-        # If the list of layers is empty, the network will just act as an Identity module
+        # Create network
         self.net = nn.Sequential(*layers).to(device)
 
     def forward(self, obs: th.Tensor) -> th.Tensor:

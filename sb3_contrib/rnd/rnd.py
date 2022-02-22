@@ -30,16 +30,15 @@ class Network(nn.Module):
         super().__init__()
         device = get_device(device)
         layers = []
-        last_layer_dim = obs_dim
-        net_arch.append(out_dim)
+        previous_layer_dim = obs_dim
         # Iterate through the shared layers and build the shared parts of the network
         for layer_dim in net_arch:
-            layers.append(nn.Linear(last_layer_dim, layer_dim))  # add linear of size layer
+            layers.append(nn.Linear(previous_layer_dim, layer_dim))  # add linear of size layer
             layers.append(activation_fn())
-            last_layer_dim = layer_dim
+            previous_layer_dim = layer_dim
+        layers.append(nn.Linear(previous_layer_dim, out_dim))
 
-        # Create networks
-        # If the list of layers is empty, the network will just act as an Identity module
+        # Create network
         self.net = nn.Sequential(*layers).to(device)
 
     def forward(self, obs: th.Tensor) -> th.Tensor:
@@ -107,7 +106,7 @@ class RND(Surgeon):
             self.train_once()
         return True
 
-    def train_once(self):
+    def train_once(self) -> None:
         for _ in range(self.gradient_steps):
             try:
                 batch = self.model.replay_buffer.sample(self.batch_size)
