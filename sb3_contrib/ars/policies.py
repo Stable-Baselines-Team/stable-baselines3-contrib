@@ -76,7 +76,7 @@ class ARSPolicy(BasePolicy):
 
     def _predict(self, observation: th.Tensor, deterministic: bool = True) -> th.Tensor:
         # Non deterministic action does not really make sense for ARS, we ignore this parameter for now..
-        return self.forward(observation)
+        return self(observation)
 
 
 class ARSLinearPolicy(ARSPolicy):

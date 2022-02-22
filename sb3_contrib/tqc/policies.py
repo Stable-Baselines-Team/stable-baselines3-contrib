@@ -181,7 +181,7 @@ class Actor(BasePolicy):
         return self.action_dist.log_prob_from_params(mean_actions, log_std, **kwargs)
 
     def _predict(self, observation: th.Tensor, deterministic: bool = False) -> th.Tensor:
-        return self.forward(observation, deterministic)
+        return self(observation, deterministic)
 
 
 class Critic(BaseModel):
