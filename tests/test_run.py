@@ -145,6 +145,6 @@ def test_offpolicy_multi_env(model_class):
 
 
 @pytest.mark.parametrize("normalize_advantage", [False, True])
-def test_advantage_normalization(model_class, normalize_advantage):
+def test_advantage_normalization(normalize_advantage):
     model = MaskablePPO("MlpPolicy", "CartPole-v1", n_steps=64, normalize_advantage=normalize_advantage)
     model.learn(64)
