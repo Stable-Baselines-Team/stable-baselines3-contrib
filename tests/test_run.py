@@ -5,6 +5,7 @@ from stable_baselines3.common.vec_env import VecNormalize
 
 from sb3_contrib import ARS, QRDQN, TQC, TRPO, MaskablePPO
 from sb3_contrib.common.vec_env import AsyncEval
+from sb3_contrib.common.envs import InvalidActionEnvDiscrete
 
 
 @pytest.mark.parametrize("ent_coef", ["auto", 0.01, "auto_0.01"])
@@ -146,5 +147,6 @@ def test_offpolicy_multi_env(model_class):
 
 @pytest.mark.parametrize("normalize_advantage", [False, True])
 def test_advantage_normalization(normalize_advantage):
-    model = MaskablePPO("MlpPolicy", "CartPole-v1", n_steps=64, normalize_advantage=normalize_advantage)
+    env = InvalidActionEnvDiscrete(dim=80, n_invalid_actions=60)
+    model = MaskablePPO("MlpPolicy", env, n_steps=64, normalize_advantage=normalize_advantage)
     model.learn(64)
