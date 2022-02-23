@@ -80,7 +80,7 @@ def test_policy_kwargs(policy_kwargs):
     model.learn(total_timesteps=32)
 
 
-@pytest.mark.parametrize("env", ["Pendulum-v0", "CartPole-v1"])
+@pytest.mark.parametrize("env", ["Pendulum-v1", "CartPole-v1"])
 def test_run(env):
     model = RecurrentPPO(
         "MlpLstmPolicy",
@@ -96,7 +96,7 @@ def test_run(env):
 def test_run_sde():
     model = RecurrentPPO(
         "MlpLstmPolicy",
-        "Pendulum-v0",
+        "Pendulum-v1",
         n_steps=16,
         seed=0,
         create_eval_env=True,
