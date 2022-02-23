@@ -6,6 +6,7 @@ from gym.envs.classic_control import CartPoleEnv
 from gym.wrappers.time_limit import TimeLimit
 from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.envs import FakeImageEnv
 from stable_baselines3.common.evaluation import evaluate_policy
 
 from sb3_contrib import RecurrentPPO
@@ -58,7 +59,7 @@ class CartPoleNoVelEnv(CartPoleEnv):
 def test_cnn():
     model = RecurrentPPO(
         "CnnLstmPolicy",
-        "Breakout-v0",
+        FakeImageEnv(screen_height=40, screen_width=40, n_channels=3),
         n_steps=16,
         seed=0,
         policy_kwargs=dict(features_extractor_kwargs=dict(features_dim=32)),
