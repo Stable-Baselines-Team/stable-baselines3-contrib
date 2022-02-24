@@ -30,6 +30,11 @@ See documentation for the full list of included features.
 - [PPO with invalid action masking (MaskablePPO)](https://arxiv.org/abs/2006.14171)
 - [Trust Region Policy Optimization (TRPO)](https://arxiv.org/abs/1502.05477)
 - [Augmented Random Search (ARS)](https://arxiv.org/abs/1803.07055)
+- [Dversity Is All You Need (DIAYN)](https://arxiv.org/abs/1802.06070)
+- [Intrinsic Curiosity Module (ICM)](https://arxiv.org/abs/1705.05363)
+- [Random Network Distillation (RND)](https://arxiv.org/abs/1810.12894)
+- [Skew-Fit](https://arxiv.org/abs/1903.03698)
+- [Variational Information Maximizing Exploration (VIME)](https://arxiv.org/abs/1605.09674)
 
 **Gym Wrappers**:
 - [Time Feature Wrapper](https://arxiv.org/abs/1712.00378)
