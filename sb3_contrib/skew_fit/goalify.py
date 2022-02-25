@@ -40,19 +40,15 @@ class Goalify(gym.GoalEnv, gym.Wrapper):
 
     :param env: The environment
     :param nb_models: Number of mixed gaussian models used to model goal distribution, defaults to 100
-    :param distance_threshold: Success if euclidan distance between desired and achived
-        goal is less than distance threshold
     :param gradient_steps: How many MLE gradient steps during reset
     :param batch_size: Minibatch size for each gradient update
+    :param learning_rate: Learning rate for Adam optimizer
+    :param power:
+    :param num_presampled_goals: Number of samples used when using Sample Importance Resampling, defaults to 10
+    :param distance_threshold: Success if euclidan distance between desired and achived
+        goal is less than distance threshold
     :param weights: Weights applied before the distance computation. If a dimension is not relevant,
         set its weight to 0.0.
-    :param learning_rate: Learning rate for Adam optimizer
-
-    :param num_presampled_goals: Number of samples used when using Sample Importance Resampling, defaults to 10
-    :param dist_learner_train_freq: Update the learned distribution every ``train_freq`` addings.
-
-
-
     """
 
     def __init__(
@@ -61,6 +57,7 @@ class Goalify(gym.GoalEnv, gym.Wrapper):
         nb_models: int = 100,
         gradient_steps: int = 100,
         batch_size: int = 2048,
+        learning_rate: float = 0.01,
         power: float = -1,
         num_presampled_goals: int = 500,
         distance_threshold: float = 0.5,
@@ -90,7 +87,7 @@ class Goalify(gym.GoalEnv, gym.Wrapper):
         self.probs = th.rand(nb_models, requires_grad=True)
         self.locs = th.rand((nb_models, obs_dim), requires_grad=True)
         self.scales = th.rand((nb_models, obs_dim), requires_grad=True)
-        self.distribution_optimizer = optim.Adam([self.locs, self.probs, self.scales], lr=0.01)
+        self.distribution_optimizer = optim.Adam([self.locs, self.probs, self.scales], lr=learning_rate)
         # Parameters for goal sampling
         self.power = power
         self.num_presampled_goals = num_presampled_goals
