@@ -81,7 +81,6 @@ class Goalify(gym.GoalEnv, gym.Wrapper):
         # It has to be set after the model creation
         self.buffer = None  # type: DictReplayBuffer
         # Parameters for distribution model
-        nb_models = nb_models
         self.gradient_steps = gradient_steps
         self.batch_size = batch_size
         self.probs = th.rand(nb_models, requires_grad=True)
