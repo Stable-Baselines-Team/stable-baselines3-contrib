@@ -35,6 +35,8 @@ See documentation for the full list of included features.
 - [Random Network Distillation (RND)](https://arxiv.org/abs/1810.12894)
 - [Skew-Fit](https://arxiv.org/abs/1903.03698)
 - [Variational Information Maximizing Exploration (VIME)](https://arxiv.org/abs/1605.09674)
+- [Go-Explore](https://arxiv.org/abs/2004.12919)
+- Silver (my current work)
 
 **Gym Wrappers**:
 - [Time Feature Wrapper](https://arxiv.org/abs/1712.00378)
