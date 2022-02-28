@@ -1,5 +1,5 @@
 import copy
-from typing import Any, Dict, Mapping, Tuple, Type
+from typing import Any, Dict, Mapping, Optional, Tuple
 
 import gym
 import numpy as np
@@ -53,7 +53,7 @@ class Goalify(gym.GoalEnv, gym.Wrapper):
     def reset(self) -> Dict[str, np.ndarray]:
         obs = self.env.reset()
         assert self.archive is not None, "you need to set the archive before reset. Use set_archive()"
-        self.goal_trajectory = self.archive.sample_goal_trajctory()
+        self.goal_trajectory = self.archive.sample_goal_trajectory()
         self._goal_idx = 0
         self.done_countdown = self.nb_random_exploration_steps
         self._is_last_goal_reached = False  # useful flag
@@ -89,17 +89,26 @@ class Goalify(gym.GoalEnv, gym.Wrapper):
         return obs, reward, done, info
 
     def compute_reward(self, achieved_goal: object, desired_goal: object, info: Mapping[str, Any]) -> float:
+        if len(achieved_goal.shape) == 2:
+            return self.is_success(achieved_goal, desired_goal, dim=0)
         return self.is_success(achieved_goal, desired_goal) - 1
 
-    def is_success(self, obs: np.ndarray, goal: np.ndarray) -> bool:
+    def is_success(self, obs: np.ndarray, goal: np.ndarray, dim: Optional[int] = None) -> bool:
         """
         Return True when the obs and the goal are in the same cell.
 
         :param obs: The observation
         :param goal: The goal
-        :return: Succes or not
+        :return: Success or not
         """
-        return self.cell_factory(obs) == self.cell_factory(goal)
+        cells = self.cell_factory(obs, dim)
+        goal_cells = self.cell_factory(goal, dim)
+        if dim is None:
+            return cells == goal_cells
+        elif dim == 0:
+            return np.array([cell == goal_cell for cell, goal_cell in zip(cells, goal_cells)])
+        else:
+            raise ValueError("dim can only be either None or 0")
 
     def maybe_move_to_next_goal(self, obs: np.ndarray) -> None:
         """
@@ -149,25 +158,7 @@ class GoExplore:
             env,
             replay_buffer_class=ArchiveBuffer,
             replay_buffer_kwargs={"cell_factory": cell_factory, "count_pow": count_pow},
+            learning_starts=500,
+            verbose=1,
         )
-
-
-if __name__ == "__main__":
-    import gym_continuous_maze
-
-    from sb3_contrib.go_explore.archive import DownscaleCellFactory
-
-    env = gym.make("ContinuousMaze-v0")
-    cell_factory = DownscaleCellFactory(1, 1)
-
-    algo = GoExplore(env, cell_factory)
-
-    # archive = ArchiveBuffer(100, env.observation_space, env.action_space, cell_factory)
-    # env = Goalify(env, archive, cell_factory)
-    # # env.set_archive(archive)
-    # env.reset()
-    # done = False
-    # while not done:
-    #     action = np.array([-0.1, 0.0])
-    #     obs, reward, done, info = env.step(action)
-    #     print(obs, reward)
+        env.set_archive(self.model.replay_buffer)
