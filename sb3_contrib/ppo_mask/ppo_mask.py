@@ -46,6 +46,7 @@ class MaskablePPO(OnPolicyAlgorithm):
         This is a parameter specific to the OpenAI implementation. If None is passed (default),
         no clipping will be done on the value function.
         IMPORTANT: this clipping depends on the reward scaling.
+    :param normalize_advantage: Whether to normalize or not the advantage
     :param ent_coef: Entropy coefficient for the loss calculation
     :param vf_coef: Value function coefficient for the loss calculation
     :param max_grad_norm: The maximum value for the gradient clipping
@@ -76,6 +77,7 @@ class MaskablePPO(OnPolicyAlgorithm):
         gae_lambda: float = 0.95,
         clip_range: Union[float, Schedule] = 0.2,
         clip_range_vf: Union[None, float, Schedule] = None,
+        normalize_advantage: bool = True,
         ent_coef: float = 0.0,
         vf_coef: float = 0.5,
         max_grad_norm: float = 0.5,
@@ -119,6 +121,7 @@ class MaskablePPO(OnPolicyAlgorithm):
         self.n_epochs = n_epochs
         self.clip_range = clip_range
         self.clip_range_vf = clip_range_vf
+        self.normalize_advantage = normalize_advantage
         self.target_kl = target_kl
 
         if _init_setup_model:
@@ -317,7 +320,7 @@ class MaskablePPO(OnPolicyAlgorithm):
                 if use_masking:
                     action_masks = get_action_masks(env)
 
-                actions, values, log_probs = self.policy.forward(obs_tensor, action_masks=action_masks)
+                actions, values, log_probs = self.policy(obs_tensor, action_masks=action_masks)
 
             actions = actions.cpu().numpy()
             new_obs, rewards, dones, infos = env.step(actions)
@@ -432,7 +435,8 @@ class MaskablePPO(OnPolicyAlgorithm):
                 values = values.flatten()
                 # Normalize advantage
                 advantages = rollout_data.advantages
-                advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+                if self.normalize_advantage:
+                    advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
                 # ratio between old and new policy, should be one at the first iteration
                 ratio = th.exp(log_prob - rollout_data.old_log_prob)

@@ -222,7 +222,7 @@ class TestMaskableMultiCategoricalDistribution:
         assert len(dist.distributions) == NUM_CATS
         for i in range(NUM_CATS):
             assert (dist.distributions[i].probs == 0.5).all()
-        assert int(dist.entropy().exp()) == DIMS_PER_CAT ** NUM_CATS
+        assert int(dist.entropy().exp()) == DIMS_PER_CAT**NUM_CATS
 
         for i in range(DIMS_PER_CAT):
             mask = np.array([False] * DIMS_PER_CAT * NUM_CATS)
@@ -240,7 +240,7 @@ class TestMaskableMultiCategoricalDistribution:
         dist.apply_masking(None)
         for i in range(NUM_CATS):
             assert (dist.distributions[i].probs == 0.5).all()
-        assert int(dist.entropy().exp()) == DIMS_PER_CAT ** NUM_CATS
+        assert int(dist.entropy().exp()) == DIMS_PER_CAT**NUM_CATS
 
 
 class TestMaskableBernoulliDistribution:

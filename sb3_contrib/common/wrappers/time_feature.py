@@ -43,11 +43,12 @@ class TimeFeatureWrapper(gym.Wrapper):
 
         low, high = obs_space.low, obs_space.high
         low, high = np.concatenate((low, [0.0])), np.concatenate((high, [1.0]))
+        self.dtype = obs_space.dtype
 
         if isinstance(env.observation_space, gym.spaces.Dict):
-            env.observation_space.spaces["observation"] = gym.spaces.Box(low=low, high=high, dtype=np.float32)
+            env.observation_space.spaces["observation"] = gym.spaces.Box(low=low, high=high, dtype=self.dtype)
         else:
-            env.observation_space = gym.spaces.Box(low=low, high=high, dtype=np.float32)
+            env.observation_space = gym.spaces.Box(low=low, high=high, dtype=self.dtype)
 
         super(TimeFeatureWrapper, self).__init__(env)
 
@@ -84,6 +85,7 @@ class TimeFeatureWrapper(gym.Wrapper):
         time_feature = 1 - (self._current_step / self._max_steps)
         if self._test_mode:
             time_feature = 1.0
+        time_feature = np.array(time_feature, dtype=self.dtype)
 
         if isinstance(obs, dict):
             obs["observation"] = np.append(obs["observation"], time_feature)
