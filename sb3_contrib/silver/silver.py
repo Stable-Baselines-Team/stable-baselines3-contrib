@@ -15,8 +15,18 @@ from stable_baselines3.her.goal_selection_strategy import GoalSelectionStrategy
 from torch import optim
 
 
-from pygame import gfxdraw
-import pygame
+def density(data: th.Tensor, nb_neighbors: int = 5) -> th.Tensor:
+    """
+    Estimate the density of a batch of tensors using k-nearest neigbors mean distance.
+
+    :param data: The tensors
+    :param nb_neighbors: Number of neighbors used for density estimation, defaults to 5
+    :return: Density estimation
+    """
+    dist = th.cdist(data, data, p=2)
+    values, _ = dist.topk(k=nb_neighbors, dim=1, largest=False)
+    return th.mean(values, dim=1)
+
 
 EPSILON = 1e-6
 
@@ -40,7 +50,11 @@ class GaussianMixtureModel(D.MixtureSameFamily):
 
 
 # Modified Her with a a method to sample goal in the skew-fit manner.
-class _HerReplayBuffer(HerReplayBuffer):
+class ParametricSkewedHerReplayBuffer(HerReplayBuffer):
+    """
+    Idea from SkewFit, parametric estiamtion of the density.
+    """
+
     def __init__(
         self,
         buffer_size: int,
@@ -97,14 +111,13 @@ class _HerReplayBuffer(HerReplayBuffer):
         index = p.multinomial(num_samples=batch_size)
         # Normalize if needed and remove extra dimension (we are using only one env for now)
 
-        samples = DictReplayBufferSamples(
+        return DictReplayBufferSamples(
             observations={key: data.observations[key][index] for key in data.observations.keys()},
             next_observations={key: data.next_observations[key][index] for key in data.next_observations.keys()},
             actions=data.actions[index],
             dones=data.dones[index],
             rewards=data.rewards[index],
         )
-        return samples
 
     def sample_goal(self) -> np.ndarray:
         """
@@ -188,6 +201,113 @@ class _HerReplayBuffer(HerReplayBuffer):
         return weight
 
 
+class NonParametricSkewedHerReplayBuffer(HerReplayBuffer):
+    """
+    Idea from "Behavior From the Void: Unsupervised Active Pre-Training"
+    Non parametric density estimation used as sampling weight.
+    """
+
+    def __init__(
+        self,
+        buffer_size: int,
+        observation_space: spaces.Space,
+        action_space: spaces.Space,
+        env: VecEnv,
+        num_presampled_goals: int = 500,
+        device: Union[th.device, str] = "cpu",
+        n_envs: int = 1,
+        optimize_memory_usage: bool = False,
+        handle_timeout_termination: bool = True,
+        n_sampled_goal: int = 4,
+        goal_selection_strategy: Union[GoalSelectionStrategy, str] = "future",
+        online_sampling: bool = True,
+    ) -> None:
+        super().__init__(
+            buffer_size,
+            observation_space,
+            action_space,
+            env,
+            device,
+            n_envs,
+            optimize_memory_usage,
+            handle_timeout_termination,
+            n_sampled_goal,
+            goal_selection_strategy,
+            online_sampling,
+        )
+        self.num_presampled_goals = num_presampled_goals
+
+    def sample(self, batch_size: int, env: Optional[VecNormalize] = None) -> DictReplayBufferSamples:
+        data = super().sample(5 * batch_size, env)
+        goals = data.next_observations["achieved_goal"]
+        # Importance
+        weights = self._get_weights(goals)
+        p = weights / th.sum(weights)
+        # Resampling
+        index = p.multinomial(num_samples=batch_size)
+        # Normalize if needed and remove extra dimension (we are using only one env for now)
+
+        return DictReplayBufferSamples(
+            observations={key: data.observations[key][index] for key in data.observations.keys()},
+            next_observations={key: data.next_observations[key][index] for key in data.next_observations.keys()},
+            actions=data.actions[index],
+            dones=data.dones[index],
+            rewards=data.rewards[index],
+        )
+
+    def sample_goal(self) -> np.ndarray:
+        """
+        Sample a goal in the skew-fit manner
+
+        :return: A goal
+        """
+        is_empty = self.pos == 0 and not self.full
+        if not is_empty:
+            goal = self._sample_goal(self.num_presampled_goals)
+        else:
+            goal = self.observation_space["desired_goal"].sample()
+        return goal
+
+    def _sample_goal(self, num_presampled_goals: int) -> th.Tensor:
+        """
+        Sample a batch of goals, using Sample Importance Resampling.
+
+        :param goal_distribution: The goal distribution
+        :param power: Power applied on weights: 0.0 means no SkewFit, -1.0 means uniform sampling
+        :param num_presampled_goals: Number of pre-sampled goals used for Sampling Importance Resampling
+        :return: Tensor of goals
+        """
+        # Sampling
+        samples = self._sample_wo_her(num_presampled_goals)
+        goals = samples.next_observations["achieved_goal"]
+        # Importance
+        weights = self._get_weights(goals)
+        p = weights / th.sum(weights)
+        # Resampling
+        index = p.multinomial(num_samples=1)[0]
+        goal = goals[index]
+        return goal.detach().cpu().numpy()
+
+    def _sample_wo_her(self, batch_size: int, env: Optional[VecNormalize] = None) -> DictReplayBufferSamples:
+        """
+        Sample only real elements from the replay buffer (ie no virtual samples).
+
+        :param batch_size: Number of element to sample
+        :param env: associated gym VecEnv
+            to normalize the observations/rewards when sampling
+        :return: The replay data
+        """
+        upper_bound = self.buffer_size if self.full else self.pos
+        env_indices = np.random.randint(self.n_envs, size=batch_size)
+        batch_inds = np.random.randint(upper_bound, size=batch_size)
+        replay_data = self._get_real_samples(batch_inds, env_indices, env)
+        return replay_data
+
+    def _get_weights(self, goals: th.Tensor) -> th.Tensor:
+        ent = density(goals)
+        return ent
+
+
 class Goalify(gym.GoalEnv, gym.Wrapper):
     """
     Wrap the env into a GoalEnv.
@@ -232,7 +352,7 @@ class Goalify(gym.GoalEnv, gym.Wrapper):
         self.nb_random_exploration_steps = nb_random_exploration_steps
         self.window_size = window_size
 
-    def set_buffer(self, buffer: _HerReplayBuffer) -> None:
+    def set_buffer(self, buffer: NonParametricSkewedHerReplayBuffer) -> None:
         """
         Set the buffer. Must be done before reset.
 
@@ -296,8 +416,6 @@ class Silver(SAC):
     def __init__(
         self,
         env: Union[GymEnv, str],
-        nb_models: int = 100,
-        power: float = -1.0,
         num_presampled_goals: int = 2048,
         learning_rate: Union[float, Schedule] = 0.0003,
         buffer_size: int = 1000000,
@@ -328,13 +446,7 @@ class Silver(SAC):
         # Wrap the env
         env = Goalify(env)
         replay_buffer_kwargs = {} if replay_buffer_kwargs is None else replay_buffer_kwargs
-        replay_buffer_kwargs.update(
-            nb_models=nb_models,
-            gradient_steps=gradient_steps,
-            batch_size=batch_size,
-            power=power,
-            num_presampled_goals=num_presampled_goals,
-        )
+        replay_buffer_kwargs.update(num_presampled_goals=num_presampled_goals)
         super().__init__(
             "MultiInputPolicy",
             env,
@@ -347,7 +459,7 @@ class Silver(SAC):
             train_freq,
             gradient_steps,
             action_noise,
-            _HerReplayBuffer,
+            NonParametricSkewedHerReplayBuffer,
             replay_buffer_kwargs,
             optimize_memory_usage,
             ent_coef,
