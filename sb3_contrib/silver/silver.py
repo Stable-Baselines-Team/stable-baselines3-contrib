@@ -14,6 +14,10 @@ from stable_baselines3.common.vec_env import VecEnv, VecNormalize
 from stable_baselines3.her.goal_selection_strategy import GoalSelectionStrategy
 from torch import optim
 
+
+from pygame import gfxdraw
+import pygame
+
 EPSILON = 1e-6
 
 
@@ -81,6 +85,26 @@ class _HerReplayBuffer(HerReplayBuffer):
         self.locs = th.rand((nb_models, obs_dim), requires_grad=True, device=self.device)
         self.scales = th.rand((nb_models, obs_dim), requires_grad=True, device=self.device)
         self.distribution_optimizer = optim.Adam([self.locs, self.probs, self.scales], lr=learning_rate)
+
+    def sample(self, batch_size: int, env: Optional[VecNormalize] = None) -> DictReplayBufferSamples:
+        data = super().sample(5 * batch_size, env)
+        goal_distribution = self._get_goal_distribution()
+        goals = data.next_observations["achieved_goal"]
+        # Importance
+        weights = self._get_weights(goals, goal_distribution, self.power)
+        p = weights / th.sum(weights)
+        # Resampling
+        index = p.multinomial(num_samples=batch_size)
+        # Normalize if needed and remove extra dimension (we are using only one env for now)
+
+        samples = DictReplayBufferSamples(
+            observations={key: data.observations[key][index] for key in data.observations.keys()},
+            next_observations={key: data.next_observations[key][index] for key in data.next_observations.keys()},
+            actions=data.actions[index],
+            dones=data.dones[index],
+            rewards=data.rewards[index],
+        )
+        return samples
 
     def sample_goal(self) -> np.ndarray:
         """
