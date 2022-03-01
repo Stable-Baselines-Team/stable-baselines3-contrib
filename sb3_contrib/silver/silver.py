@@ -7,11 +7,11 @@ import torch as th
 import torch.distributions as D
 from gym import Env, spaces
 from stable_baselines3 import SAC, HerReplayBuffer
-from stable_baselines3.common.buffers import DictReplayBuffer
 from stable_baselines3.common.noise import ActionNoise
 from stable_baselines3.common.surgeon import Surgeon
 from stable_baselines3.common.type_aliases import DictReplayBufferSamples, GymEnv, Schedule
-from stable_baselines3.common.vec_env import VecNormalize
+from stable_baselines3.common.vec_env import VecEnv, VecNormalize
+from stable_baselines3.her.goal_selection_strategy import GoalSelectionStrategy
 from torch import optim
 
 EPSILON = 1e-6
@@ -35,6 +35,135 @@ class GaussianMixtureModel(D.MixtureSameFamily):
         super().__init__(mix, comp)
 
 
+# Modified Her with a a method to sample goal in the skew-fit manner.
+class _HerReplayBuffer(HerReplayBuffer):
+    def __init__(
+        self,
+        buffer_size: int,
+        observation_space: spaces.Space,
+        action_space: spaces.Space,
+        env: VecEnv,
+        nb_models: int = 100,
+        gradient_steps: int = 100,
+        batch_size: int = 2048,
+        learning_rate: float = 0.01,
+        power: float = -1,
+        num_presampled_goals: int = 500,
+        device: Union[th.device, str] = "cpu",
+        n_envs: int = 1,
+        optimize_memory_usage: bool = False,
+        handle_timeout_termination: bool = True,
+        n_sampled_goal: int = 4,
+        goal_selection_strategy: Union[GoalSelectionStrategy, str] = "future",
+        online_sampling: bool = True,
+    ):
+        super().__init__(
+            buffer_size,
+            observation_space,
+            action_space,
+            env,
+            device,
+            n_envs,
+            optimize_memory_usage,
+            handle_timeout_termination,
+            n_sampled_goal,
+            goal_selection_strategy,
+            online_sampling,
+        )
+        # Parameters for distribution model
+        self.gradient_steps = gradient_steps
+        self.batch_size = batch_size
+        # Parameters for goal sampling
+        self.power = power
+        self.num_presampled_goals = num_presampled_goals
+        obs_dim = self.observation_space["achieved_goal"].shape[0]
+        self.probs = th.rand(nb_models, requires_grad=True, device=self.device)
+        self.locs = th.rand((nb_models, obs_dim), requires_grad=True, device=self.device)
+        self.scales = th.rand((nb_models, obs_dim), requires_grad=True, device=self.device)
+        self.distribution_optimizer = optim.Adam([self.locs, self.probs, self.scales], lr=learning_rate)
+
+    def sample_goal(self) -> np.ndarray:
+        """
+        Sample a goal in the skew-fit manner
+
+        :return: A goal
+        """
+        is_empty = self.pos == 0 and not self.full
+        if not is_empty:
+            self._fit_goal_distribution()
+            goal_distribution = self._get_goal_distribution()  # estimate goal_distribution using MLE
+            goal = self._sample_goal_from_distribution(goal_distribution, self.power, self.num_presampled_goals)
+        else:
+            goal = self.observation_space["desired_goal"].sample()
+        return goal
+
+    def _fit_goal_distribution(self) -> None:
+        """
+        Fit the goal distribution using Maximum Likelyhood Estimation.
+        """
+        for _ in range(self.gradient_steps):
+            # Sample goals from replay buffer
+            samples = self._sample_wo_her(self.batch_size)
+            next_achieved_goal = samples.next_observations["achieved_goal"]
+            # Create goal distribution
+            distribution = GaussianMixtureModel(th.relu(self.probs) + EPSILON, self.locs, th.relu(self.scales) + EPSILON)
+            neg_log_likelihood = -th.mean(distribution.log_prob(next_achieved_goal))
+            # Optimize the distribution
+            self.distribution_optimizer.zero_grad()
+            neg_log_likelihood.backward()
+            self.distribution_optimizer.step()
+
+    def _sample_wo_her(self, batch_size: int, env: Optional[VecNormalize] = None) -> DictReplayBufferSamples:
+        """
+        Sample only real elements from the replay buffer (ie no virtual samples).
+
+        :param batch_size: Number of element to sample
+        :param env: associated gym VecEnv
+            to normalize the observations/rewards when sampling
+        :return: The replay data
+        """
+        upper_bound = self.buffer_size if self.full else self.pos
+        env_indices = np.random.randint(self.n_envs, size=batch_size)
+        batch_inds = np.random.randint(upper_bound, size=batch_size)
+        replay_data = self._get_real_samples(batch_inds, env_indices, env)
+        return replay_data
+
+    def _get_goal_distribution(self) -> GaussianMixtureModel:
+        """
+        Return the estimate goal distribution.
+        """
+        goal_distribution = GaussianMixtureModel(th.relu(self.probs) + EPSILON, self.locs, th.relu(self.scales) + EPSILON)
+        return goal_distribution
+
+    def _sample_goal_from_distribution(
+        self, goal_distribution: GaussianMixtureModel, power: float, num_presampled_goals: int
+    ) -> th.Tensor:
+        """
+        Sample a batch of goals, using Sample Importance Resampling.
+
+        :param goal_distribution: The goal distribution
+        :param power: Power applied on weights: 0.0 means no SkewFit, -1.0 means uniform sampling
+        :param num_presampled_goals: Number of pre-sampled goals used for Sampling Importance Resampling
+        :return: Tensor of goals
+        """
+        # Sampling
+        samples = self._sample_wo_her(batch_size=num_presampled_goals)
+        goals = samples.next_observations["achieved_goal"]
+        # Importance
+        weights = self._get_weights(goals, goal_distribution, power)
+        p = weights / th.sum(weights)
+        # Resampling
+        index = p.multinomial(num_samples=1)[0]
+        goal = goals[index]
+        return goal.detach().cpu().numpy()
+
+    def _get_weights(self, goals: th.Tensor, goal_distribution: GaussianMixtureModel, power: float = -1.0) -> th.Tensor:
+        log_prob = goal_distribution.log_prob(goals).squeeze()
+        weight = th.exp(log_prob)
+        weight = weight**power
+        return weight
+
+
 class Goalify(gym.GoalEnv, gym.Wrapper):
     """
     Wrap the env into a GoalEnv.
@@ -49,12 +178,6 @@ class Goalify(gym.GoalEnv, gym.Wrapper):
     def __init__(
         self,
         env: Env,
-        nb_models: int = 100,
-        gradient_steps: int = 100,
-        batch_size: int = 2048,
-        learning_rate: float = 0.01,
-        power: float = -1,
-        num_presampled_goals: int = 500,
         distance_threshold: float = 0.5,
         weights: Optional[np.ndarray] = None,
         nb_random_exploration_steps: int = 30,
@@ -71,23 +194,11 @@ class Goalify(gym.GoalEnv, gym.Wrapper):
                 "achieved_goal": copy.deepcopy(self.env.observation_space),
             }
         )
-
         self.goal = self.observation_space["desired_goal"].sample()  # type: np.ndarray
-
         # The buffer is required to sample goals;
         # When the env is created, the buffer does notalready exists
         # It has to be set after the model creation
         self.buffer = None  # type: _HerReplayBuffer
-        # Parameters for distribution model
-        self.gradient_steps = gradient_steps
-        self.batch_size = batch_size
-        self.probs = th.rand(nb_models, requires_grad=True)
-        self.locs = th.rand((nb_models, obs_dim), requires_grad=True)
-        self.scales = th.rand((nb_models, obs_dim), requires_grad=True)
-        self.distribution_optimizer = optim.Adam([self.locs, self.probs, self.scales], lr=learning_rate)
-        # Parameters for goal sampling
-        self.power = power
-        self.num_presampled_goals = num_presampled_goals
         # Parameters used for reward computation
         # Weights used to copute the reward: all dimension are not relevant
         self.distance_threshold = distance_threshold
@@ -97,26 +208,17 @@ class Goalify(gym.GoalEnv, gym.Wrapper):
         self.nb_random_exploration_steps = nb_random_exploration_steps
         self.window_size = window_size
 
-    def set_buffer(self, buffer: DictReplayBuffer) -> None:
+    def set_buffer(self, buffer: _HerReplayBuffer) -> None:
         """
-        Set the buffer.
+        Set the buffer. Must be done before reset.
 
-        :param buffer: The replay buffer of the model
+        :param buffer: The buffer
         """
         self.buffer = buffer
-        self.probs.to(buffer.device)
-        self.locs.to(buffer.device)
-        self.scales.to(buffer.device)
 
     def reset(self) -> Dict[str, np.ndarray]:
         obs = self.env.reset()
-        is_empty = self.buffer.pos == 0 and not self.buffer.full
-        if not is_empty:
-            self.fit_goal_distribution()
-            goal_distribution = self.get_goal_distribution()  # estimate goal_distribution using MLE
-            self.goal = self.sample_goal(goal_distribution, self.power, self.num_presampled_goals)
-        else:
-            self.goal = self.observation_space["desired_goal"].sample()
+        self.goal = self.buffer.sample_goal()
         self.done_countdown = self.nb_random_exploration_steps
         self._is_goal_reached = False  # useful flag
         obs = self._get_obs(obs)  # turn into dict
@@ -165,73 +267,6 @@ class Goalify(gym.GoalEnv, gym.Wrapper):
         d = np.linalg.norm(self.weights * (achieved_goal - desired_goal), axis=-1)
         return np.array(d < self.distance_threshold, dtype=np.float64) - 1.0
 
-    def fit_goal_distribution(self) -> None:
-        """
-        Fit the goal distribution using Maximum Likelyhood Estimation.
-        """
-        for _ in range(self.gradient_steps):
-            # Sample goals from replay buffer
-            samples = self.buffer.sample_wo_her(self.batch_size)
-            next_achieved_goal = samples.next_observations["achieved_goal"]
-            # Create goal distribution
-            distribution = GaussianMixtureModel(th.relu(self.probs) + EPSILON, self.locs, th.relu(self.scales) + EPSILON)
-            neg_log_likelihood = -th.mean(distribution.log_prob(next_achieved_goal))
-            # Optimize the distribution
-            self.distribution_optimizer.zero_grad()
-            neg_log_likelihood.backward()
-            self.distribution_optimizer.step()
-
-    def get_goal_distribution(self) -> GaussianMixtureModel:
-        """
-        Return the estimate goal distribution.
-        """
-        goal_distribution = GaussianMixtureModel(th.relu(self.probs) + EPSILON, self.locs, th.relu(self.scales) + EPSILON)
-        return goal_distribution
-
-    def sample_goal(self, goal_distribution: GaussianMixtureModel, power: float, num_presampled_goals: int) -> th.Tensor:
-        """
-        Sample a batch of goals, using Sample Importance Resampling.
-
-        :param goal_distribution: The goal distribution
-        :param power: Power applied on weights: 0.0 means no SkewFit, -1.0 means uniform sampling
-        :param num_presampled_goals: Number of pre-sampled goals used for Sampling Importance Resampling
-        :return: Tensor of goals
-        """
-        # Sampling
-        samples = self.buffer.sample_wo_her(batch_size=num_presampled_goals)
-        goals = samples.next_observations["achieved_goal"]
-        # Importance
-        weights = self._get_weights(goals, goal_distribution, power)
-        p = weights / th.sum(weights)
-        # Resampling
-        index = p.multinomial(num_samples=1)[0]
-        goal = goals[index]
-        return goal.detach().cpu().numpy()
-
-    def _get_weights(self, goals: th.Tensor, goal_distribution: GaussianMixtureModel, power: float = -1.0) -> th.Tensor:
-        log_prob = goal_distribution.log_prob(goals).squeeze()
-        weight = th.exp(log_prob)
-        weight = weight**power
-        return weight
-
-
-# Modified Her with a method to sample only real data
-class _HerReplayBuffer(HerReplayBuffer):
-    def sample_wo_her(self, batch_size: int, env: Optional[VecNormalize] = None) -> DictReplayBufferSamples:
-        """
-        Sample only real elements from the replay buffer (ie no virtual samples).
-
-        :param batch_size: Number of element to sample
-        :param env: associated gym VecEnv
-            to normalize the observations/rewards when sampling
-        :return: The replay data
-        """
-        upper_bound = self.buffer_size if self.full else self.pos
-        env_indices = np.random.randint(self.n_envs, size=batch_size)
-        batch_inds = np.random.randint(upper_bound, size=batch_size)
-        replay_data = self._get_real_samples(batch_inds, env_indices, env)
-        return replay_data
-
 
 class Silver(SAC):
     def __init__(
@@ -267,8 +302,9 @@ class Silver(SAC):
         _init_setup_model: bool = True,
     ):
         # Wrap the env
-        env = Goalify(
-            env,
+        env = Goalify(env)
+        replay_buffer_kwargs = {} if replay_buffer_kwargs is None else replay_buffer_kwargs
+        replay_buffer_kwargs.update(
             nb_models=nb_models,
             gradient_steps=gradient_steps,
             batch_size=batch_size,
