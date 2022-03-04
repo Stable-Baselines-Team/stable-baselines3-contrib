@@ -45,7 +45,7 @@ class Goalify(gym.GoalEnv, gym.Wrapper):
     :param learning_rate: Learning rate for Adam optimizer
     :param power:
     :param num_presampled_goals: Number of samples used when using Sample Importance Resampling, defaults to 10
-    :param distance_threshold: Success if euclidan distance between desired and achived
+    :param distance_threshold: Success if euclidian distance between desired and achived
         goal is less than distance threshold
     :param weights: Weights applied before the distance computation. If a dimension is not relevant,
         set its weight to 0.0.
