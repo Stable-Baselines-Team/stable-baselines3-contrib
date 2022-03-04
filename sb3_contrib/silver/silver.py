@@ -1,10 +1,11 @@
 import copy
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import gym
 import numpy as np
 import torch as th
 from gym import Env, spaces
+from sklearn.neighbors import KernelDensity
 from stable_baselines3 import DDPG, HerReplayBuffer
 from stable_baselines3.common.base_class import maybe_make_env
 from stable_baselines3.common.env_util import make_vec_env
@@ -13,8 +14,6 @@ from stable_baselines3.common.type_aliases import GymEnv, Schedule
 from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.common.vec_env.base_vec_env import VecEnv
 from stable_baselines3.her.goal_selection_strategy import GoalSelectionStrategy
-
-from sklearn.neighbors import KernelDensity
 
 
 def log_prob(samples: np.ndarray, x: np.ndarray) -> np.ndarray:
@@ -26,7 +25,7 @@ def log_prob(samples: np.ndarray, x: np.ndarray) -> np.ndarray:
     :return: The log probabilties of x, as array
     """
 
-    kde = KernelDensity()
+    kde = KernelDensity(bandwidth=0.2)
     kde.fit(samples)
     return kde.score_samples(x)
 
@@ -66,6 +65,20 @@ class NonParametricSkewedHerReplayBuffer(HerReplayBuffer):
         )
         self.weights = np.ones((self.buffer_size, self.n_envs))
 
+    def add(
+        self,
+        obs: Dict[str, np.ndarray],
+        next_obs: Dict[str, np.ndarray],
+        action: np.ndarray,
+        reward: np.ndarray,
+        done: np.ndarray,
+        infos: List[Dict[str, Any]],
+        is_virtual: bool = False,
+    ) -> None:
+        super().add(obs, next_obs, action, reward, done, infos, is_virtual)
+        if self.pos % 1000 == 0:
+            self.update_weights()
+
     def sample_goal(self) -> np.ndarray:
         """
         Sample goal in the skewed manner.
@@ -102,10 +115,12 @@ class NonParametricSkewedHerReplayBuffer(HerReplayBuffer):
         upper_bound = self.buffer_size if self.full else self.pos
         data = self.next_observations["achieved_goal"][:upper_bound]  # (n, n_envs, obs_shape)
         data = data.reshape(-1, data.shape[-1])  # (n*n_envs, obs_shape)
-        samples = super().sample(1024).next_observations["achieved_goal"]
+        samples = super().sample(1024).next_observations["achieved_goal"].detach().cpu().numpy()
         _log_prob = log_prob(samples, data)
-        _log_prob = np.clip(_log_prob, -10)
-        weights = np.exp(-1.0 * _log_prob)
+        _log_prob = _log_prob - _log_prob.mean()
+        _log_prob = np.clip(_log_prob, a_min=-5, a_max=None)
+        weights = np.exp(-1.2 * _log_prob)
+        weights[weights < np.quantile(weights, 0.5)] = 0
         self.weights = weights.reshape(upper_bound, -1)
 
 
@@ -221,7 +236,7 @@ class Silver(DDPG):
         env: Union[GymEnv, str],
         n_envs: int = 1,
         learning_rate: Union[float, Schedule] = 0.001,
-        buffer_size: int = 10000,
+        buffer_size: int = 1000000,
         learning_starts: int = 100,
         batch_size: int = 100,
         tau: float = 0.005,
@@ -241,7 +256,7 @@ class Silver(DDPG):
     ):
         # Wrap the env
         def env_func():
-            return Goalify(maybe_make_env(env, verbose), 1)
+            return Goalify(maybe_make_env(env, verbose), 0.1)
 
         env = make_vec_env(env_func, n_envs=n_envs)
         super().__init__(
