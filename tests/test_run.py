@@ -3,7 +3,7 @@ import pytest
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecNormalize
 
-from sb3_contrib import ARS, QRDQN, TQC, TRPO, MaskablePPO
+from sb3_contrib import ARS, CEM, QRDQN, TQC, TRPO, MaskablePPO
 from sb3_contrib.common.envs import InvalidActionEnvDiscrete
 from sb3_contrib.common.vec_env import AsyncEval
 
@@ -92,13 +92,25 @@ def test_ars(policy_str, env_id):
     model.learn(total_timesteps=500, log_interval=1, eval_freq=250)
 
 
-def test_ars_multi_env():
+@pytest.mark.parametrize("env_id", ["CartPole-v1", "Pendulum-v1"])
+@pytest.mark.parametrize("policy_str", ["LinearPolicy", "MlpPolicy"])
+def test_cem(policy_str, env_id):
+    model = CEM(policy_str, env_id, pop_size=2, verbose=1, seed=0)
+    model.learn(total_timesteps=500, log_interval=1, eval_freq=250)
+
+
+@pytest.mark.parametrize("model_class", [ARS, CEM])
+def test_es_multi_env(model_class):
     env = make_vec_env("Pendulum-v1", n_envs=2)
-    model = ARS("MlpPolicy", env, n_delta=1)
+    kwargs = dict(n_delta=1) if model_class == ARS else dict(pop_size=2)
+
+    model = model_class("MlpPolicy", env, **kwargs)
     model.learn(total_timesteps=250)
 
+    kwargs = dict(n_delta=2) if model_class == ARS else dict(pop_size=3)
+
     env = VecNormalize(make_vec_env("Pendulum-v1", n_envs=1))
-    model = ARS("MlpPolicy", env, n_delta=2, seed=0)
+    model = model_class("MlpPolicy", env, seed=0, **kwargs)
     # with parallelism
     async_eval = AsyncEval([lambda: VecNormalize(make_vec_env("Pendulum-v1", n_envs=1)) for _ in range(2)], model.policy)
     async_eval.seed(0)
