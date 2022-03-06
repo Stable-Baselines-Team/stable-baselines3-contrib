@@ -13,7 +13,7 @@ from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
-from stable_baselines3.common.utils import get_schedule_fn, safe_mean
+from stable_baselines3.common.utils import safe_mean
 from torch.distributions.multivariate_normal import MultivariateNormal
 
 from sb3_contrib.ars.policies import ARSPolicy
@@ -22,8 +22,8 @@ from sb3_contrib.common.vec_env.async_eval import AsyncEval
 
 class CEM(BaseAlgorithm):
     """
-    Noisy Cross Entropy Method:  http://dx.doi.org/10.1162/neco.2006.18.12.2936
-    http://ie.technion.ac.il/CE/files/papers/Learning%20Tetris%20Using%20the%20Noisy%20Cross-Entropy%20Method.pdf
+    Noisy Cross Entropy Method: http://dx.doi.org/10.1162/neco.2006.18.12.2936
+    "Learning Tetris Using the Noisy Cross-Entropy Method"
 
     John Schulman's implementation: https://github.com/joschu/modular_rl/blob/master/modular_rl/cem.py
 
@@ -52,12 +52,11 @@ class CEM(BaseAlgorithm):
         env: Union[GymEnv, str],
         pop_size: int = 16,
         n_top: Optional[int] = None,
-        initial_std: Union[float, Schedule] = 0.05,
-        # extra_noise_std: Union[float, Schedule] = 0.05, # TODO: implement schedule
+        initial_std: Union[float, Schedule] = 0.05,  # Note: currently not used
         extra_noise_std: float = 0.2,
         noise_multiplier: float = 0.999,
         zero_policy: bool = False,
-        diag_cov: bool = False,
+        use_diagonal_covariance: bool = False,
         alive_bonus_offset: float = 0,
         n_eval_episodes: int = 1,
         policy_kwargs: Optional[Dict[str, Any]] = None,
@@ -85,7 +84,6 @@ class CEM(BaseAlgorithm):
 
         self.pop_size = pop_size
         self.initial_std = initial_std
-        # TODO: replace with extra std schedule
         self.extra_noise_std = extra_noise_std
         self.noise_multiplier = noise_multiplier
         self.n_eval_episodes = n_eval_episodes
@@ -102,10 +100,10 @@ class CEM(BaseAlgorithm):
 
         self.alive_bonus_offset = alive_bonus_offset
         self.zero_policy = zero_policy
-        self.weights = None  # Need to call init model to initialize weight
+        self.weights = None  # Need to call init model to initialize weights
         self.centroid_cov = None
-        self.diag_cov = diag_cov
-        self.extra_noise_matrix = None
+        self.use_diagonal_covariance = use_diagonal_covariance
+        self.extra_variance = None
         self.processes = None
         # Keep track of how many steps where elapsed before a new rollout
         # Important for syncing observation normalization between workers
@@ -123,12 +121,13 @@ class CEM(BaseAlgorithm):
         self.weights = th.nn.utils.parameters_to_vector(self.policy.parameters()).detach()
         self.n_params = len(self.weights)
 
-        self.extra_noise_matrix = th.diag(th.ones_like(self.weights, requires_grad=False) * self.extra_noise_std**2)
         # TODO: replace with initial_std if needed
-        initial_var = self.weights.var().item()
-        self.centroid_cov = th.diag(th.ones_like(self.weights, requires_grad=False) * initial_var)
-        # Note: only add it at sample time
-        # self.centroid_cov += self.extra_noise_matrix
+        initial_variance = self.weights.var().item()
+        self.centroid_cov = th.ones_like(self.weights, requires_grad=False) * initial_variance
+        if not self.use_diagonal_covariance:
+            self.centroid_cov = th.diag(self.centroid_cov)
+        # Initial extra noise vector (extra variance)
+        self.extra_variance = th.ones_like(self.weights, requires_grad=False) * self.extra_noise_std**2
 
         if self.zero_policy:
             self.weights = th.zeros_like(self.weights, requires_grad=False)
@@ -274,14 +273,13 @@ class CEM(BaseAlgorithm):
         :param async_eval: The object for asynchronous evaluation of candidates.
         """
 
-        if self.diag_cov:
+        if self.use_diagonal_covariance:
+            # Sample using only the diagonal of the covariance matrix (+ extra noise)
             param_noise = th.normal(mean=0.0, std=1.0, size=(self.pop_size, self.n_params), device=self.device)
-            if len(self.centroid_cov.shape) > 1:
-                policy_deltas = param_noise * th.sqrt(th.diag(self.centroid_cov) + th.diag(self.extra_noise_matrix))
-            else:
-                policy_deltas = param_noise * th.sqrt(self.centroid_cov + th.diag(self.extra_noise_matrix))
+            policy_deltas = param_noise * th.sqrt(self.centroid_cov + self.extra_variance)
         else:
-            sample_cov = self.centroid_cov + self.extra_noise_matrix
+            # Sample using the full covariance matrix (+ extra noise)
+            sample_cov = self.centroid_cov + th.diag(self.extra_variance)
             param_noise_distribution = MultivariateNormal(th.zeros_like(self.weights), covariance_matrix=sample_cov)
             policy_deltas = param_noise_distribution.sample((self.pop_size,))
 
@@ -293,24 +291,28 @@ class CEM(BaseAlgorithm):
         # Keep only the top performing candidates for update
         top_idx = th.argsort(candidate_returns, descending=True)[: self.n_top]
 
-        # Update mean policy
+        # Update centroid: barycenter of the best candidates
         self.weights = candidate_weights[top_idx].mean(dim=0)
-        if self.diag_cov:
-            # Do not compute full cov matrix when diag_cov=True
+        if self.use_diagonal_covariance:
+            # Do not compute full cov matrix when use_diagonal_covariance=True
             self.centroid_cov = candidate_weights[top_idx].var(dim=0)
         else:
-            # rowvar=False in np.cov
+            # transpose to mimic rowvar=False in np.cov()
             self.centroid_cov = th.cov(candidate_weights[top_idx].transpose(-1, -2))
 
+        # Update extra variance (prevents early converge)
         self.extra_noise_std = self.extra_noise_std * self.noise_multiplier
-        self.extra_noise_matrix = th.diag(th.ones_like(self.weights, requires_grad=False) * self.extra_noise_std)
+        self.extra_variance = th.ones_like(self.weights, requires_grad=False) * self.extra_noise_std**2
 
         self.policy.load_from_vector(self.weights.cpu())
 
-        self.logger.record("train/iterations", self._n_updates, exclude="tensorboard")
-        # self.logger.record("train/delta_std", delta_std.mean().item())
-        # self.logger.record("train/step_size", step_size.item())
         self.logger.record("rollout/return_std", candidate_returns.std().item())
+        self.logger.record("train/iterations", self._n_updates, exclude="tensorboard")
+        if self.use_diagonal_covariance:
+            self.logger.record("train/diag_std", th.mean(th.sqrt(self.centroid_cov)).item())
+        else:
+            self.logger.record("train/diag_std", th.mean(th.sqrt(th.diagonal(self.centroid_cov))).item())
+        self.logger.record("train/extra_noise_std", self.extra_noise_std)
 
         self._n_updates += 1
 
