@@ -14,6 +14,7 @@ from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import get_schedule_fn, safe_mean
+from torch.distributions.multivariate_normal import MultivariateNormal
 
 from sb3_contrib.ars.policies import ARSPolicy
 from sb3_contrib.common.vec_env.async_eval import AsyncEval
@@ -53,9 +54,10 @@ class CEM(BaseAlgorithm):
         n_top: Optional[int] = None,
         initial_std: Union[float, Schedule] = 0.05,
         # extra_noise_std: Union[float, Schedule] = 0.05, # TODO: implement schedule
-        extra_noise_std: float = 0.0,
+        extra_noise_std: float = 0.2,
         noise_multiplier: float = 0.999,
-        zero_policy: bool = True,
+        zero_policy: bool = False,
+        diag_cov: bool = False,
         alive_bonus_offset: float = 0,
         n_eval_episodes: int = 1,
         policy_kwargs: Optional[Dict[str, Any]] = None,
@@ -101,7 +103,9 @@ class CEM(BaseAlgorithm):
         self.alive_bonus_offset = alive_bonus_offset
         self.zero_policy = zero_policy
         self.weights = None  # Need to call init model to initialize weight
-        self.centroid_std = None
+        self.centroid_cov = None
+        self.diag_cov = diag_cov
+        self.extra_noise_matrix = None
         self.processes = None
         # Keep track of how many steps where elapsed before a new rollout
         # Important for syncing observation normalization between workers
@@ -119,12 +123,16 @@ class CEM(BaseAlgorithm):
         self.weights = th.nn.utils.parameters_to_vector(self.policy.parameters()).detach()
         self.n_params = len(self.weights)
 
+        self.extra_noise_matrix = th.diag(th.ones_like(self.weights, requires_grad=False) * self.extra_noise_std**2)
+        # TODO: replace with initial_std if needed
+        initial_var = self.weights.var().item()
+        self.centroid_cov = th.diag(th.ones_like(self.weights, requires_grad=False) * initial_var)
+        # Note: only add it at sample time
+        # self.centroid_cov += self.extra_noise_matrix
+
         if self.zero_policy:
             self.weights = th.zeros_like(self.weights, requires_grad=False)
             self.policy.load_from_vector(self.weights.cpu())
-
-        # TODO: implement covariance matrix
-        self.centroid_std = th.ones_like(self.weights, requires_grad=False) * self.initial_std
 
     def _mimic_monitor_wrapper(self, episode_rewards: np.ndarray, episode_lengths: np.ndarray) -> None:
         """
@@ -265,20 +273,19 @@ class CEM(BaseAlgorithm):
         :param callback: callback(s) called at every step with state of the algorithm.
         :param async_eval: The object for asynchronous evaluation of candidates.
         """
-        # Retrieve current parameter noise standard deviation
-        # delta_std = self.delta_std_schedule(self._current_progress_remaining)
 
-        # TODO: replace with correct update, we cannot just add stds together
-        # (we can add variances?)
-        delta_std = self.centroid_std + self.extra_noise_std
-        # Sample the parameter noise, it will be scaled by delta_std
-        # deltas = th.normal(mean=0.0, std=1.0, size=(self.n_delta, self.n_params), device=self.device)
-        # Generate 2 * n_delta candidate policies by adding noise to the current weights
-        # candidate_weights = th.cat([self.weights + policy_deltas, self.weights - policy_deltas])
-        # candidate_weights = th.normal(mean=self.weights, std=self.delta_std, size=(self.pop_size, self.n_params),
-        # device=self.device)
-        policy_deltas = th.normal(mean=0.0, std=1.0, size=(self.pop_size, self.n_params), device=self.device)
-        candidate_weights = self.weights + policy_deltas * delta_std
+        if self.diag_cov:
+            param_noise = th.normal(mean=0.0, std=1.0, size=(self.pop_size, self.n_params), device=self.device)
+            if len(self.centroid_cov.shape) > 1:
+                policy_deltas = param_noise * th.sqrt(th.diag(self.centroid_cov) + th.diag(self.extra_noise_matrix))
+            else:
+                policy_deltas = param_noise * th.sqrt(self.centroid_cov + th.diag(self.extra_noise_matrix))
+        else:
+            sample_cov = self.centroid_cov + self.extra_noise_matrix
+            param_noise_distribution = MultivariateNormal(th.zeros_like(self.weights), covariance_matrix=sample_cov)
+            policy_deltas = param_noise_distribution.sample((self.pop_size,))
+
+        candidate_weights = self.weights + policy_deltas
 
         with th.no_grad():
             candidate_returns = self.evaluate_candidates(candidate_weights, callback, async_eval)
@@ -288,13 +295,20 @@ class CEM(BaseAlgorithm):
 
         # Update mean policy
         self.weights = candidate_weights[top_idx].mean(dim=0)
-        self.centroid_std = candidate_weights[top_idx].std(dim=0)
+        if self.diag_cov:
+            # Do not compute full cov matrix when diag_cov=True
+            self.centroid_cov = candidate_weights[top_idx].var(dim=0)
+        else:
+            # rowvar=False in np.cov
+            self.centroid_cov = th.cov(candidate_weights[top_idx].transpose(-1, -2))
+
         self.extra_noise_std = self.extra_noise_std * self.noise_multiplier
+        self.extra_noise_matrix = th.diag(th.ones_like(self.weights, requires_grad=False) * self.extra_noise_std)
 
         self.policy.load_from_vector(self.weights.cpu())
 
         self.logger.record("train/iterations", self._n_updates, exclude="tensorboard")
-        self.logger.record("train/delta_std", delta_std.mean().item())
+        # self.logger.record("train/delta_std", delta_std.mean().item())
         # self.logger.record("train/step_size", step_size.item())
         self.logger.record("rollout/return_std", candidate_returns.std().item())
 
