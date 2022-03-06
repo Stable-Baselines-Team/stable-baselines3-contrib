@@ -36,7 +36,7 @@ class ARSPolicy(BasePolicy):
         )
 
         if net_arch is None:
-            net_arch = [64, 64]
+            net_arch = [32]
 
         self.net_arch = net_arch
         self.features_extractor = self.make_features_extractor()

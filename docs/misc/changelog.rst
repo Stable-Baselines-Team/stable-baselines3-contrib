@@ -3,18 +3,19 @@
 Changelog
 ==========
 
-Release 1.4.1a1 (WIP)
+Release 1.4.1a3 (WIP)
 -------------------------------
-
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
 - Switched minimum Gym version to 0.21.0.
 - Upgraded to Stable-Baselines3 >= 1.4.1a1
+- Changed default policy architecture for ARS/CEM to ``[32]`` instead of ``[64, 64]``
 
 New Features:
 ^^^^^^^^^^^^^
 - Allow PPO to turn of advantage normalization (see `PR #61 <https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/pull/61>`_) @vwxyzjn
+- Added noisy Cross Entropy Method (CEM)
 
 Bug Fixes:
 ^^^^^^^^^^
