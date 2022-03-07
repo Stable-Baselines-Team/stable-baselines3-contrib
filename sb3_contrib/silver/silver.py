@@ -13,33 +13,29 @@ from stable_baselines3.common.noise import ActionNoise
 from stable_baselines3.common.type_aliases import DictReplayBufferSamples, GymEnv, Schedule
 from stable_baselines3.common.vec_env import VecEnv, VecNormalize
 from stable_baselines3.her.goal_selection_strategy import GoalSelectionStrategy
+from KDEpy import FFTKDE
+from scipy.interpolate import interpn
 
 
-def softmax(logits: np.ndarray) -> np.ndarray:
-    """
-    Softmax function.
-
-    :param logits: Input logits as array
-    :return: An array the same shape as x, the result will sum to 1
-    """
-    y = np.exp(logits - logits.max())
-    f_x = y / np.sum(y)
-    return f_x
-
-
-def log_prob(samples: np.ndarray, x: np.ndarray) -> np.ndarray:
+def kde(samples: np.ndarray, x: np.ndarray) -> np.ndarray:
     """
     Use Kernel Density Estimation to estimate the density of a distribution from samples.
     Uses Scott's Rule to choose the bandwidth.
 
     :param samples: The samples from the distribution to estimate
     :param x: The value to get the log probabilities
-    :return: The log probabilties of x, as array
+    :return: The density of x, as array
     """
     bandwidth = samples.shape[0] ** (-1.0 / (samples.shape[1] + 4))  # Scott's rule
-    kde = KernelDensity(bandwidth=bandwidth)
-    kde.fit(samples)
-    return kde.score_samples(x)
+    grid_size = 50
+    grid, values = FFTKDE(kernel="gaussian", bw=bandwidth).fit(samples).evaluate(grid_size)
+    # Reshape the output of KDE to work with interpolate n-dimensions function
+    points = [np.unique(grid[:, dim]) for dim in range(samples.shape[1])]  # UGLY
+    new_shape = [grid_size] * samples.shape[1]
+    values = values.reshape(new_shape)
+    # Interpolate the result to the input values
+    density = interpn(points, values, x)
+    return density
 
 
 class NonParametricSkewedHerReplayBuffer(HerReplayBuffer):
@@ -48,12 +44,11 @@ class NonParametricSkewedHerReplayBuffer(HerReplayBuffer):
     goals from low-density areas.
 
     Idea from "Behavior From the Void: Unsupervised Active Pre-Training"
-    Non parametric density estimation with KDE used as sampling weight.
 
-    Like HerReplay buffer with two major changes:
-    - The density of the achieved goal distribution is estimated using KDE.
-    - A method ``sample_goal`` that uses the density estimation to sample goals
-        from the less dense regions.
+    Like HerReplay buffer with one major change: a method ``sample_goal`` allows
+    to sample goal. The goals are sampled from the set of the ``nb_goals`` less dense
+    area. The density of the goals are estimated using KDE.
+    The goal set is updated every ``update_goal_set_freq`` interractions.
     """
 
     def __init__(
@@ -62,8 +57,8 @@ class NonParametricSkewedHerReplayBuffer(HerReplayBuffer):
         observation_space: spaces.Space,
         action_space: spaces.Space,
         env: VecEnv,
-        update_logits_freq: int = 1000,
-        power: int = -1.0,
+        update_goal_set_freq: int = 1000,
+        nb_goals: int = 200,
         device: Union[th.device, str] = "cpu",
         n_envs: int = 1,
         optimize_memory_usage: bool = False,
@@ -85,10 +80,10 @@ class NonParametricSkewedHerReplayBuffer(HerReplayBuffer):
             goal_selection_strategy,
             online_sampling,
         )
-        # Logits are the log probabilities estimated with KDE. The more dense, the higher.
-        self.logits = 10 * np.ones((self.buffer_size, self.n_envs))
-        self.update_logits_freq = update_logits_freq
-        self.power = power
+        self.update_goal_set_freq = update_goal_set_freq
+        self.nb_goals = nb_goals
+        # Initially, the goals are uniformly sampled from the desired goal space.
+        self.goal_set = np.array([self.observation_space["desired_goal"].sample() for _ in range(self.nb_goals)])
 
     def add(
         self,
@@ -101,65 +96,8 @@ class NonParametricSkewedHerReplayBuffer(HerReplayBuffer):
         is_virtual: bool = False,
     ) -> None:
         super().add(obs, next_obs, action, reward, done, infos, is_virtual)
-        if self.pos % self.update_logits_freq == 0:
-            self.update_logits()
-
-    def sample(self, batch_size: int, env: Optional[VecNormalize] = None, power: float = -0.5) -> DictReplayBufferSamples:
-        """
-        Sample elements from the replay buffer.
-
-        :param batch_size: Number of element to sample
-        :param env: associated gym VecEnv
-            to normalize the observations/rewards when sampling
-        :return: Samples
-        """
-        env_indices = np.random.randint(self.n_envs, size=batch_size)
-        batch_inds = np.zeros_like(env_indices)
-        # When the buffer is full, we rewrite on old episodes. We don't want to
-        # sample incomplete episode transitions, so we have to eliminate some indexes.
-        all_inds = np.tile(np.arange(self.buffer_size), (self.n_envs, 1)).T
-        is_valid = self.ep_length > 0
-        # Special case when using the "future" goal sampling strategy, we cannot
-        # sample all transitions, we restrict the sampling domain to non-final transitions
-        if self.goal_selection_strategy == GoalSelectionStrategy.FUTURE:
-            is_last = all_inds == (self.ep_start + self.ep_length - 1) % self.buffer_size
-            is_valid = np.logical_and(np.logical_not(is_last), is_valid)
-
-        valid_inds = [np.arange(self.buffer_size)[is_valid[:, env_idx]] for env_idx in range(self.n_envs)]
-        p = [softmax(power * self.logits[:, env_idx][valid_ind].T) for env_idx, valid_ind in enumerate(valid_inds)]
-        for env_idx in range(self.n_envs):
-            size = np.sum(env_indices == env_idx)
-            batch_inds[env_indices == env_idx] = np.random.choice(valid_inds[env_idx], size=size, p=p[env_idx], replace=False)
-
-        # Split the indexes between real and virtual transitions.
-        nb_virtual = int(self.her_ratio * batch_size)
-        virtual_batch_inds, real_batch_inds = np.split(batch_inds, [nb_virtual])
-        virtual_env_indices, real_env_indices = np.split(env_indices, [nb_virtual])
-
-        # get real and virtual data
-        real_data = self._get_real_samples(real_batch_inds, real_env_indices, env)
-        virtual_data = self._get_virtual_samples(virtual_batch_inds, virtual_env_indices, env)
-
-        # Concatenate real and virtual data
-        observations = {
-            key: th.cat((real_data.observations[key], virtual_data.observations[key]))
-            for key in virtual_data.observations.keys()
-        }
-        actions = th.cat((real_data.actions, virtual_data.actions))
-        next_observations = {
-            key: th.cat((real_data.next_observations[key], virtual_data.next_observations[key]))
-            for key in virtual_data.next_observations.keys()
-        }
-        dones = th.cat((real_data.dones, virtual_data.dones))
-        rewards = th.cat((real_data.rewards, virtual_data.rewards))
-
-        return DictReplayBufferSamples(
-            observations=observations,
-            actions=actions,
-            next_observations=next_observations,
-            dones=dones,
-            rewards=rewards,
-        )
+        if self.pos % self.update_goal_set_freq == 0:
+            self.update_goal_set()
 
     def sample_goal(self) -> np.ndarray:
         """
@@ -167,24 +105,21 @@ class NonParametricSkewedHerReplayBuffer(HerReplayBuffer):
 
         :return: A goal
         """
-        is_empty = (self.ep_length == 0).all()
-        if not is_empty:
-            sample = self.sample(1, power=self.power)
-            goal = sample.next_observations["achieved_goal"][0].detach().cpu().numpy()
-        else:
-            goal = self.observation_space["desired_goal"].sample()
+        goal_idx = np.random.choice(self.goal_set.shape[0])
+        goal = self.goal_set[goal_idx]
         return goal
 
-    def update_logits(self) -> None:
+    def update_goal_set(self) -> None:
         """
         Update the weights of the buffer.
         """
         upper_bound = self.buffer_size if self.full else self.pos
-        data = self.next_observations["achieved_goal"][:upper_bound]  # (n, n_envs, obs_shape)
-        data = data.reshape(-1, data.shape[-1])  # (n * n_envs, obs_shape)
-        samples = super().sample(1024).next_observations["achieved_goal"].detach().cpu().numpy()
-        logits = log_prob(samples, data)
-        self.logits[:upper_bound] = logits.reshape(upper_bound, -1)
+        all_goals = self.next_observations["achieved_goal"][:upper_bound]
+        all_goals = all_goals.reshape(-1, all_goals.shape[-1])  # (n, n_envs, obs_shape) -> (n * n_envs, obs_shape)
+        # Compute the density of the data, using also the data as samples from the distribution
+        density = kde(samples=all_goals, x=all_goals)
+        less_dense_idxs = np.argpartition(-density, -self.nb_goals)[-self.nb_goals :]
+        self.goal_set = all_goals[less_dense_idxs]
 
 
 class Goalify(gym.GoalEnv, gym.Wrapper):
@@ -298,8 +233,9 @@ class Silver(DDPG):
         self,
         env: Union[GymEnv, str],
         n_envs: int = 1,
-        update_logits_freq: int = 1000,
-        power: int = -1.0,
+        update_goal_set_freq: int = 1000,
+        nb_goals: int = 200,
+        distance_threshold: float = 0.5,
         learning_rate: Union[float, Schedule] = 0.001,
         buffer_size: int = 1000000,
         learning_starts: int = 100,
@@ -321,11 +257,11 @@ class Silver(DDPG):
     ):
         # Wrap the env
         def env_func():
-            return Goalify(maybe_make_env(env, verbose), 0.1)
+            return Goalify(maybe_make_env(env, verbose), distance_threshold)
 
         env = make_vec_env(env_func, n_envs=n_envs)
         replay_buffer_kwargs = {} if replay_buffer_kwargs is None else replay_buffer_kwargs
-        replay_buffer_kwargs.update({"update_logits_freq": update_logits_freq, "power": power})
+        replay_buffer_kwargs.update({"update_goal_set_freq": update_goal_set_freq, "nb_goals": nb_goals})
         super().__init__(
             "MultiInputPolicy",
             env,
