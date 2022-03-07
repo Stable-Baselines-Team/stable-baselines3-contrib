@@ -5,16 +5,15 @@ import gym
 import numpy as np
 import torch as th
 from gym import Env, spaces
-from sklearn.neighbors import KernelDensity
+from KDEpy import FFTKDE
+from scipy.interpolate import interpn
 from stable_baselines3 import DDPG, HerReplayBuffer
 from stable_baselines3.common.base_class import maybe_make_env
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.noise import ActionNoise
-from stable_baselines3.common.type_aliases import DictReplayBufferSamples, GymEnv, Schedule
-from stable_baselines3.common.vec_env import VecEnv, VecNormalize
+from stable_baselines3.common.type_aliases import GymEnv, Schedule
+from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.her.goal_selection_strategy import GoalSelectionStrategy
-from KDEpy import FFTKDE
-from scipy.interpolate import interpn
 
 
 def kde(samples: np.ndarray, x: np.ndarray) -> np.ndarray:
