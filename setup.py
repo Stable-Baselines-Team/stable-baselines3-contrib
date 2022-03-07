@@ -64,6 +64,7 @@ setup(
     package_data={"sb3_contrib": ["py.typed", "version.txt"]},
     install_requires=[
         "stable_baselines3 @ git+https://git@github.com/qgallouedec/stable-baselines3@IM_compat_and_her_alt",
+        "KDEpy",
     ],
     description="Contrib package of Stable Baselines3, experimental code.",
     author="Antonin Raffin",
