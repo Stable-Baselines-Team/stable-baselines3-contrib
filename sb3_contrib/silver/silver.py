@@ -1,5 +1,5 @@
 import copy
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import gym
 import numpy as np
@@ -7,13 +7,16 @@ import torch as th
 from gym import Env, spaces
 from KDEpy import FFTKDE
 from scipy.interpolate import interpn
-from stable_baselines3 import DDPG, HerReplayBuffer
+from stable_baselines3 import HerReplayBuffer
 from stable_baselines3.common.base_class import maybe_make_env
 from stable_baselines3.common.env_util import make_vec_env
-from stable_baselines3.common.noise import ActionNoise
-from stable_baselines3.common.type_aliases import GymEnv, Schedule
+from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
+from stable_baselines3.common.torch_layers import CombinedExtractor
+from stable_baselines3.common.type_aliases import GymEnv
 from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.her.goal_selection_strategy import GoalSelectionStrategy
+
+from sb3_contrib.common.wrappers import TimeFeatureWrapper
 
 
 def kde(samples: np.ndarray, x: np.ndarray) -> np.ndarray:
@@ -80,9 +83,10 @@ class NonParametricSkewedHerReplayBuffer(HerReplayBuffer):
             online_sampling,
         )
         self.update_goal_set_freq = update_goal_set_freq
-        self.nb_goals = nb_goals
+        self.p = 1 / nb_goals
         # Initially, the goals are uniformly sampled from the desired goal space.
-        self.goal_set = np.array([self.observation_space["desired_goal"].sample() for _ in range(self.nb_goals)])
+        self.goal_set = np.array([self.observation_space["desired_goal"].sample() for _ in range(nb_goals)])
+        self.extractor = None  # type: CombinedExtractor
 
     def add(
         self,
@@ -104,21 +108,30 @@ class NonParametricSkewedHerReplayBuffer(HerReplayBuffer):
 
         :return: A goal
         """
-        goal_idx = np.random.choice(self.goal_set.shape[0])
+        goal_idx = min(np.random.geometric(self.p), self.goal_set.shape[0] - 1)
         goal = self.goal_set[goal_idx]
         return goal
 
     def update_goal_set(self) -> None:
         """
-        Update the weights of the buffer.
+        Update the goal set, by sorting all goals by their density.
         """
         upper_bound = self.buffer_size if self.full else self.pos
         all_goals = self.next_observations["achieved_goal"][:upper_bound]
         all_goals = all_goals.reshape(-1, all_goals.shape[-1])  # (n, n_envs, obs_shape) -> (n * n_envs, obs_shape)
         # Compute the density of the data, using also the data as samples from the distribution
-        density = kde(samples=all_goals, x=all_goals)
-        less_dense_idxs = np.argpartition(-density, -self.nb_goals)[-self.nb_goals :]
+        features = self.extractor.extractors["achieved_goal"](self.to_torch(all_goals)).detach().numpy()
+        density = kde(samples=features, x=features)
+        less_dense_idxs = np.argsort(density)
         self.goal_set = all_goals[less_dense_idxs]
+
+    def set_extractor(self, extractor: CombinedExtractor) -> None:
+        """
+        Set the extractor used to compute representation. Need to be set before learning starts.
+
+        :param extractor: The extractor
+        """
+        self.extractor = extractor
 
 
 class Goalify(gym.GoalEnv, gym.Wrapper):
@@ -200,11 +213,14 @@ class Goalify(gym.GoalEnv, gym.Wrapper):
 
         # When the last goal is reached, delay the done to allow some random actions
         if self._is_goal_reached:
+            info["is_success"] = True
             if self.done_countdown > 0:
                 info["use_random_action"] = True
                 self.done_countdown -= 1
             else:  # self.done_countdown == 0:
                 done = True
+        else:
+            info["is_success"] = False
 
         obs = self._get_obs(wrapped_obs)
         return obs, reward, done, info
@@ -227,62 +243,44 @@ class Goalify(gym.GoalEnv, gym.Wrapper):
         return np.array(d < self.distance_threshold, dtype=np.float64) - 1.0
 
 
-class Silver(DDPG):
+class Silver:
     def __init__(
         self,
+        model_class: Type[OffPolicyAlgorithm],
         env: Union[GymEnv, str],
         n_envs: int = 1,
-        update_goal_set_freq: int = 1000,
-        nb_goals: int = 200,
+        update_goal_set_freq: int = 500,
+        nb_goals: int = 1000,
         distance_threshold: float = 0.5,
-        learning_rate: Union[float, Schedule] = 0.001,
-        buffer_size: int = 1000000,
-        learning_starts: int = 100,
-        batch_size: int = 100,
-        tau: float = 0.005,
-        gamma: float = 0.99,
-        train_freq: Union[int, Tuple[int, str]] = 1,
-        gradient_steps: int = -1,
-        action_noise: Optional[ActionNoise] = None,
         replay_buffer_kwargs: Optional[Dict[str, Any]] = None,
-        optimize_memory_usage: bool = False,
-        tensorboard_log: Optional[str] = None,
-        create_eval_env: bool = False,
-        policy_kwargs: Optional[Dict[str, Any]] = None,
+        model_kwargs: Optional[Dict[str, Any]] = None,
         verbose: int = 0,
-        seed: Optional[int] = None,
-        device: Union[th.device, str] = "auto",
-        _init_setup_model: bool = True,
     ):
         # Wrap the env
         def env_func():
             return Goalify(maybe_make_env(env, verbose), distance_threshold)
 
-        env = make_vec_env(env_func, n_envs=n_envs)
+        env = make_vec_env(env_func, n_envs=n_envs, wrapper_class=TimeFeatureWrapper)
         replay_buffer_kwargs = {} if replay_buffer_kwargs is None else replay_buffer_kwargs
         replay_buffer_kwargs.update({"update_goal_set_freq": update_goal_set_freq, "nb_goals": nb_goals})
-        super().__init__(
+        model_kwargs = {} if model_kwargs is None else model_kwargs
+        self.model = model_class(
             "MultiInputPolicy",
             env,
-            learning_rate,
-            buffer_size,
-            learning_starts,
-            batch_size,
-            tau,
-            gamma,
-            train_freq,
-            gradient_steps,
-            action_noise,
-            NonParametricSkewedHerReplayBuffer,
-            replay_buffer_kwargs,
-            optimize_memory_usage,
-            tensorboard_log,
-            create_eval_env,
-            policy_kwargs,
-            verbose,
-            seed,
-            device,
-            _init_setup_model,
+            replay_buffer_class=NonParametricSkewedHerReplayBuffer,
+            replay_buffer_kwargs=replay_buffer_kwargs,
+            verbose=verbose,
+            **model_kwargs
         )
-        for _env in self.env.envs:
-            _env.set_buffer(self.replay_buffer)
+        for _env in self.model.env.envs:
+            _env.set_buffer(self.model.replay_buffer)
+        self.model.replay_buffer.set_extractor(self.model.actor.features_extractor)
+
+    def explore(self, total_timesteps: int, reset_num_timesteps: bool = False) -> None:
+        """
+        Run exploration.
+
+        :param total_timesteps: Total timestep of exploration.
+        :param reset_num_timesteps: whether or not to reset the current timestep number (used in logging), defaults to False
+        """
+        self.model.learn(total_timesteps, reset_num_timesteps=reset_num_timesteps)
