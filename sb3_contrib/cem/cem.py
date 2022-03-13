@@ -32,6 +32,7 @@ class CEM(BaseAlgorithm):
     :param pop_size: Population size (number of individuals)
     :param n_top: How many of the top individuals to use in each update step. Default is pop_size
     :param initial_std: Initial standard deviation for the exploration noise
+    :param extra_noise_std: Initial standard deviation for the extra noise added to the covariance matrix
     :param noise_multiplier: Noise decay. We add noise to the standard deviation
         to avoid early collapse.
     :param momentum:
