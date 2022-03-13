@@ -34,6 +34,7 @@ class CEM(BaseAlgorithm):
     :param initial_std: Initial standard deviation for the exploration noise
     :param noise_multiplier: Noise decay. We add noise to the standard deviation
         to avoid early collapse.
+    :param momentum:
     :param zero_policy: Boolean determining if the passed policy should have it's weights zeroed before training.
     :param alive_bonus_offset: Constant added to the reward at each step, used to cancel out alive bonuses.
     :param n_eval_episodes: Number of episodes to evaluate each candidate.
@@ -55,6 +56,7 @@ class CEM(BaseAlgorithm):
         initial_std: Union[float, Schedule] = 0.05,  # Note: currently not used
         extra_noise_std: float = 0.2,
         noise_multiplier: float = 0.999,
+        momentum: float = 0.0,
         zero_policy: bool = False,
         use_diagonal_covariance: bool = False,
         alive_bonus_offset: float = 0,
@@ -87,6 +89,7 @@ class CEM(BaseAlgorithm):
         self.extra_noise_std = extra_noise_std
         self.noise_multiplier = noise_multiplier
         self.n_eval_episodes = n_eval_episodes
+        self.momentum = momentum
 
         if n_top is None:
             n_top = self.pop_size
@@ -291,14 +294,17 @@ class CEM(BaseAlgorithm):
         # Keep only the top performing candidates for update
         top_idx = th.argsort(candidate_returns, descending=True)[: self.n_top]
 
-        # Update centroid: barycenter of the best candidates
-        self.weights = candidate_weights[top_idx].mean(dim=0)
+        new_centroid_weights = candidate_weights[top_idx].mean(dim=0)
         if self.use_diagonal_covariance:
             # Do not compute full cov matrix when use_diagonal_covariance=True
-            self.centroid_cov = candidate_weights[top_idx].var(dim=0)
+            new_centroid_cov = candidate_weights[top_idx].var(dim=0)
         else:
             # transpose to mimic rowvar=False in np.cov()
-            self.centroid_cov = th.cov(candidate_weights[top_idx].transpose(-1, -2))
+            new_centroid_cov = th.cov(candidate_weights[top_idx].transpose(-1, -2))
+
+        # Update centroid: barycenter of the best candidates, with momentum if needed
+        self.weights = self.momentum * self.weights + (1 - self.momentum) * new_centroid_weights
+        self.centroid_cov = self.momentum * self.centroid_cov + (1 - self.momentum) * new_centroid_cov
 
         # Update extra variance (prevents early converge)
         self.extra_noise_std = self.extra_noise_std * self.noise_multiplier
