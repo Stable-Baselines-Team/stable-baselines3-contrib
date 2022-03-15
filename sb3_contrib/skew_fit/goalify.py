@@ -65,8 +65,9 @@ class Goalify(gym.GoalEnv, gym.Wrapper):
     ) -> None:
         super().__init__(env)
         # Initial goal; will be re-sampled every time the env is reset
-        obs_dim = self.observation_space.shape[0]
+        self.obs_dim = self.observation_space.shape[0]
         self.goal = self.observation_space.sample()
+        self.nb_models = nb_models
 
         # Set a goalconditionned observation space
         self.observation_space = spaces.Dict(
@@ -83,10 +84,7 @@ class Goalify(gym.GoalEnv, gym.Wrapper):
         # Parameters for distribution model
         self.gradient_steps = gradient_steps
         self.batch_size = batch_size
-        self.probs = th.rand(nb_models, requires_grad=True)
-        self.locs = th.rand((nb_models, obs_dim), requires_grad=True)
-        self.scales = th.rand((nb_models, obs_dim), requires_grad=True)
-        self.distribution_optimizer = optim.Adam([self.locs, self.probs, self.scales], lr=learning_rate)
+        self.learning_rate = learning_rate
         # Parameters for goal sampling
         self.power = power
         self.num_presampled_goals = num_presampled_goals
@@ -94,7 +92,7 @@ class Goalify(gym.GoalEnv, gym.Wrapper):
         # Weights used to copute the reward: all dimension are not relevant
         self.distance_threshold = distance_threshold
         if weights is None:
-            self.weights = np.ones(obs_dim)
+            self.weights = np.ones(self.obs_dim)
 
     def set_buffer(self, buffer: DictReplayBuffer) -> None:
         """
@@ -103,9 +101,10 @@ class Goalify(gym.GoalEnv, gym.Wrapper):
         :param buffer: The replay buffer of the model
         """
         self.buffer = buffer
-        self.probs.to(buffer.device)
-        self.locs.to(buffer.device)
-        self.scales.to(buffer.device)
+        self.probs = th.rand(self.nb_models, requires_grad=True, device=buffer.device)
+        self.locs = th.rand((self.nb_models, self.obs_dim), requires_grad=True, device=buffer.device)
+        self.scales = th.rand((self.nb_models, self.obs_dim), requires_grad=True, device=buffer.device)
+        self.distribution_optimizer = optim.Adam([self.locs, self.probs, self.scales], lr=self.learning_rate)
 
     def step(self, action: np.ndarray) -> Tuple[Dict[str, np.ndarray], float, bool, Dict[str, Any]]:
         obs, reward, done, info = self.env.step(action)
