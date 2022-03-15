@@ -120,7 +120,7 @@ class NonParametricSkewedHerReplayBuffer(HerReplayBuffer):
         all_goals = self.next_observations["achieved_goal"][:upper_bound]
         all_goals = all_goals.reshape(-1, all_goals.shape[-1])  # (n, n_envs, obs_shape) -> (n * n_envs, obs_shape)
         # Compute the density of the data, using also the data as samples from the distribution
-        features = self.extractor.extractors["achieved_goal"](self.to_torch(all_goals)).detach().numpy()
+        features = self.extractor.extractors["achieved_goal"](self.to_torch(all_goals)).detach().cpu().numpy()
         density = kde(samples=features, x=features)
         less_dense_idxs = np.argsort(density)
         self.goal_set = all_goals[less_dense_idxs]
