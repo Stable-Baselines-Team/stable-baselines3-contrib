@@ -12,6 +12,7 @@ from sb3_contrib.rnd import RND
 from sb3_contrib.silver import Silver
 from sb3_contrib.simhash import SimHash
 from sb3_contrib.skew_fit import SkewFit
+from sb3_contrib.surprise import Surprise
 from sb3_contrib.tqc import TQC
 from sb3_contrib.trpo import TRPO
 from sb3_contrib.vime import VIME
