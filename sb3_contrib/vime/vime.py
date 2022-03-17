@@ -192,10 +192,8 @@ class VIME(Surgeon):
     def modify_reward(self, replay_data: ReplayBufferSamples) -> ReplayBufferSamples:
         obs = replay_data.observations.to(th.float32)
         next_obs = replay_data.next_observations.to(th.float32)
-        # action = replay_data.actions.to(th.float32)
         obs_feature = self.feature_extractor(obs)
         next_obs_feature = self.feature_extractor(next_obs)
-        # pred_next_obs_feature = self.forward_model(action, obs_feature)
         # Equation (6) of the original paper
         # r^i = η/2*||φˆ(st+1)−φ(st+1)||
         pred_error = th.linalg.norm(obs_feature - next_obs_feature, dim=1)
