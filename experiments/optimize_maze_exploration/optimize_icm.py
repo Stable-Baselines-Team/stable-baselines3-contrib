@@ -46,7 +46,7 @@ def objective(trial: optuna.Study):
 
 if __name__ == "__main__":
     study = optuna.create_study(
-        storage="sqlite:///example.db",
+        storage="sqlite:///optuna.db",
         study_name="ContinuousMaze_ICM",
         load_if_exists=True,
         direction="maximize",
