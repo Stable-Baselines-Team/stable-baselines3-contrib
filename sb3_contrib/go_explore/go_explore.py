@@ -1,11 +1,14 @@
 import copy
-from typing import Any, Dict, Mapping, Optional, Tuple
+from typing import Any, Dict, Mapping, Optional, Tuple, Type
 
 import gym
 import numpy as np
 from gym import Env, spaces
-from stable_baselines3 import SAC
+from stable_baselines3.common.base_class import maybe_make_env
+from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
 
+from sb3_contrib.common.wrappers import TimeFeatureWrapper
 from sb3_contrib.go_explore import ArchiveBuffer, CellFactory
 
 
@@ -140,7 +143,6 @@ class GoExplore:
     general principle of the algorithm and not all the little tricks.
     In particular, we do not implement:
     - everything related with domain knowledge,
-    - action repetition
     - dynamic representation
     - self-imitation learning
     - parallelized exploration phase
@@ -148,17 +150,40 @@ class GoExplore:
 
     def __init__(
         self,
+        model_class: Type[OffPolicyAlgorithm],
         env: Env,
         cell_factory: CellFactory,
         count_pow: float = 1,
+        n_envs: int = 1,
+        replay_buffer_kwargs: Optional[Dict[str, Any]] = None,
+        model_kwargs: Optional[Dict[str, Any]] = None,
+        verbose: int = 0,
     ):
-        env = Goalify(env, cell_factory)
-        self.model = SAC(
+        # Wrap the env
+        def env_func():
+            return Goalify(maybe_make_env(env, verbose), cell_factory)
+
+        env = make_vec_env(env_func, n_envs=n_envs, wrapper_class=TimeFeatureWrapper)
+        replay_buffer_kwargs = {} if replay_buffer_kwargs is None else replay_buffer_kwargs
+        replay_buffer_kwargs.update({"cell_factory": cell_factory, "count_pow": count_pow})
+        model_kwargs = {} if model_kwargs is None else model_kwargs
+
+        self.model = model_class(
             "MultiInputPolicy",
             env,
             replay_buffer_class=ArchiveBuffer,
-            replay_buffer_kwargs={"cell_factory": cell_factory, "count_pow": count_pow},
-            learning_starts=500,
-            verbose=1,
+            replay_buffer_kwargs=replay_buffer_kwargs,
+            verbose=verbose,
+            **model_kwargs
         )
-        env.set_archive(self.model.replay_buffer)
+        for _env in self.model.env.envs:
+            _env.set_archive(self.model.replay_buffer)
+
+    def explore(self, total_timesteps: int, reset_num_timesteps: bool = False) -> None:
+        """
+        Run exploration.
+
+        :param total_timesteps: Total timestep of exploration.
+        :param reset_num_timesteps: whether or not to reset the current timestep number (used in logging), defaults to False
+        """
+        self.model.learn(total_timesteps, reset_num_timesteps=reset_num_timesteps)

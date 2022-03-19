@@ -77,13 +77,12 @@ class DownscaleCellFactory(CellFactory):
     :param coef: The multiplication coeficient applied before computing floor. The higher, the more cells
     """
 
-    def __init__(self, std: np.ndarray, coef: np.ndarray) -> None:
+    def __init__(self, size: np.ndarray) -> None:
         super().__init__()
-        self.std = std
-        self.coef = coef
+        self.size = size
 
     def _process(self, observations: np.ndarray) -> np.ndarray:
-        downscaled_obs = np.floor(self.coef * observations / self.std)
+        downscaled_obs = np.floor(observations / self.size)
         return downscaled_obs
 
 
