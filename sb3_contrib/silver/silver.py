@@ -85,7 +85,7 @@ class NonParametricSkewedHerReplayBuffer(HerReplayBuffer):
         self.update_goal_set_freq = update_goal_set_freq
         self.p = 1 / nb_goals
         # Initially, the goals are uniformly sampled from the desired goal space.
-        self.goal_set = np.array([self.observation_space["desired_goal"].sample() for _ in range(nb_goals)])
+        self.indexes_sorted_by_density = None  # type: np.ndarray
         self.extractor = None  # type: CombinedExtractor
 
     def add(
@@ -108,8 +108,16 @@ class NonParametricSkewedHerReplayBuffer(HerReplayBuffer):
 
         :return: A goal
         """
-        goal_idx = min(np.random.geometric(self.p), self.goal_set.shape[0] - 1)
-        goal = self.goal_set[goal_idx]
+        if self.indexes_sorted_by_density is None:  # goal set is not initialized yet
+            return self.observation_space["desired_goal"].sample()
+
+        density_idx = min(np.random.geometric(self.p), self.indexes_sorted_by_density.shape[0] - 1)
+        goal_idx = self.indexes_sorted_by_density[density_idx]
+
+        upper_bound = self.buffer_size if self.full else self.pos
+        all_goals = self.next_observations["achieved_goal"][:upper_bound]
+        all_goals = all_goals.reshape(-1, all_goals.shape[-1])
+        goal = all_goals[goal_idx]
         return goal
 
     def update_goal_set(self) -> None:
@@ -122,8 +130,7 @@ class NonParametricSkewedHerReplayBuffer(HerReplayBuffer):
         # Compute the density of the data, using also the data as samples from the distribution
         features = self.extractor.extractors["achieved_goal"](self.to_torch(all_goals)).detach().cpu().numpy()
         density = kde(samples=features, x=features)
-        less_dense_idxs = np.argsort(density)
-        self.goal_set = all_goals[less_dense_idxs]
+        self.indexes_sorted_by_density = np.argsort(density)
 
     def set_extractor(self, extractor: CombinedExtractor) -> None:
         """
