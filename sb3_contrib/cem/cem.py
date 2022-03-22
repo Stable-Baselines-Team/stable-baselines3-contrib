@@ -12,7 +12,7 @@ from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.policies import BasePolicy
-from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
+from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback
 from stable_baselines3.common.utils import safe_mean
 from torch.distributions.multivariate_normal import MultivariateNormal
 
@@ -25,13 +25,18 @@ class CEM(BaseAlgorithm):
     Noisy Cross Entropy Method: http://dx.doi.org/10.1162/neco.2006.18.12.2936
     "Learning Tetris Using the Noisy Cross-Entropy Method"
 
+    CEM is part of the Evolution Strategies (ES), which does black-box optimization
+    by sampling and evaluating a population of candidates:
+    https://blog.otoro.net/2017/10/29/visual-evolution-strategies/
+
     John Schulman's implementation: https://github.com/joschu/modular_rl/blob/master/modular_rl/cem.py
 
     :param policy: The policy to train, can be an instance of ``ARSPolicy``, or a string from ["LinearPolicy", "MlpPolicy"]
     :param env: The environment to train on, may be a string if registered with gym
     :param pop_size: Population size (number of individuals)
     :param n_top: How many of the top individuals to use in each update step. Default is pop_size
-    :param initial_std: Initial standard deviation for the exploration noise
+    :param initial_std: Initial standard deviation for the exploration noise,
+        by default using Pytorch default variance at initialization.
     :param extra_noise_std: Initial standard deviation for the extra noise added to the covariance matrix
     :param noise_multiplier: Noise decay. We add noise to the standard deviation
         to avoid early collapse.
@@ -53,7 +58,7 @@ class CEM(BaseAlgorithm):
         env: Union[GymEnv, str],
         pop_size: int = 16,
         n_top: Optional[int] = None,
-        initial_std: Union[float, Schedule] = 0.05,  # Note: currently not used
+        initial_std: Optional[float] = None,
         extra_noise_std: float = 0.2,
         noise_multiplier: float = 0.999,
         zero_policy: bool = False,
@@ -122,8 +127,12 @@ class CEM(BaseAlgorithm):
         self.weights = th.nn.utils.parameters_to_vector(self.policy.parameters()).detach()
         self.n_params = len(self.weights)
 
-        # TODO: replace with initial_std if needed
-        initial_variance = self.weights.var().item()
+        if self.initial_std is None:
+            # Use weights variance from Pytorch initialization by default
+            initial_variance = self.weights.var().item()
+            print(np.sqrt(initial_variance))
+        else:
+            initial_variance = self.initial_std**2
         self.centroid_cov = th.ones_like(self.weights, requires_grad=False) * initial_variance
         if not self.use_diagonal_covariance:
             self.centroid_cov = th.diag(self.centroid_cov)
@@ -305,6 +314,7 @@ class CEM(BaseAlgorithm):
         self.extra_noise_std = self.extra_noise_std * self.noise_multiplier
         self.extra_variance = th.ones_like(self.weights, requires_grad=False) * self.extra_noise_std**2
 
+        # Current policy is the centroid of the best candidates
         self.policy.load_from_vector(self.weights.cpu())
 
         self.logger.record("rollout/return_std", candidate_returns.std().item())
