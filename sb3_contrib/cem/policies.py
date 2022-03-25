@@ -1,9 +1,9 @@
 from stable_baselines3.common.policies import register_policy
 
-from sb3_contrib.ars.policies import ARSLinearPolicy, ARSPolicy
+from sb3_contrib.common.policies import ESLinearPolicy, ESPolicy
 
-MlpPolicy = ARSPolicy
-LinearPolicy = ARSLinearPolicy
+MlpPolicy = ESPolicy
+LinearPolicy = ESLinearPolicy
 
 
 register_policy("LinearPolicy", LinearPolicy)
