@@ -130,7 +130,6 @@ class CEM(BaseAlgorithm):
         if self.initial_std is None:
             # Use weights variance from Pytorch initialization by default
             initial_variance = self.weights.var().item()
-            print(np.sqrt(initial_variance))
         else:
             initial_variance = self.initial_std**2
         self.centroid_cov = th.ones_like(self.weights, requires_grad=False) * initial_variance
