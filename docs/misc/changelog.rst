@@ -3,14 +3,13 @@
 Changelog
 ==========
 
-Release 1.4.1a1 (WIP)
+Release 1.5.0 (2022-03-25)
 -------------------------------
-
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
 - Switched minimum Gym version to 0.21.0.
-- Upgraded to Stable-Baselines3 >= 1.4.1a1
+- Upgraded to Stable-Baselines3 >= 1.5.0
 
 New Features:
 ^^^^^^^^^^^^^
@@ -28,7 +27,7 @@ Others:
 
 Release 1.4.0 (2022-01-19)
 -------------------------------
-**Add Trust Region Policy Optimization (TRPO)  and Augmented Random Search (ARS) algorithms**
+**Add Trust Region Policy Optimization (TRPO) and Augmented Random Search (ARS) algorithms**
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
