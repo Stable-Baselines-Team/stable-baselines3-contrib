@@ -3,19 +3,38 @@
 Changelog
 ==========
 
-Release 1.4.1a3 (WIP)
+Release 1.5.1a0 (WIP)
+-------------------------------
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Changed default policy architecture for ARS/CEM to ``[32]`` instead of ``[64, 64]``
+
+
+New Features:
+^^^^^^^^^^^^^
+- Added noisy Cross Entropy Method (CEM)
+
+Bug Fixes:
+^^^^^^^^^^
+
+Deprecations:
+^^^^^^^^^^^^^
+
+Others:
+^^^^^^^
+
+Release 1.5.0 (2022-03-25)
 -------------------------------
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
 - Switched minimum Gym version to 0.21.0.
-- Upgraded to Stable-Baselines3 >= 1.4.1a1
-- Changed default policy architecture for ARS/CEM to ``[32]`` instead of ``[64, 64]``
+- Upgraded to Stable-Baselines3 >= 1.5.0
 
 New Features:
 ^^^^^^^^^^^^^
 - Allow PPO to turn of advantage normalization (see `PR #61 <https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/pull/61>`_) @vwxyzjn
-- Added noisy Cross Entropy Method (CEM)
 
 Bug Fixes:
 ^^^^^^^^^^
@@ -29,7 +48,7 @@ Others:
 
 Release 1.4.0 (2022-01-19)
 -------------------------------
-**Add Trust Region Policy Optimization (TRPO)  and Augmented Random Search (ARS) algorithms**
+**Add Trust Region Policy Optimization (TRPO) and Augmented Random Search (ARS) algorithms**
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
