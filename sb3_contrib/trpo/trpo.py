@@ -67,6 +67,12 @@ class TRPO(OnPolicyAlgorithm):
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
 
+    policy_aliases: Dict[str, Type[BasePolicy]] = {
+        "MlpPolicy": MlpPolicy,
+        "CnnPolicy": CnnPolicy,
+        "MultiInputPolicy": MultiInputPolicy,
+    }
+
     def __init__(
         self,
         policy: Union[str, Type[ActorCriticPolicy]],
@@ -158,12 +164,6 @@ class TRPO(OnPolicyAlgorithm):
 
         if _init_setup_model:
             self._setup_model()
-
-    policy_aliases: Dict[str, Type[BasePolicy]] = {
-        "MlpPolicy": MlpPolicy,
-        "CnnPolicy": CnnPolicy,
-        "MultiInputPolicy": MultiInputPolicy,
-    }
 
     def _compute_actor_grad(
         self, kl_div: th.Tensor, policy_objective: th.Tensor

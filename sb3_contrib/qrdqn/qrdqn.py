@@ -58,6 +58,12 @@ class QRDQN(OffPolicyAlgorithm):
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
 
+    policy_aliases: Dict[str, Type[BasePolicy]] = {
+        "MlpPolicy": MlpPolicy,
+        "CnnPolicy": CnnPolicy,
+        "MultiInputPolicy": MultiInputPolicy,
+    }
+
     def __init__(
         self,
         policy: Union[str, Type[QRDQNPolicy]],
@@ -131,12 +137,6 @@ class QRDQN(OffPolicyAlgorithm):
 
         if _init_setup_model:
             self._setup_model()
-
-    policy_aliases: Dict[str, Type[BasePolicy]] = {
-        "MlpPolicy": MlpPolicy,
-        "CnnPolicy": CnnPolicy,
-        "MultiInputPolicy": MultiInputPolicy,
-    }
 
     def _setup_model(self) -> None:
         super(QRDQN, self)._setup_model()

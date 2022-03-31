@@ -67,6 +67,12 @@ class MaskablePPO(OnPolicyAlgorithm):
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
 
+    policy_aliases: Dict[str, Type[BasePolicy]] = {
+        "MlpPolicy": MlpPolicy,
+        "CnnPolicy": CnnPolicy,
+        "MultiInputPolicy": MultiInputPolicy,
+    }
+
     def __init__(
         self,
         policy: Union[str, Type[MaskableActorCriticPolicy]],
@@ -127,12 +133,6 @@ class MaskablePPO(OnPolicyAlgorithm):
 
         if _init_setup_model:
             self._setup_model()
-
-    policy_aliases: Dict[str, Type[BasePolicy]] = {
-        "MlpPolicy": MlpPolicy,
-        "CnnPolicy": CnnPolicy,
-        "MultiInputPolicy": MultiInputPolicy,
-    }
 
     def _setup_model(self) -> None:
         self._setup_lr_schedule()
