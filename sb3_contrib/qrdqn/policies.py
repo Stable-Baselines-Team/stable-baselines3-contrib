@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Optional, Type
 
 import gym
 import torch as th
-from stable_baselines3.common.policies import BasePolicy, register_policy
+from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.torch_layers import (
     BaseFeaturesExtractor,
     CombinedExtractor,
@@ -307,8 +307,3 @@ class MultiInputPolicy(QRDQNPolicy):
             optimizer_class,
             optimizer_kwargs,
         )
-
-
-register_policy("MlpPolicy", MlpPolicy)
-register_policy("CnnPolicy", CnnPolicy)
-register_policy("MultiInputPolicy", MultiInputPolicy)

@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Optional, Type
 
 import gym
 import torch as th
-from stable_baselines3.common.policies import BasePolicy, register_policy
+from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.preprocessing import get_action_dim
 from stable_baselines3.common.torch_layers import create_mlp
 from torch import nn
@@ -113,7 +113,3 @@ class ARSLinearPolicy(ARSPolicy):
 
 MlpPolicy = ARSPolicy
 LinearPolicy = ARSLinearPolicy
-
-
-register_policy("LinearPolicy", LinearPolicy)
-register_policy("MlpPolicy", MlpPolicy)

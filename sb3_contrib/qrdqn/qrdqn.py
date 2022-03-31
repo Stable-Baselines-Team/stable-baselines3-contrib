@@ -5,12 +5,13 @@ import numpy as np
 import torch as th
 from stable_baselines3.common.buffers import ReplayBuffer
 from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
+from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.preprocessing import maybe_transpose
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import get_linear_fn, is_vectorized_observation, polyak_update
 
 from sb3_contrib.common.utils import quantile_huber_loss
-from sb3_contrib.qrdqn.policies import QRDQNPolicy
+from sb3_contrib.qrdqn.policies import CnnPolicy, MlpPolicy, MultiInputPolicy, QRDQNPolicy
 
 
 class QRDQN(OffPolicyAlgorithm):
@@ -89,7 +90,6 @@ class QRDQN(OffPolicyAlgorithm):
         super(QRDQN, self).__init__(
             policy,
             env,
-            QRDQNPolicy,
             learning_rate,
             buffer_size,
             learning_starts,
@@ -131,6 +131,12 @@ class QRDQN(OffPolicyAlgorithm):
 
         if _init_setup_model:
             self._setup_model()
+
+    policy_aliases: Dict[str, Type[BasePolicy]] = {
+        "MlpPolicy": MlpPolicy,
+        "CnnPolicy": CnnPolicy,
+        "MultiInputPolicy": MultiInputPolicy,
+    }
 
     def _setup_model(self) -> None:
         super(QRDQN, self)._setup_model()
