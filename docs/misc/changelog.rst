@@ -3,6 +3,24 @@
 Changelog
 ==========
 
+Release 1.5.1a1 (WIP)
+-------------------------------
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Upgraded to Stable-Baselines3 >= 1.5.1a1
+- Changed the way policy "aliases" are handled ("MlpPolicy", "CnnPolicy", ...), removing the former
+  ``register_policy`` helper, ``policy_base`` parameter and using ``policy_aliases`` static attributes instead (@Gregwar)
+
+New Features:
+^^^^^^^^^^^^^
+
+Bug Fixes:
+^^^^^^^^^^
+
+Deprecations:
+^^^^^^^^^^^^^
+
 Release 1.5.0 (2022-03-25)
 -------------------------------
 
@@ -243,4 +261,4 @@ Stable-Baselines3 is currently maintained by `Antonin Raffin`_ (aka `@araffin`_)
 Contributors:
 -------------
 
-@ku2482 @guyk1971 @minhlong94 @ayeright @kronion @glmcdona @cyprienc @sgillen
+@ku2482 @guyk1971 @minhlong94 @ayeright @kronion @glmcdona @cyprienc @sgillen @Gregwar
