@@ -9,7 +9,7 @@ from gym import spaces
 from stable_baselines3.common.buffers import RolloutBuffer
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
-from stable_baselines3.common.policies import ActorCriticPolicy
+from stable_baselines3.common.policies import ActorCriticPolicy, BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import explained_variance, get_schedule_fn, obs_as_tensor, safe_mean
 from stable_baselines3.common.vec_env import VecEnv
@@ -18,6 +18,7 @@ from torch.nn import functional as F
 from sb3_contrib.common.recurrent.buffers import RecurrentDictRolloutBuffer, RecurrentRolloutBuffer
 from sb3_contrib.common.recurrent.policies import RecurrentActorCriticPolicy
 from sb3_contrib.common.recurrent.type_aliases import RNNStates
+from sb3_contrib.ppo_recurrent.policies import CnnLstmPolicy, MlpLstmPolicy, MultiInputLstmPolicy
 
 
 class RecurrentPPO(OnPolicyAlgorithm):
@@ -63,6 +64,12 @@ class RecurrentPPO(OnPolicyAlgorithm):
         Setting it to auto, the code will be run on the GPU if possible.
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
+
+    policy_aliases: Dict[str, Type[BasePolicy]] = {
+        "MlpLstmPolicy": MlpLstmPolicy,
+        "CnnLstmPolicy": CnnLstmPolicy,
+        "MultiInputLstmPolicy": MultiInputLstmPolicy,
+    }
 
     def __init__(
         self,
