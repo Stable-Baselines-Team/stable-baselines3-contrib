@@ -159,11 +159,8 @@ class RecurrentPPO(OnPolicyAlgorithm):
         if not isinstance(self.policy, RecurrentActorCriticPolicy):
             raise ValueError("Policy must subclass RecurrentActorCriticPolicy")
 
-        hidden_state_shape = (self.n_steps, lstm.num_layers, self.n_envs, lstm.hidden_size)
-        lstm_states = (np.zeros(hidden_state_shape, dtype=np.float32), np.zeros(hidden_state_shape, dtype=np.float32))
-
         single_hidden_state_shape = (lstm.num_layers, self.n_envs, lstm.hidden_size)
-        # hidden states for actor and critic
+        # hidden and cell states for actor and critic
         self._last_lstm_states = RNNStates(
             (
                 th.zeros(single_hidden_state_shape).to(self.device),
@@ -175,11 +172,13 @@ class RecurrentPPO(OnPolicyAlgorithm):
             ),
         )
 
+        hidden_state_buffer_shape = (self.n_steps, lstm.num_layers, self.n_envs, lstm.hidden_size)
+
         self.rollout_buffer = buffer_cls(
             self.n_steps,
             self.observation_space,
             self.action_space,
-            lstm_states,
+            hidden_state_buffer_shape,
             self.device,
             gamma=self.gamma,
             gae_lambda=self.gae_lambda,

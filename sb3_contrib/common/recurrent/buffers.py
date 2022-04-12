@@ -20,7 +20,7 @@ class RecurrentRolloutBuffer(RolloutBuffer):
     :param buffer_size: Max number of element in the buffer
     :param observation_space: Observation space
     :param action_space: Action space
-    :param lstm_states: Dummy LSTM states to have the correct shapes when reseting the buffer
+    :param hidden_state_shape: Shape of the buffer that will collect lstm states
     :param device: PyTorch device
     :param gae_lambda: Factor for trade-off of bias vs variance for Generalized Advantage Estimator
         Equivalent to classic advantage when set to 1.
@@ -33,23 +33,23 @@ class RecurrentRolloutBuffer(RolloutBuffer):
         buffer_size: int,
         observation_space: spaces.Space,
         action_space: spaces.Space,
-        lstm_states: Tuple[np.ndarray, np.ndarray],
+        hidden_state_shape: Tuple[int, int, int, int],
         device: Union[th.device, str] = "cpu",
         gae_lambda: float = 1,
         gamma: float = 0.99,
         n_envs: int = 1,
     ):
-        self.lstm_states = lstm_states
+        self.hidden_state_shape = hidden_state_shape
         self.initial_lstm_states = None
         self.starts, self.ends = None, None
         super().__init__(buffer_size, observation_space, action_space, device, gae_lambda, gamma, n_envs)
 
     def reset(self):
         super().reset()
-        self.hidden_states_pi = np.zeros_like(self.lstm_states[0])
-        self.cell_states_pi = np.zeros_like(self.lstm_states[1])
-        self.hidden_states_vf = np.zeros_like(self.lstm_states[0])
-        self.cell_states_vf = np.zeros_like(self.lstm_states[1])
+        self.hidden_states_pi = np.zeros(self.hidden_state_shape, dtype=np.float32)
+        self.cell_states_pi = np.zeros(self.hidden_state_shape, dtype=np.float32)
+        self.hidden_states_vf = np.zeros(self.hidden_state_shape, dtype=np.float32)
+        self.cell_states_vf = np.zeros(self.hidden_state_shape, dtype=np.float32)
 
     def add(self, *args, lstm_states: RNNStates, **kwargs) -> None:
         """
@@ -129,6 +129,7 @@ class RecurrentRolloutBuffer(RolloutBuffer):
         self.ends = np.concatenate([(self.starts - 1)[1:], np.array([len(batch_inds)])])
 
         n_layers = self.hidden_states_pi.shape[1]
+        # Number of sequences
         n_seq = len(self.starts)
         max_length = self.pad(self.actions[batch_inds]).shape[0]
         # TODO: output mask to not backpropagate everywhere
@@ -176,7 +177,7 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
     :param buffer_size: Max number of element in the buffer
     :param observation_space: Observation space
     :param action_space: Action space
-    :param lstm_states: Dummy LSTM states to have the correct shapes when reseting the buffer
+    :param hidden_state_shape: Shape of the buffer that will collect lstm states
     :param device: PyTorch device
     :param gae_lambda: Factor for trade-off of bias vs variance for Generalized Advantage Estimator
         Equivalent to classic advantage when set to 1.
@@ -189,23 +190,23 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
         buffer_size: int,
         observation_space: spaces.Space,
         action_space: spaces.Space,
-        lstm_states: Tuple[np.ndarray, np.ndarray],
+        hidden_state_shape: Tuple[int, int, int, int],
         device: Union[th.device, str] = "cpu",
         gae_lambda: float = 1,
         gamma: float = 0.99,
         n_envs: int = 1,
     ):
-        self.lstm_states = lstm_states
+        self.hidden_state_shape = hidden_state_shape
         self.initial_lstm_states = None
         self.starts, self.ends = None, None
         super().__init__(buffer_size, observation_space, action_space, device, gae_lambda, gamma, n_envs=n_envs)
 
     def reset(self):
         super().reset()
-        self.hidden_states_pi = np.zeros_like(self.lstm_states[0])
-        self.cell_states_pi = np.zeros_like(self.lstm_states[1])
-        self.hidden_states_vf = np.zeros_like(self.lstm_states[0])
-        self.cell_states_vf = np.zeros_like(self.lstm_states[1])
+        self.hidden_states_pi = np.zeros(self.hidden_state_shape, dtype=np.float32)
+        self.cell_states_pi = np.zeros(self.hidden_state_shape, dtype=np.float32)
+        self.hidden_states_vf = np.zeros(self.hidden_state_shape, dtype=np.float32)
+        self.cell_states_vf = np.zeros(self.hidden_state_shape, dtype=np.float32)
 
     def add(self, *args, lstm_states: RNNStates, **kwargs) -> None:
         """

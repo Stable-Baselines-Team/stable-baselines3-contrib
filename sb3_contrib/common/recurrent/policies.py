@@ -56,6 +56,8 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
     :param shared_lstm: Whether the LSTM is shared between the actor and the critic.
         By default, only the actor has a recurrent network.
     :param enable_critic_lstm: Use a seperate LSTM for the critic.
+    :param lstm_kwargs: Additional keyword arguments to pass the the LSTM
+        constructor.
     """
 
     def __init__(
@@ -81,6 +83,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         n_lstm_layers: int = 1,
         shared_lstm: bool = False,
         enable_critic_lstm: bool = False,
+        lstm_kwargs: Optional[Dict[str, Any]] = None,
     ):
         self.lstm_output_dim = lstm_hidden_size
         super().__init__(
@@ -103,21 +106,38 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             optimizer_kwargs,
         )
 
+        self.lstm_kwargs = lstm_kwargs or {}
         self.shared_lstm = shared_lstm
         self.enable_critic_lstm = enable_critic_lstm
-        self.lstm_actor = nn.LSTM(self.features_dim, lstm_hidden_size, num_layers=n_lstm_layers)
-        self.lstm_shape = (n_lstm_layers, 1, lstm_hidden_size)
+        self.lstm_actor = nn.LSTM(
+            self.features_dim,
+            lstm_hidden_size,
+            num_layers=n_lstm_layers,
+            **self.lstm_kwargs,
+        )
+        # For the predict() method, to initialize hidden states
+        # (n_lstm_layers, batch_size, lstm_hidden_size)
+        self.lstm_hidden_state_shape = (n_lstm_layers, 1, lstm_hidden_size)
         self.critic = None
         self.lstm_critic = None
         assert not (
             self.shared_lstm and self.enable_critic_lstm
         ), "You must choose between shared LSTM, seperate or no LSTM for the critic"
 
+        # No LSTM for the critic, we still need to convert
+        # output of features extractor to the correct size
+        # (size of the output of the actor lstm)
         if not (self.shared_lstm or self.enable_critic_lstm):
             self.critic = nn.Linear(self.features_dim, lstm_hidden_size)
 
+        # Use a separate LSTM for the critic
         if self.enable_critic_lstm:
-            self.lstm_critic = nn.LSTM(self.features_dim, lstm_hidden_size, num_layers=n_lstm_layers)
+            self.lstm_critic = nn.LSTM(
+                self.features_dim,
+                lstm_hidden_size,
+                num_layers=n_lstm_layers,
+                **self.lstm_kwargs,
+            )
 
         # Setup optimizer with initial learning rate
         self.optimizer = self.optimizer_class(self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
@@ -348,7 +368,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         # state : (n_layers, n_envs, dim)
         if state is None:
             # Initialize hidden states to zeros
-            state = np.concatenate([np.zeros(self.lstm_shape) for _ in range(n_envs)], axis=1)
+            state = np.concatenate([np.zeros(self.lstm_hidden_state_shape) for _ in range(n_envs)], axis=1)
             state = (state, state)
 
         if episode_start is None:
@@ -419,7 +439,8 @@ class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
     :param shared_lstm: Whether the LSTM is shared between the actor and the critic.
         By default, only the actor has a recurrent network.
     :param enable_critic_lstm: Use a seperate LSTM for the critic.
-
+    :param lstm_kwargs: Additional keyword arguments to pass the the LSTM
+        constructor.
     """
 
     def __init__(
@@ -444,6 +465,7 @@ class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
         lstm_hidden_size: int = 256,
         n_lstm_layers: int = 1,
         enable_critic_lstm: bool = False,
+        lstm_kwargs: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
             observation_space,
@@ -466,6 +488,7 @@ class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
             lstm_hidden_size,
             n_lstm_layers,
             enable_critic_lstm,
+            lstm_kwargs,
         )
 
 
@@ -506,6 +529,8 @@ class RecurrentMultiInputActorCriticPolicy(RecurrentActorCriticPolicy):
     :param shared_lstm: Whether the LSTM is shared between the actor and the critic.
         By default, only the actor has a recurrent network.
     :param enable_critic_lstm: Use a seperate LSTM for the critic.
+    :param lstm_kwargs: Additional keyword arguments to pass the the LSTM
+        constructor.
     """
 
     def __init__(
@@ -530,6 +555,7 @@ class RecurrentMultiInputActorCriticPolicy(RecurrentActorCriticPolicy):
         lstm_hidden_size: int = 256,
         n_lstm_layers: int = 1,
         enable_critic_lstm: bool = False,
+        lstm_kwargs: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
             observation_space,
@@ -552,4 +578,5 @@ class RecurrentMultiInputActorCriticPolicy(RecurrentActorCriticPolicy):
             lstm_hidden_size,
             n_lstm_layers,
             enable_critic_lstm,
+            lstm_kwargs,
         )
