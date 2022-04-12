@@ -68,7 +68,18 @@ def test_cnn():
     model.learn(total_timesteps=32)
 
 
-@pytest.mark.parametrize("policy_kwargs", [{}, dict(shared_lstm=True), dict(enable_critic_lstm=True, lstm_hidden_size=4)])
+@pytest.mark.parametrize(
+    "policy_kwargs",
+    [
+        {},
+        dict(shared_lstm=True),
+        dict(
+            enable_critic_lstm=True,
+            lstm_hidden_size=4,
+            lstm_kwargs=dict(dropout=0.5),
+        ),
+    ],
+)
 def test_policy_kwargs(policy_kwargs):
     model = RecurrentPPO(
         "MlpLstmPolicy",
