@@ -402,6 +402,9 @@ class RecurrentPPO(OnPolicyAlgorithm):
                 # clipped surrogate loss
                 policy_loss_1 = advantages * ratio
                 policy_loss_2 = advantages * th.clamp(ratio, 1 - clip_range, 1 + clip_range)
+                # Mask padded sequences
+                policy_loss_1 = policy_loss_1 * rollout_data.mask
+                policy_loss_2 = policy_loss_2 * rollout_data.mask
                 policy_loss = -th.min(policy_loss_1, policy_loss_2).mean()
 
                 # Logging
@@ -419,7 +422,9 @@ class RecurrentPPO(OnPolicyAlgorithm):
                         values - rollout_data.old_values, -clip_range_vf, clip_range_vf
                     )
                 # Value loss using the TD(gae_lambda) target
-                value_loss = F.mse_loss(rollout_data.returns, values_pred)
+                # Mask padded sequences
+                value_loss = th.mean(((rollout_data.returns - values_pred) * rollout_data.mask) ** 2)
+
                 value_losses.append(value_loss.item())
 
                 # Entropy loss favor exploration

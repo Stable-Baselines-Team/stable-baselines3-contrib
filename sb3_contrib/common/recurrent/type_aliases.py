@@ -18,6 +18,7 @@ class RecurrentRolloutBufferSamples(NamedTuple):
     returns: th.Tensor
     lstm_states: RNNStates
     episode_starts: th.Tensor
+    mask: th.Tensor
 
 
 class RecurrentDictRolloutBufferSamples(RecurrentRolloutBufferSamples):
@@ -29,3 +30,4 @@ class RecurrentDictRolloutBufferSamples(RecurrentRolloutBufferSamples):
     returns: th.Tensor
     lstm_states: RNNStates
     episode_starts: th.Tensor
+    mask: th.Tensor

@@ -111,9 +111,20 @@ class RecurrentRolloutBuffer(RolloutBuffer):
             yield self._get_samples(batch_inds, env_change)
             start_idx += batch_size
 
-    def pad(self, tensor: np.ndarray) -> th.Tensor:
+    def pad(self, tensor: np.ndarray, padding_value: float = 0.0) -> th.Tensor:
         seq = [self.to_torch(tensor[start : end + 1]) for start, end in zip(self.starts, self.ends)]
-        return th.nn.utils.rnn.pad_sequence(seq)
+        return th.nn.utils.rnn.pad_sequence(seq, padding_value=padding_value)
+
+    def _pad_and_flatten(self, tensor: np.ndarray, padding_value: float = 0.0) -> th.Tensor:
+        """
+        Pad and flatten the sequences of scalar values,
+        while keeping the sequence order.
+        From (max_length, n_seq, 1) to (n_seq, max_length, 1) -> (n_seq * max_length,)
+
+        :param tensor:
+        :return:
+        """
+        return self.pad(tensor, padding_value).swapaxes(0, 1).flatten()
 
     def _get_samples(
         self,
@@ -147,15 +158,20 @@ class RecurrentRolloutBuffer(RolloutBuffer):
         lstm_states_pi = (self.to_torch(lstm_states_pi[0]), self.to_torch(lstm_states_pi[1]))
         lstm_states_vf = (self.to_torch(lstm_states_vf[0]), self.to_torch(lstm_states_vf[1]))
 
+        # Prime number, unlikely to happen
+        padding_value = 6739122773
         return RecurrentRolloutBufferSamples(
+            # (max_length, n_seq, obs_dim) to (n_seq, max_length, obs_dim) -> (n_seq * max_length, obs_dim)
             observations=self.pad(self.observations[batch_inds]).swapaxes(0, 1).reshape((padded_batch_size,) + self.obs_shape),
             actions=self.pad(self.actions[batch_inds]).swapaxes(0, 1).reshape((padded_batch_size,) + self.actions.shape[1:]),
-            old_values=self.pad(self.values[batch_inds]).swapaxes(0, 1).flatten(),
-            old_log_prob=self.pad(self.log_probs[batch_inds]).swapaxes(0, 1).flatten(),
-            advantages=self.pad(self.advantages[batch_inds]).swapaxes(0, 1).flatten(),
-            returns=self.pad(self.returns[batch_inds]).swapaxes(0, 1).flatten(),
+            old_values=self._pad_and_flatten(self.values[batch_inds]),
+            old_log_prob=self._pad_and_flatten(self.log_probs[batch_inds]),
+            advantages=self._pad_and_flatten(self.advantages[batch_inds]),
+            returns=self._pad_and_flatten(self.returns[batch_inds]),
             lstm_states=RNNStates(lstm_states_pi, lstm_states_vf),
-            episode_starts=self.pad(self.episode_starts[batch_inds]).swapaxes(0, 1).flatten(),
+            episode_starts=self._pad_and_flatten(self.episode_starts[batch_inds]),
+            # Hack to detect padding
+            mask=self._pad_and_flatten(self.returns[batch_inds], padding_value) != padding_value,
         )
 
 
@@ -268,9 +284,21 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
             yield self._get_samples(batch_inds, env_change)
             start_idx += batch_size
 
-    def pad(self, tensor: np.ndarray) -> th.Tensor:
+    def pad(self, tensor: np.ndarray, padding_value: float = 0.0) -> th.Tensor:
+        # Create sequences given start and end
         seq = [self.to_torch(tensor[start : end + 1]) for start, end in zip(self.starts, self.ends)]
-        return th.nn.utils.rnn.pad_sequence(seq)
+        return th.nn.utils.rnn.pad_sequence(seq, padding_value=padding_value)
+
+    def _pad_and_flatten(self, tensor: np.ndarray, padding_value: float = 0.0) -> th.Tensor:
+        """
+        Pad and flatten the sequences of scalar values,
+        while keeping the sequence order.
+        From (max_length, n_seq, 1) to (n_seq, max_length, 1) -> (n_seq * max_length,)
+
+        :param tensor:
+        :return:
+        """
+        return self.pad(tensor, padding_value).swapaxes(0, 1).flatten()
 
     def _get_samples(
         self,
@@ -308,13 +336,17 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
             key: obs.swapaxes(0, 1).reshape((padded_batch_size,) + self.obs_shape[key]) for (key, obs) in observations.items()
         }
 
+        # Prime number, unlikely to happen
+        padding_value = 6739122773
         return RecurrentDictRolloutBufferSamples(
             observations=observations,
             actions=self.pad(self.actions[batch_inds]).swapaxes(0, 1).reshape((padded_batch_size,) + self.actions.shape[1:]),
-            old_values=self.pad(self.values[batch_inds]).swapaxes(0, 1).flatten(),
-            old_log_prob=self.pad(self.log_probs[batch_inds]).swapaxes(0, 1).flatten(),
-            advantages=self.pad(self.advantages[batch_inds]).swapaxes(0, 1).flatten(),
-            returns=self.pad(self.returns[batch_inds]).swapaxes(0, 1).flatten(),
+            old_values=self._pad_and_flatten(self.values[batch_inds]),
+            old_log_prob=self._pad_and_flatten(self.log_probs[batch_inds]),
+            advantages=self._pad_and_flatten(self.advantages[batch_inds]),
+            returns=self._pad_and_flatten(self.returns[batch_inds]),
             lstm_states=RNNStates(lstm_states_pi, lstm_states_vf),
-            episode_starts=self.pad(self.episode_starts[batch_inds]).swapaxes(0, 1).flatten(),
+            episode_starts=self._pad_and_flatten(self.episode_starts[batch_inds]),
+            # Hack to detect padding
+            mask=self._pad_and_flatten(self.returns[batch_inds], padding_value) != padding_value,
         )
