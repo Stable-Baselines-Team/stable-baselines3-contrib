@@ -103,9 +103,10 @@ def test_run_sde():
         create_eval_env=True,
         sde_sample_freq=4,
         use_sde=True,
+        clip_range_vf=0.1,
     )
 
-    model.learn(total_timesteps=32, eval_freq=16)
+    model.learn(total_timesteps=200, eval_freq=150)
 
 
 def test_dict_obs():

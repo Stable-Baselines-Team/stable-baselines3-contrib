@@ -9,7 +9,7 @@ from gym import spaces
 from stable_baselines3.common.buffers import RolloutBuffer
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
-from stable_baselines3.common.policies import ActorCriticPolicy, BasePolicy
+from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import explained_variance, get_schedule_fn, obs_as_tensor, safe_mean
 from stable_baselines3.common.vec_env import VecEnv
@@ -89,7 +89,6 @@ class RecurrentPPO(OnPolicyAlgorithm):
         use_sde: bool = False,
         sde_sample_freq: int = -1,
         target_kl: Optional[float] = None,
-        sampling_strategy: str = "default",  # "default" or "per_env"
         tensorboard_log: Optional[str] = None,
         create_eval_env: bool = False,
         policy_kwargs: Optional[Dict[str, Any]] = None,
@@ -113,7 +112,6 @@ class RecurrentPPO(OnPolicyAlgorithm):
             tensorboard_log=tensorboard_log,
             create_eval_env=create_eval_env,
             policy_kwargs=policy_kwargs,
-            policy_base=ActorCriticPolicy,
             verbose=verbose,
             seed=seed,
             device=device,
@@ -132,7 +130,6 @@ class RecurrentPPO(OnPolicyAlgorithm):
         self.clip_range_vf = clip_range_vf
         self.target_kl = target_kl
         self._last_lstm_states = None
-        self.sampling_strategy = sampling_strategy
 
         if _init_setup_model:
             self._setup_model()
@@ -184,7 +181,6 @@ class RecurrentPPO(OnPolicyAlgorithm):
             gamma=self.gamma,
             gae_lambda=self.gae_lambda,
             n_envs=self.n_envs,
-            sampling_strategy=self.sampling_strategy,
         )
 
         # Initialize schedules for policy/value clipping

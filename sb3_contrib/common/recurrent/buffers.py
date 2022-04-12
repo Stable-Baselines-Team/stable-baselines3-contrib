@@ -20,7 +20,8 @@ class RecurrentRolloutBuffer(RolloutBuffer):
     :param buffer_size: Max number of element in the buffer
     :param observation_space: Observation space
     :param action_space: Action space
-    :param device:
+    :param lstm_states: Dummy LSTM states to have the correct shapes when reseting the buffer
+    :param device: PyTorch device
     :param gae_lambda: Factor for trade-off of bias vs variance for Generalized Advantage Estimator
         Equivalent to classic advantage when set to 1.
     :param gamma: Discount factor
@@ -37,11 +38,9 @@ class RecurrentRolloutBuffer(RolloutBuffer):
         gae_lambda: float = 1,
         gamma: float = 0.99,
         n_envs: int = 1,
-        sampling_strategy: str = "default",  # "default" or "per_env"
     ):
         self.lstm_states = lstm_states
         self.initial_lstm_states = None
-        self.sampling_strategy = sampling_strategy
         self.starts, self.ends = None, None
         super().__init__(buffer_size, observation_space, action_space, device, gae_lambda, gamma, n_envs)
 
@@ -64,7 +63,7 @@ class RecurrentRolloutBuffer(RolloutBuffer):
         super().add(*args, **kwargs)
 
     def get(self, batch_size: Optional[int] = None) -> Generator[RecurrentRolloutBufferSamples, None, None]:
-        assert self.full, ""
+        assert self.full, "Rollout buffer must be full before sampling from it"
 
         # Prepare the data
         if not self.generator_ready:
@@ -95,62 +94,22 @@ class RecurrentRolloutBuffer(RolloutBuffer):
 
         # Sampling strategy that allows any mini batch size but requires
         # more complexity and use of padding
-        if self.sampling_strategy == "default":
-            # No shuffling
-            # indices = np.arange(self.buffer_size * self.n_envs)
-            # Trick to shuffle a bit: keep the sequence order
-            # but split the indices in two
-            split_index = np.random.randint(self.buffer_size * self.n_envs)
-            indices = np.arange(self.buffer_size * self.n_envs)
-            indices = np.concatenate((indices[split_index:], indices[:split_index]))
+        # Trick to shuffle a bit: keep the sequence order
+        # but split the indices in two
+        split_index = np.random.randint(self.buffer_size * self.n_envs)
+        indices = np.arange(self.buffer_size * self.n_envs)
+        indices = np.concatenate((indices[split_index:], indices[:split_index]))
 
-            env_change = np.zeros(self.buffer_size * self.n_envs).reshape(self.buffer_size, self.n_envs)
-            # Flag first timestep as change of environment
-            env_change[0, :] = 1.0
-            env_change = self.swap_and_flatten(env_change)
+        env_change = np.zeros(self.buffer_size * self.n_envs).reshape(self.buffer_size, self.n_envs)
+        # Flag first timestep as change of environment
+        env_change[0, :] = 1.0
+        env_change = self.swap_and_flatten(env_change)
 
-            start_idx = 0
-            while start_idx < self.buffer_size * self.n_envs:
-                batch_inds = indices[start_idx : start_idx + batch_size]
-                yield self._get_samples(batch_inds, env_change)
-                start_idx += batch_size
-            return
-
-        # ==== OpenAI Baselines way of sampling, constraint in the batch size and number of environments ====
-        n_minibatches = (self.buffer_size * self.n_envs) // batch_size
-
-        assert (
-            self.n_envs % n_minibatches == 0
-        ), f"{self.n_envs} not a multiple of {n_minibatches} = {self.buffer_size * self.n_envs} // {batch_size}"
-        n_envs_per_batch = self.n_envs // n_minibatches
-
-        # Do not shuffle the sequence, only the env indices
-        env_indices = np.random.permutation(self.n_envs)
-        flat_indices = np.arange(self.buffer_size * self.n_envs).reshape(self.n_envs, self.buffer_size)
-
-        for start_env_idx in range(0, self.n_envs, n_envs_per_batch):
-            end_env_idx = start_env_idx + n_envs_per_batch
-            mini_batch_env_indices = env_indices[start_env_idx:end_env_idx]
-            batch_inds = flat_indices[mini_batch_env_indices].ravel()
-            lstm_states_pi = (
-                self.initial_lstm_states.pi[0][:, mini_batch_env_indices].clone(),
-                self.initial_lstm_states.pi[1][:, mini_batch_env_indices].clone(),
-            )
-            lstm_states_vf = (
-                self.initial_lstm_states.vf[0][:, mini_batch_env_indices].clone(),
-                self.initial_lstm_states.vf[1][:, mini_batch_env_indices].clone(),
-            )
-
-            yield RecurrentRolloutBufferSamples(
-                observations=self.to_torch(self.observations[batch_inds]),
-                actions=self.to_torch(self.actions[batch_inds]),
-                old_values=self.to_torch(self.values[batch_inds].flatten()),
-                old_log_prob=self.to_torch(self.log_probs[batch_inds].flatten()),
-                advantages=self.to_torch(self.advantages[batch_inds].flatten()),
-                returns=self.to_torch(self.returns[batch_inds].flatten()),
-                lstm_states=RNNStates(lstm_states_pi, lstm_states_vf),
-                episode_starts=self.to_torch(self.episode_starts[batch_inds].flatten()),
-            )
+        start_idx = 0
+        while start_idx < self.buffer_size * self.n_envs:
+            batch_inds = indices[start_idx : start_idx + batch_size]
+            yield self._get_samples(batch_inds, env_change)
+            start_idx += batch_size
 
     def pad(self, tensor: np.ndarray) -> th.Tensor:
         seq = [self.to_torch(tensor[start : end + 1]) for start, end in zip(self.starts, self.ends)]
@@ -217,7 +176,8 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
     :param buffer_size: Max number of element in the buffer
     :param observation_space: Observation space
     :param action_space: Action space
-    :param device:
+    :param lstm_states: Dummy LSTM states to have the correct shapes when reseting the buffer
+    :param device: PyTorch device
     :param gae_lambda: Factor for trade-off of bias vs variance for Generalized Advantage Estimator
         Equivalent to classic advantage when set to 1.
     :param gamma: Discount factor
@@ -234,12 +194,10 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
         gae_lambda: float = 1,
         gamma: float = 0.99,
         n_envs: int = 1,
-        sampling_strategy: str = "default",  # "default" or "per_env"
     ):
         self.lstm_states = lstm_states
         self.initial_lstm_states = None
-        self.sampling_strategy = sampling_strategy
-        assert sampling_strategy == "default", "'per_env' strategy not supported with dict obs"
+        self.starts, self.ends = None, None
         super().__init__(buffer_size, observation_space, action_space, device, gae_lambda, gamma, n_envs=n_envs)
 
     def reset(self):
@@ -261,7 +219,7 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
         super().add(*args, **kwargs)
 
     def get(self, batch_size: Optional[int] = None) -> Generator[RecurrentDictRolloutBufferSamples, None, None]:
-        assert self.full, ""
+        assert self.full, "Rollout buffer must be full before sampling from it"
 
         # Prepare the data
         if not self.generator_ready:
@@ -292,8 +250,6 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
         if batch_size is None:
             batch_size = self.buffer_size * self.n_envs
 
-        # No shuffling:
-        # indices = np.arange(self.buffer_size * self.n_envs)
         # Trick to shuffle a bit: keep the sequence order
         # but split the indices in two
         split_index = np.random.randint(self.buffer_size * self.n_envs)
