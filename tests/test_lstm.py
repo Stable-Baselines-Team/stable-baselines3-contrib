@@ -153,7 +153,7 @@ def test_ppo_lstm_performance():
         n_epochs=10,
         max_grad_norm=1,
         gae_lambda=0.98,
-        policy_kwargs=dict(net_arch=[dict(vf=[64])], ortho_init=False),
+        policy_kwargs=dict(net_arch=[dict(vf=[64])], ortho_init=False, enable_critic_lstm=True),
     )
 
     model.learn(total_timesteps=50_000, callback=eval_callback)
