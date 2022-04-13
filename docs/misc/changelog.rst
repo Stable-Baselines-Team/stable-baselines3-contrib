@@ -3,13 +3,16 @@
 Changelog
 ==========
 
-Release 1.5.1a0 (WIP)
+Release 1.5.1a1 (WIP)
 -------------------------------
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
 - Changed default policy architecture for ARS/CEM to ``[32]`` instead of ``[64, 64]``
-
+- Upgraded to Stable-Baselines3 >= 1.5.1a1
+- Changed the way policy "aliases" are handled ("MlpPolicy", "CnnPolicy", ...), removing the former
+  ``register_policy`` helper, ``policy_base`` parameter and using ``policy_aliases`` static attributes instead (@Gregwar)
+- Renamed ``rollout/exploration rate`` key to ``rollout/exploration_rate`` for QRDQN (to be consistent with SB3 DQN)
 
 New Features:
 ^^^^^^^^^^^^^
@@ -264,4 +267,4 @@ Stable-Baselines3 is currently maintained by `Antonin Raffin`_ (aka `@araffin`_)
 Contributors:
 -------------
 
-@ku2482 @guyk1971 @minhlong94 @ayeright @kronion @glmcdona @cyprienc @sgillen
+@ku2482 @guyk1971 @minhlong94 @ayeright @kronion @glmcdona @cyprienc @sgillen @Gregwar

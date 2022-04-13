@@ -5,12 +5,13 @@ import numpy as np
 import torch as th
 from stable_baselines3.common.buffers import ReplayBuffer
 from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
+from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.preprocessing import maybe_transpose
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import get_linear_fn, is_vectorized_observation, polyak_update
 
 from sb3_contrib.common.utils import quantile_huber_loss
-from sb3_contrib.qrdqn.policies import QRDQNPolicy
+from sb3_contrib.qrdqn.policies import CnnPolicy, MlpPolicy, MultiInputPolicy, QRDQNPolicy
 
 
 class QRDQN(OffPolicyAlgorithm):
@@ -57,6 +58,12 @@ class QRDQN(OffPolicyAlgorithm):
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
 
+    policy_aliases: Dict[str, Type[BasePolicy]] = {
+        "MlpPolicy": MlpPolicy,
+        "CnnPolicy": CnnPolicy,
+        "MultiInputPolicy": MultiInputPolicy,
+    }
+
     def __init__(
         self,
         policy: Union[str, Type[QRDQNPolicy]],
@@ -89,7 +96,6 @@ class QRDQN(OffPolicyAlgorithm):
         super(QRDQN, self).__init__(
             policy,
             env,
-            QRDQNPolicy,
             learning_rate,
             buffer_size,
             learning_starts,
@@ -153,7 +159,7 @@ class QRDQN(OffPolicyAlgorithm):
             polyak_update(self.quantile_net.parameters(), self.quantile_net_target.parameters(), self.tau)
 
         self.exploration_rate = self.exploration_schedule(self._current_progress_remaining)
-        self.logger.record("rollout/exploration rate", self.exploration_rate)
+        self.logger.record("rollout/exploration_rate", self.exploration_rate)
 
     def train(self, gradient_steps: int, batch_size: int = 100) -> None:
         # Switch to train mode (this affects batch norm / dropout)

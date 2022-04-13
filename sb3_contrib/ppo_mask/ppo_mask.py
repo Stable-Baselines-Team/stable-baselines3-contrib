@@ -10,6 +10,7 @@ from stable_baselines3.common import utils
 from stable_baselines3.common.buffers import RolloutBuffer
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList, ConvertCallback
 from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
+from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import explained_variance, get_schedule_fn, obs_as_tensor, safe_mean
 from stable_baselines3.common.vec_env import VecEnv
@@ -18,6 +19,7 @@ from torch.nn import functional as F
 from sb3_contrib.common.maskable.buffers import MaskableDictRolloutBuffer, MaskableRolloutBuffer
 from sb3_contrib.common.maskable.policies import MaskableActorCriticPolicy
 from sb3_contrib.common.maskable.utils import get_action_masks, is_masking_supported
+from sb3_contrib.ppo_mask.policies import CnnPolicy, MlpPolicy, MultiInputPolicy
 
 
 class MaskablePPO(OnPolicyAlgorithm):
@@ -65,6 +67,12 @@ class MaskablePPO(OnPolicyAlgorithm):
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
 
+    policy_aliases: Dict[str, Type[BasePolicy]] = {
+        "MlpPolicy": MlpPolicy,
+        "CnnPolicy": CnnPolicy,
+        "MultiInputPolicy": MultiInputPolicy,
+    }
+
     def __init__(
         self,
         policy: Union[str, Type[MaskableActorCriticPolicy]],
@@ -105,7 +113,6 @@ class MaskablePPO(OnPolicyAlgorithm):
             tensorboard_log=tensorboard_log,
             create_eval_env=create_eval_env,
             policy_kwargs=policy_kwargs,
-            policy_base=MaskableActorCriticPolicy,
             verbose=verbose,
             seed=seed,
             device=device,

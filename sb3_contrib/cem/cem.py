@@ -5,7 +5,6 @@ import gym
 import torch as th
 import torch.nn.utils
 from stable_baselines3.common.callbacks import BaseCallback
-from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback
 from torch.distributions.multivariate_normal import MultivariateNormal
 
@@ -38,7 +37,6 @@ class CEM(PopulationBasedAlgorithm):
     :param alive_bonus_offset: Constant added to the reward at each step, used to cancel out alive bonuses.
     :param n_eval_episodes: Number of episodes to evaluate each candidate.
     :param policy_kwargs: Keyword arguments to pass to the policy on creation
-    :param policy_base: Base class to use for the policy
     :param tensorboard_log: String with the directory to put tensorboard logs:
     :param seed: Random seed for the training
     :param verbose: Verbosity level: 0 no output, 1 info, 2 debug
@@ -60,7 +58,6 @@ class CEM(PopulationBasedAlgorithm):
         alive_bonus_offset: float = 0,
         n_eval_episodes: int = 1,
         policy_kwargs: Optional[Dict[str, Any]] = None,
-        policy_base: Type[BasePolicy] = ESPolicy,
         tensorboard_log: Optional[str] = None,
         seed: Optional[int] = None,
         verbose: int = 0,
@@ -76,7 +73,6 @@ class CEM(PopulationBasedAlgorithm):
             alive_bonus_offset=alive_bonus_offset,
             n_eval_episodes=n_eval_episodes,
             tensorboard_log=tensorboard_log,
-            policy_base=policy_base,
             policy_kwargs=policy_kwargs,
             verbose=verbose,
             device=device,

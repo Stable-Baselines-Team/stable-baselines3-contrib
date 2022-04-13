@@ -10,10 +10,10 @@ import torch.nn.utils
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.evaluation import evaluate_policy
-from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import safe_mean
 
+from sb3_contrib.common.policies import ESLinearPolicy, ESPolicy
 from sb3_contrib.common.vec_env.async_eval import AsyncEval
 
 
@@ -30,7 +30,6 @@ class PopulationBasedAlgorithm(BaseAlgorithm):
     :param alive_bonus_offset: Constant added to the reward at each step, used to cancel out alive bonuses.
     :param n_eval_episodes: Number of episodes to evaluate each candidate.
     :param policy_kwargs: Keyword arguments to pass to the policy on creation
-    :param policy_base: Base class to use for the policy
     :param tensorboard_log: String with the directory to put tensorboard logs:
     :param seed: Random seed for the training
     :param verbose: Verbosity level: 0 no output, 1 info, 2 debug
@@ -38,11 +37,15 @@ class PopulationBasedAlgorithm(BaseAlgorithm):
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
 
+    policy_aliases: Dict[str, Type[ESPolicy]] = {
+        "MlpPolicy": ESPolicy,
+        "LinearPolicy": ESLinearPolicy,
+    }
+
     def __init__(
         self,
-        policy: Union[str, Type[BasePolicy]],
+        policy: Union[str, Type[ESPolicy]],
         env: Union[GymEnv, str],
-        policy_base: Type[BasePolicy],
         learning_rate: Union[float, Schedule],
         pop_size: int = 16,
         alive_bonus_offset: float = 0,
@@ -60,7 +63,6 @@ class PopulationBasedAlgorithm(BaseAlgorithm):
             env,
             learning_rate=learning_rate,
             tensorboard_log=tensorboard_log,
-            policy_base=policy_base,
             policy_kwargs=policy_kwargs,
             verbose=verbose,
             device=device,
