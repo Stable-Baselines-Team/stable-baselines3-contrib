@@ -143,7 +143,6 @@ class RecurrentRolloutBuffer(RolloutBuffer):
         # Number of sequences
         n_seq = len(self.starts)
         max_length = self.pad(self.actions[batch_inds]).shape[0]
-        # TODO: output mask to not backpropagate everywhere
         padded_batch_size = n_seq * max_length
         lstm_states_pi = (
             # (n_steps, n_layers, n_envs, dim) -> (n_layers, n_seq, dim)
@@ -316,7 +315,6 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
         n_layers = self.hidden_states_pi.shape[1]
         n_seq = len(self.starts)
         max_length = self.pad(self.actions[batch_inds]).shape[0]
-        # TODO: output mask to not backpropagate everywhere
         padded_batch_size = n_seq * max_length
         lstm_states_pi = (
             # (n_steps, n_layers, n_envs, dim) -> (n_layers, n_seq, dim)
