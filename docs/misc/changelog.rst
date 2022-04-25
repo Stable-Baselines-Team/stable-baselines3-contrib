@@ -13,6 +13,7 @@ Breaking Changes:
   ``register_policy`` helper, ``policy_base`` parameter and using ``policy_aliases`` static attributes instead (@Gregwar)
 - Renamed ``rollout/exploration rate`` key to ``rollout/exploration_rate`` for QRDQN (to be consistent with SB3 DQN)
 - Upgraded to python 3.7+ syntax using ``pyupgrade``
+- SB3 now requires PyTorch >= 1.11
 
 New Features:
 ^^^^^^^^^^^^^
