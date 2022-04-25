@@ -103,7 +103,7 @@ class TQC(OffPolicyAlgorithm):
         _init_setup_model: bool = True,
     ):
 
-        super(TQC, self).__init__(
+        super().__init__(
             policy,
             env,
             learning_rate,
@@ -144,7 +144,7 @@ class TQC(OffPolicyAlgorithm):
             self._setup_model()
 
     def _setup_model(self) -> None:
-        super(TQC, self)._setup_model()
+        super()._setup_model()
         self._create_aliases()
 
         # Target entropy is used when learning the entropy coefficient
@@ -293,7 +293,7 @@ class TQC(OffPolicyAlgorithm):
         reset_num_timesteps: bool = True,
     ) -> OffPolicyAlgorithm:
 
-        return super(TQC, self).learn(
+        return super().learn(
             total_timesteps=total_timesteps,
             callback=callback,
             log_interval=log_interval,
@@ -307,7 +307,7 @@ class TQC(OffPolicyAlgorithm):
 
     def _excluded_save_params(self) -> List[str]:
         # Exclude aliases
-        return super(TQC, self)._excluded_save_params() + ["actor", "critic", "critic_target"]
+        return super()._excluded_save_params() + ["actor", "critic", "critic_target"]
 
     def _get_torch_save_params(self) -> Tuple[List[str], List[str]]:
         state_dicts = ["policy", "actor.optimizer", "critic.optimizer"]

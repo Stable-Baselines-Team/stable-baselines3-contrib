@@ -101,7 +101,7 @@ class TRPO(OnPolicyAlgorithm):
         _init_setup_model: bool = True,
     ):
 
-        super(TRPO, self).__init__(
+        super().__init__(
             policy,
             env,
             learning_rate=learning_rate,
@@ -414,7 +414,7 @@ class TRPO(OnPolicyAlgorithm):
         reset_num_timesteps: bool = True,
     ) -> OnPolicyAlgorithm:
 
-        return super(TRPO, self).learn(
+        return super().learn(
             total_timesteps=total_timesteps,
             callback=callback,
             log_interval=log_interval,
