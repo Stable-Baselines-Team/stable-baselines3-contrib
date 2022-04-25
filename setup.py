@@ -2,7 +2,7 @@ import os
 
 from setuptools import find_packages, setup
 
-with open(os.path.join("sb3_contrib", "version.txt"), "r") as file_handler:
+with open(os.path.join("sb3_contrib", "version.txt")) as file_handler:
     __version__ = file_handler.read().strip()
 
 
@@ -65,7 +65,7 @@ setup(
     packages=[package for package in find_packages() if package.startswith("sb3_contrib")],
     package_data={"sb3_contrib": ["py.typed", "version.txt"]},
     install_requires=[
-        "stable_baselines3>=1.5.1a1",
+        "stable_baselines3>=1.5.1a5",
     ],
     description="Contrib package of Stable Baselines3, experimental code.",
     author="Antonin Raffin",

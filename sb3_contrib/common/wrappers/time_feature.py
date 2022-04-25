@@ -50,7 +50,7 @@ class TimeFeatureWrapper(gym.Wrapper):
         else:
             env.observation_space = gym.spaces.Box(low=low, high=high, dtype=self.dtype)
 
-        super(TimeFeatureWrapper, self).__init__(env)
+        super().__init__(env)
 
         # Try to infer the max number of steps per episode
         try:
