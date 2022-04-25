@@ -145,9 +145,7 @@ class MaskableDictRolloutBuffer(DictRolloutBuffer):
         n_envs: int = 1,
     ):
         self.action_masks = None
-        super(MaskableDictRolloutBuffer, self).__init__(
-            buffer_size, observation_space, action_space, device, gae_lambda, gamma, n_envs=n_envs
-        )
+        super().__init__(buffer_size, observation_space, action_space, device, gae_lambda, gamma, n_envs=n_envs)
 
     def reset(self) -> None:
         if isinstance(self.action_space, spaces.Discrete):
@@ -162,7 +160,7 @@ class MaskableDictRolloutBuffer(DictRolloutBuffer):
         self.mask_dims = mask_dims
         self.action_masks = np.ones((self.buffer_size, self.n_envs, self.mask_dims), dtype=np.float32)
 
-        super(MaskableDictRolloutBuffer, self).reset()
+        super().reset()
 
     def add(self, *args, action_masks: Optional[np.ndarray] = None, **kwargs) -> None:
         """
@@ -171,7 +169,7 @@ class MaskableDictRolloutBuffer(DictRolloutBuffer):
         if action_masks is not None:
             self.action_masks[self.pos] = action_masks.reshape((self.n_envs, self.mask_dims))
 
-        super(MaskableDictRolloutBuffer, self).add(*args, **kwargs)
+        super().add(*args, **kwargs)
 
     def get(self, batch_size: Optional[int] = None) -> Generator[MaskableDictRolloutBufferSamples, None, None]:
         assert self.full, ""
