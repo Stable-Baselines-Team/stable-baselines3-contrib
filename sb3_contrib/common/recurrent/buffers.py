@@ -1,3 +1,4 @@
+from functools import partial
 from typing import Generator, Optional, Tuple, Union
 
 import numpy as np
@@ -11,6 +12,69 @@ from sb3_contrib.common.recurrent.type_aliases import (
     RecurrentRolloutBufferSamples,
     RNNStates,
 )
+
+
+def pad(
+    seq_start_indices: np.ndarray,
+    seq_end_indices: np.ndarray,
+    device: th.device,
+    tensor: np.ndarray,
+    padding_value: float = 0.0,
+) -> th.Tensor:
+    """
+    Chunk sequences and pad them to have constant dimensions.
+
+    :param seq_start_indices: Indices of the transitions that start a sequence
+    :param seq_end_indices: Indices of the transitions that end a sequence
+    :param tensor: Tensor of shape (batch_size, *tensor_shape)
+    :return:
+    """
+    # Create sequences given start and end
+    seq = [th.tensor(tensor[start : end + 1], device=device) for start, end in zip(seq_start_indices, seq_end_indices)]
+    return th.nn.utils.rnn.pad_sequence(seq, padding_value=padding_value)
+
+
+def pad_and_flatten(
+    seq_start_indices: np.ndarray,
+    seq_end_indices: np.ndarray,
+    device: th.device,
+    tensor: np.ndarray,
+    padding_value: float = 0.0,
+) -> th.Tensor:
+    """
+    Pad and flatten the sequences of scalar values,
+    while keeping the sequence order.
+    From (max_length, n_seq, 1) to (n_seq, max_length, 1) -> (n_seq * max_length,)
+
+    :param seq_start_indices: Indices of the transitions that start a sequence
+    :param seq_end_indices: Indices of the transitions that end a sequence
+    :param device: PyTorch device (cpu, gpu, ...)
+    :param tensor:
+    :return:
+    """
+    return pad(seq_start_indices, seq_end_indices, device, tensor, padding_value).swapaxes(0, 1).flatten()
+
+
+def create_sequencers(
+    episode_starts: np.ndarray,
+    env_change: np.ndarray,
+    device: th.device,
+):
+    # Create sequence if env changes too
+    seq_start = np.logical_or(episode_starts, env_change).flatten()
+    # First index is always the beginning of a sequence
+    seq_start[0] = True
+    # Retrieve indices of sequence starts
+    seq_start_indices = np.where(seq_start == True)[0]  # noqa: E712
+    # End of sequence are just before sequence starts
+    # Last index is also always end of a sequence
+    seq_end_indices = np.concatenate([(seq_start_indices - 1)[1:], np.array([len(episode_starts)])])
+
+    # Create padding method for this minibatch
+    # to avoid repeating arguments (seq_start_indices, seq_end_indices)
+    local_pad = partial(pad, seq_start_indices, seq_end_indices, device)
+    local_pad_and_flatten = partial(pad_and_flatten, seq_start_indices, seq_end_indices, device)
+    return seq_start_indices, local_pad, local_pad_and_flatten
 
 
 class RecurrentRolloutBuffer(RolloutBuffer):
@@ -41,7 +105,7 @@ class RecurrentRolloutBuffer(RolloutBuffer):
     ):
         self.hidden_state_shape = hidden_state_shape
         self.initial_lstm_states = None
-        self.starts, self.ends = None, None
+        self.seq_start_indices, self.seq_end_indices = None, None
         super().__init__(buffer_size, observation_space, action_space, device, gae_lambda, gamma, n_envs)
 
     def reset(self):
@@ -111,66 +175,48 @@ class RecurrentRolloutBuffer(RolloutBuffer):
             yield self._get_samples(batch_inds, env_change)
             start_idx += batch_size
 
-    def pad(self, tensor: np.ndarray, padding_value: float = 0.0) -> th.Tensor:
-        seq = [self.to_torch(tensor[start : end + 1]) for start, end in zip(self.starts, self.ends)]
-        return th.nn.utils.rnn.pad_sequence(seq, padding_value=padding_value)
-
-    def _pad_and_flatten(self, tensor: np.ndarray, padding_value: float = 0.0) -> th.Tensor:
-        """
-        Pad and flatten the sequences of scalar values,
-        while keeping the sequence order.
-        From (max_length, n_seq, 1) to (n_seq, max_length, 1) -> (n_seq * max_length,)
-
-        :param tensor:
-        :return:
-        """
-        return self.pad(tensor, padding_value).swapaxes(0, 1).flatten()
-
     def _get_samples(
         self,
         batch_inds: np.ndarray,
         env_change: np.ndarray,
         env: Optional[VecNormalize] = None,
     ) -> RecurrentRolloutBufferSamples:
-        # Create sequence if env change too
-        seq_start = np.logical_or(self.episode_starts[batch_inds], env_change[batch_inds]).flatten()
-        # First index is always the beginning of a sequence
-        seq_start[0] = True
-        self.starts = np.where(seq_start == True)[0]  # noqa: E712
-        self.ends = np.concatenate([(self.starts - 1)[1:], np.array([len(batch_inds)])])
+        # Retrieve sequence starts and utility function
+        self.seq_start_indices, self.pad, self.pad_and_flatten = create_sequencers(
+            self.episode_starts[batch_inds], env_change[batch_inds], self.device
+        )
 
         n_layers = self.hidden_states_pi.shape[1]
         # Number of sequences
-        n_seq = len(self.starts)
+        n_seq = len(self.seq_start_indices)
         max_length = self.pad(self.actions[batch_inds]).shape[0]
         padded_batch_size = n_seq * max_length
+        # We retrieve the lstm hidden states that will allow
+        # to properly initialize the LSTM at the beginning of each sequence
         lstm_states_pi = (
             # (n_steps, n_layers, n_envs, dim) -> (n_layers, n_seq, dim)
-            self.hidden_states_pi[batch_inds][seq_start == True].reshape(n_layers, n_seq, -1),  # noqa: E712
-            self.cell_states_pi[batch_inds][seq_start == True].reshape(n_layers, n_seq, -1),  # noqa: E712
+            self.hidden_states_pi[batch_inds][self.seq_start_indices].reshape(n_layers, n_seq, -1),
+            self.cell_states_pi[batch_inds][self.seq_start_indices].reshape(n_layers, n_seq, -1),
         )
         lstm_states_vf = (
             # (n_steps, n_layers, n_envs, dim) -> (n_layers, n_seq, dim)
-            self.hidden_states_vf[batch_inds][seq_start == True].reshape(n_layers, n_seq, -1),  # noqa: E712
-            self.cell_states_vf[batch_inds][seq_start == True].reshape(n_layers, n_seq, -1),  # noqa: E712
+            self.hidden_states_vf[batch_inds][self.seq_start_indices].reshape(n_layers, n_seq, -1),
+            self.cell_states_vf[batch_inds][self.seq_start_indices].reshape(n_layers, n_seq, -1),
         )
         lstm_states_pi = (self.to_torch(lstm_states_pi[0]), self.to_torch(lstm_states_pi[1]))
         lstm_states_vf = (self.to_torch(lstm_states_vf[0]), self.to_torch(lstm_states_vf[1]))
 
-        # Prime number, unlikely to happen
-        padding_value = 6739122773
         return RecurrentRolloutBufferSamples(
             # (max_length, n_seq, obs_dim) to (n_seq, max_length, obs_dim) -> (n_seq * max_length, obs_dim)
             observations=self.pad(self.observations[batch_inds]).swapaxes(0, 1).reshape((padded_batch_size,) + self.obs_shape),
             actions=self.pad(self.actions[batch_inds]).swapaxes(0, 1).reshape((padded_batch_size,) + self.actions.shape[1:]),
-            old_values=self._pad_and_flatten(self.values[batch_inds]),
-            old_log_prob=self._pad_and_flatten(self.log_probs[batch_inds]),
-            advantages=self._pad_and_flatten(self.advantages[batch_inds]),
-            returns=self._pad_and_flatten(self.returns[batch_inds]),
+            old_values=self.pad_and_flatten(self.values[batch_inds]),
+            old_log_prob=self.pad_and_flatten(self.log_probs[batch_inds]),
+            advantages=self.pad_and_flatten(self.advantages[batch_inds]),
+            returns=self.pad_and_flatten(self.returns[batch_inds]),
             lstm_states=RNNStates(lstm_states_pi, lstm_states_vf),
-            episode_starts=self._pad_and_flatten(self.episode_starts[batch_inds]),
-            # Hack to detect padding
-            mask=self._pad_and_flatten(self.returns[batch_inds], padding_value) != padding_value,
+            episode_starts=self.pad_and_flatten(self.episode_starts[batch_inds]),
+            mask=self.pad_and_flatten(np.ones_like(self.returns[batch_inds])),
         )
 
 
@@ -213,7 +259,7 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
     ):
         self.hidden_state_shape = hidden_state_shape
         self.initial_lstm_states = None
-        self.starts, self.ends = None, None
+        self.seq_start_indices, self.seq_end_indices = None, None
         super().__init__(buffer_size, observation_space, action_space, device, gae_lambda, gamma, n_envs=n_envs)
 
     def reset(self):
@@ -283,48 +329,32 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
             yield self._get_samples(batch_inds, env_change)
             start_idx += batch_size
 
-    def pad(self, tensor: np.ndarray, padding_value: float = 0.0) -> th.Tensor:
-        # Create sequences given start and end
-        seq = [self.to_torch(tensor[start : end + 1]) for start, end in zip(self.starts, self.ends)]
-        return th.nn.utils.rnn.pad_sequence(seq, padding_value=padding_value)
-
-    def _pad_and_flatten(self, tensor: np.ndarray, padding_value: float = 0.0) -> th.Tensor:
-        """
-        Pad and flatten the sequences of scalar values,
-        while keeping the sequence order.
-        From (max_length, n_seq, 1) to (n_seq, max_length, 1) -> (n_seq * max_length,)
-
-        :param tensor:
-        :return:
-        """
-        return self.pad(tensor, padding_value).swapaxes(0, 1).flatten()
-
     def _get_samples(
         self,
         batch_inds: np.ndarray,
         env_change: np.ndarray,
         env: Optional[VecNormalize] = None,
     ) -> RecurrentDictRolloutBufferSamples:
-        # Create sequence if env change too
-        seq_start = np.logical_or(self.episode_starts[batch_inds], env_change[batch_inds]).flatten()
-        # First index is always the beginning of a sequence
-        seq_start[0] = True
-        self.starts = np.where(seq_start == True)[0]  # noqa: E712
-        self.ends = np.concatenate([(self.starts - 1)[1:], np.array([len(batch_inds)])])
+        # Retrieve sequence starts and utility function
+        self.seq_start_indices, self.pad, self.pad_and_flatten = create_sequencers(
+            self.episode_starts[batch_inds], env_change[batch_inds], self.device
+        )
 
         n_layers = self.hidden_states_pi.shape[1]
-        n_seq = len(self.starts)
+        n_seq = len(self.seq_start_indices)
         max_length = self.pad(self.actions[batch_inds]).shape[0]
         padded_batch_size = n_seq * max_length
+        # We retrieve the lstm hidden states that will allow
+        # to properly initialize the LSTM at the beginning of each sequence
         lstm_states_pi = (
             # (n_steps, n_layers, n_envs, dim) -> (n_layers, n_seq, dim)
-            self.hidden_states_pi[batch_inds][seq_start == True].reshape(n_layers, n_seq, -1),  # noqa: E712
-            self.cell_states_pi[batch_inds][seq_start == True].reshape(n_layers, n_seq, -1),  # noqa: E712
+            self.hidden_states_pi[batch_inds][self.seq_start_indices].reshape(n_layers, n_seq, -1),
+            self.cell_states_pi[batch_inds][self.seq_start_indices].reshape(n_layers, n_seq, -1),
         )
         lstm_states_vf = (
             # (n_steps, n_layers, n_envs, dim) -> (n_layers, n_seq, dim)
-            self.hidden_states_vf[batch_inds][seq_start == True].reshape(n_layers, n_seq, -1),  # noqa: E712
-            self.cell_states_vf[batch_inds][seq_start == True].reshape(n_layers, n_seq, -1),  # noqa: E712
+            self.hidden_states_vf[batch_inds][self.seq_start_indices].reshape(n_layers, n_seq, -1),
+            self.cell_states_vf[batch_inds][self.seq_start_indices].reshape(n_layers, n_seq, -1),
         )
         lstm_states_pi = (self.to_torch(lstm_states_pi[0]), self.to_torch(lstm_states_pi[1]))
         lstm_states_vf = (self.to_torch(lstm_states_vf[0]), self.to_torch(lstm_states_vf[1]))
@@ -334,17 +364,14 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
             key: obs.swapaxes(0, 1).reshape((padded_batch_size,) + self.obs_shape[key]) for (key, obs) in observations.items()
         }
 
-        # Prime number, unlikely to happen
-        padding_value = 6739122773
         return RecurrentDictRolloutBufferSamples(
             observations=observations,
             actions=self.pad(self.actions[batch_inds]).swapaxes(0, 1).reshape((padded_batch_size,) + self.actions.shape[1:]),
-            old_values=self._pad_and_flatten(self.values[batch_inds]),
-            old_log_prob=self._pad_and_flatten(self.log_probs[batch_inds]),
-            advantages=self._pad_and_flatten(self.advantages[batch_inds]),
-            returns=self._pad_and_flatten(self.returns[batch_inds]),
+            old_values=self.pad_and_flatten(self.values[batch_inds]),
+            old_log_prob=self.pad_and_flatten(self.log_probs[batch_inds]),
+            advantages=self.pad_and_flatten(self.advantages[batch_inds]),
+            returns=self.pad_and_flatten(self.returns[batch_inds]),
             lstm_states=RNNStates(lstm_states_pi, lstm_states_vf),
-            episode_starts=self._pad_and_flatten(self.episode_starts[batch_inds]),
-            # Hack to detect padding
-            mask=self._pad_and_flatten(self.returns[batch_inds], padding_value) != padding_value,
+            episode_starts=self.pad_and_flatten(self.episode_starts[batch_inds]),
+            mask=self.pad_and_flatten(np.ones_like(self.returns[batch_inds])),
         )
