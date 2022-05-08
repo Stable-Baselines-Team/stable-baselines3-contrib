@@ -82,7 +82,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         lstm_hidden_size: int = 256,
         n_lstm_layers: int = 1,
         shared_lstm: bool = False,
-        enable_critic_lstm: bool = False,
+        enable_critic_lstm: bool = True,
         lstm_kwargs: Optional[Dict[str, Any]] = None,
     ):
         self.lstm_output_dim = lstm_hidden_size
@@ -464,7 +464,7 @@ class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
         lstm_hidden_size: int = 256,
         n_lstm_layers: int = 1,
-        enable_critic_lstm: bool = False,
+        enable_critic_lstm: bool = True,
         lstm_kwargs: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
@@ -554,7 +554,7 @@ class RecurrentMultiInputActorCriticPolicy(RecurrentActorCriticPolicy):
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
         lstm_hidden_size: int = 256,
         n_lstm_layers: int = 1,
-        enable_critic_lstm: bool = False,
+        enable_critic_lstm: bool = True,
         lstm_kwargs: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(

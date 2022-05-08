@@ -8,6 +8,7 @@ from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.envs import FakeImageEnv
 from stable_baselines3.common.evaluation import evaluate_policy
+from stable_baselines3.common.vec_env import VecNormalize
 
 from sb3_contrib import RecurrentPPO
 
@@ -134,10 +135,10 @@ def test_ppo_lstm_performance():
         env = TimeLimit(env, max_episode_steps=500)
         return env
 
-    env = make_vec_env(make_env, n_envs=8)
+    env = VecNormalize(make_vec_env(make_env, n_envs=8))
 
     eval_callback = EvalCallback(
-        make_vec_env(make_env, n_envs=4),
+        VecNormalize(make_vec_env(make_env, n_envs=4), training=False, norm_reward=False),
         n_eval_episodes=20,
         eval_freq=5000 // env.num_envs,
     )
@@ -149,16 +150,20 @@ def test_ppo_lstm_performance():
         learning_rate=0.0007,
         verbose=1,
         batch_size=256,
-        seed=0,
+        seed=1,
         n_epochs=10,
         max_grad_norm=1,
         gae_lambda=0.98,
-        policy_kwargs=dict(net_arch=[dict(vf=[64])], ortho_init=False, enable_critic_lstm=True),
+        policy_kwargs=dict(
+            net_arch=[dict(vf=[64])],
+            lstm_hidden_size=64,
+            ortho_init=False,
+            enable_critic_lstm=True,
+        ),
     )
 
     model.learn(total_timesteps=50_000, callback=eval_callback)
     # Maximum episode reward is 500.
     # In CartPole-v1, a non-recurrent policy can easily get >= 450.
     # In CartPoleNoVelEnv, a non-recurrent policy doesn't get more than ~50.
-    # LSTM policies can reach above 400, but it varies a lot between runs; consistently get >=150.
-    evaluate_policy(model, env, reward_threshold=160)
+    evaluate_policy(model, env, reward_threshold=450)
