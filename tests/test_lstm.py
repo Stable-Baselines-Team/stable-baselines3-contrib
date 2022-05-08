@@ -73,9 +73,14 @@ def test_cnn():
     "policy_kwargs",
     [
         {},
-        dict(shared_lstm=True),
+        dict(shared_lstm=True, enable_critic_lstm=False),
         dict(
             enable_critic_lstm=True,
+            lstm_hidden_size=4,
+            lstm_kwargs=dict(dropout=0.5),
+        ),
+        dict(
+            enable_critic_lstm=False,
             lstm_hidden_size=4,
             lstm_kwargs=dict(dropout=0.5),
         ),
@@ -91,6 +96,18 @@ def test_policy_kwargs(policy_kwargs):
     )
 
     model.learn(total_timesteps=32)
+
+
+def test_check():
+    policy_kwargs = dict(shared_lstm=True, enable_critic_lstm=True)
+    with pytest.raises(AssertionError):
+        model = RecurrentPPO(
+            "MlpLstmPolicy",
+            "CartPole-v1",
+            n_steps=16,
+            seed=0,
+            policy_kwargs=policy_kwargs,
+        )
 
 
 @pytest.mark.parametrize("env", ["Pendulum-v1", "CartPole-v1"])
