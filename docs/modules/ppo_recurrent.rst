@@ -1,4 +1,4 @@
-.. _ppo_mask:
+.. _ppo_lstm:
 
 .. automodule:: sb3_contrib.ppo_recurrent
 
