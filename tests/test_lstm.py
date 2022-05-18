@@ -101,7 +101,7 @@ def test_policy_kwargs(policy_kwargs):
 def test_check():
     policy_kwargs = dict(shared_lstm=True, enable_critic_lstm=True)
     with pytest.raises(AssertionError):
-        model = RecurrentPPO(
+        RecurrentPPO(
             "MlpLstmPolicy",
             "CartPole-v1",
             n_steps=16,

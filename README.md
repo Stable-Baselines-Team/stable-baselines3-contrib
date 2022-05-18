@@ -28,7 +28,7 @@ See documentation for the full list of included features.
 - [Augmented Random Search (ARS)](https://arxiv.org/abs/1803.07055)
 - [Quantile Regression DQN (QR-DQN)](https://arxiv.org/abs/1710.10044)
 - [PPO with invalid action masking (MaskablePPO)](https://arxiv.org/abs/2006.14171)
-- [PPO with recurrent policy (RecurrentPPO)](https://arxiv.org/abs/1707.06347)
+- [PPO with recurrent policy (RecurrentPPO aka PPO LSTM)](https://ppo-details.cleanrl.dev//2021/11/05/ppo-implementation-details/)
 - [Truncated Quantile Critics (TQC)](https://arxiv.org/abs/2005.04269)
 - [Trust Region Policy Optimization (TRPO)](https://arxiv.org/abs/1502.05477)
 

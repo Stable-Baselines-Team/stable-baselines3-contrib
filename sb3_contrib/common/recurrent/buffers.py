@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Generator, Optional, Tuple, Union
+from typing import Callable, Generator, Optional, Tuple, Union
 
 import numpy as np
 import torch as th
@@ -26,8 +26,11 @@ def pad(
 
     :param seq_start_indices: Indices of the transitions that start a sequence
     :param seq_end_indices: Indices of the transitions that end a sequence
+    :param device: PyTorch device
     :param tensor: Tensor of shape (batch_size, *tensor_shape)
-    :return:
+    :param padding_value: Value used to pad sequence to the same length
+        (zero padding by default)
+    :return: (n_seq * max_length, *tensor_shape)
     """
     # Create sequences given start and end
     seq = [th.tensor(tensor[start : end + 1], device=device) for start, end in zip(seq_start_indices, seq_end_indices)]
@@ -49,7 +52,9 @@ def pad_and_flatten(
     :param seq_start_indices: Indices of the transitions that start a sequence
     :param seq_end_indices: Indices of the transitions that end a sequence
     :param device: PyTorch device (cpu, gpu, ...)
-    :param tensor:
+    :param tensor: Tensor of shape (max_length, n_seq, 1)
+    :param padding_value: Value used to pad sequence to the same length
+        (zero padding by default)
     :return:
     """
     return pad(seq_start_indices, seq_end_indices, device, tensor, padding_value).swapaxes(0, 1).flatten()
@@ -59,7 +64,17 @@ def create_sequencers(
     episode_starts: np.ndarray,
     env_change: np.ndarray,
     device: th.device,
-):
+) -> Tuple[np.ndarray, Callable, Callable]:
+    """
+    Create the utility function to chunk data into
+    sequences and pad them to create fixed size tensors.
+
+    :param episode_starts: Indices where an episode starts
+    :param env_change: Indices where the data collected
+        come from a different env (when using multiple env for data collection)
+    :param device: PyTorch device
+    :return:
+    """
     # Create sequence if env changes too
     seq_start = np.logical_or(episode_starts, env_change).flatten()
     # First index is always the beginning of a sequence
@@ -223,7 +238,7 @@ class RecurrentRolloutBuffer(RolloutBuffer):
 class RecurrentDictRolloutBuffer(DictRolloutBuffer):
     """
     Dict Rollout buffer used in on-policy algorithms like A2C/PPO.
-    Extends the RolloutBuffer to use dictionary observations
+    Extends the RecurrentRolloutBuffer to use dictionary observations
 
     It corresponds to ``buffer_size`` transitions collected
     using the current policy.

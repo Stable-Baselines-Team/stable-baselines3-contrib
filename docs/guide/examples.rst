@@ -77,6 +77,14 @@ RecurrentPPO
 
 Train a PPO agent with a recurrent policy on the CartPole environment.
 
+
+.. note::
+
+  It is particularly important to pass the ``lstm_states``
+  and ``episode_start`` argument to the ``predict()`` method,
+  so the cell and hidden states of the LSTM are correctly updated.
+
+
 .. code-block:: python
 
  import numpy as np
@@ -88,8 +96,10 @@ Train a PPO agent with a recurrent policy on the CartPole environment.
 
  env = model.get_env()
  obs = env.reset()
+ # cell and hidden state of the LSTM
  lstm_states = None
  num_envs = 1
+ # Episode start signals are used to reset the lstm states
  episode_starts = np.ones((num_envs,), dtype=bool)
  while True:
      action, lstm_states = model.predict(obs, state=lstm_states, episode_start=episode_starts, deterministic=True)

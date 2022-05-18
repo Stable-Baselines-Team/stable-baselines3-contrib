@@ -53,8 +53,9 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         excluding the learning rate, to pass to the optimizer
     :param lstm_hidden_size: Number of hidden units for each LSTM layer.
     :param n_lstm_layers: Number of LSTM layers.
-    :param shared_lstm: Whether the LSTM is shared between the actor and the critic.
-        By default, only the actor has a recurrent network.
+    :param shared_lstm: Whether the LSTM is shared between the actor and the critic
+        (in that case, only the actor gradient is used)
+        By default, the actor and the critic have two separate LSTM.
     :param enable_critic_lstm: Use a seperate LSTM for the critic.
     :param lstm_kwargs: Additional keyword arguments to pass the the LSTM
         constructor.
@@ -161,6 +162,16 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         episode_starts: th.Tensor,
         lstm: nn.LSTM,
     ) -> Tuple[th.Tensor, th.Tensor]:
+        """
+        Do a forward pass in the LSTM network.
+
+        :param features: Input tensor
+        :param lstm_states: previous cell and hidden states of the LSTM
+        :param episode_starts: Indicates when a new episode starts,
+            in that case, we need to reset LSTM states.
+        :param lstm: LSTM object.
+        :return: LSTM output and updated LSTM states.
+        """
         # LSTM logic
         # (sequence length, n_envs, features dim) (batch size = n envs)
         n_envs = lstm_states[0].shape[1]
@@ -181,6 +192,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             hidden, lstm_states = lstm(
                 features.unsqueeze(dim=0),
                 (
+                    # Reset the states at the beginning of a new episode
                     (1.0 - episode_start).view(1, n_envs, 1) * lstm_states[0],
                     (1.0 - episode_start).view(1, n_envs, 1) * lstm_states[1],
                 ),
@@ -218,6 +230,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             latent_vf = latent_pi.detach()
             lstm_states_vf = (lstm_states_pi[0].detach(), lstm_states_pi[1].detach())
         else:
+            # Critic only has a feedforward network
             latent_vf = self.critic(features)
             lstm_states_vf = lstm_states_pi
 
