@@ -1,4 +1,5 @@
 import random
+from typing import Optional
 
 import gym
 import pytest
@@ -6,6 +7,7 @@ from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.envs import FakeImageEnv, IdentityEnv, IdentityEnvBox
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.policies import ActorCriticPolicy
+from stable_baselines3.common.vec_env import DummyVecEnv
 
 from sb3_contrib import MaskablePPO
 from sb3_contrib.common.envs import InvalidActionEnvDiscrete, InvalidActionEnvMultiBinary, InvalidActionEnvMultiDiscrete
@@ -28,8 +30,8 @@ class ToDictWrapper(gym.Wrapper):
         super().__init__(env)
         self.observation_space = gym.spaces.Dict({"obs": self.env.observation_space})
 
-    def reset(self):
-        return {"obs": self.env.reset()}
+    def reset(self, seed: Optional[int] = None):
+        return {"obs": self.env.reset(seed=seed)}
 
     def step(self, action):
         obs, reward, done, infos = self.env.step(action)
@@ -67,7 +69,7 @@ def test_eval_env():
     env = InvalidActionEnvDiscrete(dim=20, n_invalid_actions=10)
     eval_env = InvalidActionEnvDiscrete(dim=20, n_invalid_actions=10)
     model = MaskablePPO("MlpPolicy", env, clip_range_vf=0.2, n_steps=32, seed=8)
-    model.learn(32, eval_env=eval_env, eval_freq=16)
+    model.learn(32, eval_env=DummyVecEnv([lambda: Monitor(eval_env)]), eval_freq=16)
     model.learn(32, reset_num_timesteps=False)
 
 

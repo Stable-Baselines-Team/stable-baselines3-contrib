@@ -8,9 +8,9 @@ from stable_baselines3.common.envs import BitFlippingEnv
 from sb3_contrib.common.wrappers import TimeFeatureWrapper
 
 
-class CustomGoalEnv(gym.GoalEnv):
+class CustomGoalEnv(gym.Env):
     def __init__(self):
-        super(CustomGoalEnv, self).__init__()
+        super().__init__()
         self.observation_space = spaces.Dict(
             {
                 "observation": spaces.Box(low=-np.inf, high=np.inf, shape=(3,)),
