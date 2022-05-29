@@ -29,10 +29,11 @@ jobs:
         python -m pip install --upgrade pip
         # cpu version of pytorch
         pip install torch==1.11+cpu -f https://download.pytorch.org/whl/torch_stable.html
-        # Install dependencies for docs and tests
-        pip install stable_baselines3[extra,tests,docs]
         # Install master version
-        pip install git+https://github.com/DLR-RM/stable-baselines3
+        # and dependencies for docs and tests
+        # pip install git+https://github.com/DLR-RM/stable-baselines3#egg=stable_baselines3[extra,tests,docs]
+        # tmp: install gym 0.24
+        pip install git+https://github.com/carlosluis/stable-baselines3@fix_tests#egg=stable_baselines3[extra,tests,docs]
         pip install .
         # Use headless version
         pip install opencv-python-headless
