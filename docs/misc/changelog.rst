@@ -3,12 +3,13 @@
 Changelog
 ==========
 
-Release 1.5.1a5 (WIP)
+Release 1.5.1a6 (WIP)
 -------------------------------
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
-- Upgraded to Stable-Baselines3 >= 1.5.1a5
+- Switched minimum Gym version to 0.24
+- Upgraded to Stable-Baselines3 >= 1.5.1a6
 - Changed the way policy "aliases" are handled ("MlpPolicy", "CnnPolicy", ...), removing the former
   ``register_policy`` helper, ``policy_base`` parameter and using ``policy_aliases`` static attributes instead (@Gregwar)
 - Renamed ``rollout/exploration rate`` key to ``rollout/exploration_rate`` for QRDQN (to be consistent with SB3 DQN)
