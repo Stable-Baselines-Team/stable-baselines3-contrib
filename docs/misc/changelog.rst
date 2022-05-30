@@ -3,8 +3,10 @@
 Changelog
 ==========
 
-Release 1.5.1a7 (WIP)
+Release 1.5.1a8 (WIP)
 -------------------------------
+
+**Add RecurrentPPO (aka PPO LSTM)**
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
@@ -17,6 +19,7 @@ Breaking Changes:
 
 New Features:
 ^^^^^^^^^^^^^
+- Added ``RecurrentPPO`` (aka PPO LSTM)
 
 Bug Fixes:
 ^^^^^^^^^^
@@ -34,7 +37,8 @@ Breaking Changes:
 
 New Features:
 ^^^^^^^^^^^^^
-- Allow PPO to turn of advantage normalization (see `PR #61 <https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/pull/61>`_) @vwxyzjn
+- Allow PPO to turn of advantage normalization (see `PR #61 <https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/pull/61>`_) (@vwxyzjn)
+
 
 Bug Fixes:
 ^^^^^^^^^^
@@ -45,6 +49,9 @@ Deprecations:
 
 Others:
 ^^^^^^^
+
+Documentation:
+^^^^^^^^^^^^^^
 
 Release 1.4.0 (2022-01-19)
 -------------------------------
