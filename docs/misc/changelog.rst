@@ -3,8 +3,10 @@
 Changelog
 ==========
 
-Release 1.5.1a7 (WIP)
+Release 1.5.1a8 (WIP)
 -------------------------------
+
+**Add RecurrentPPO (aka PPO LSTM)**
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^

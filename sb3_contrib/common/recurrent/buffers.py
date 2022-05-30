@@ -30,11 +30,11 @@ def pad(
     :param tensor: Tensor of shape (batch_size, *tensor_shape)
     :param padding_value: Value used to pad sequence to the same length
         (zero padding by default)
-    :return: (n_seq * max_length, *tensor_shape)
+    :return: (n_seq, max_length, *tensor_shape)
     """
     # Create sequences given start and end
     seq = [th.tensor(tensor[start : end + 1], device=device) for start, end in zip(seq_start_indices, seq_end_indices)]
-    return th.nn.utils.rnn.pad_sequence(seq, padding_value=padding_value)
+    return th.nn.utils.rnn.pad_sequence(seq, batch_first=True, padding_value=padding_value)
 
 
 def pad_and_flatten(
@@ -47,7 +47,7 @@ def pad_and_flatten(
     """
     Pad and flatten the sequences of scalar values,
     while keeping the sequence order.
-    From (max_length, n_seq, 1) to (n_seq, max_length, 1) -> (n_seq * max_length,)
+    From (batch_size, 1) to (n_seq, max_length, 1) -> (n_seq * max_length,)
 
     :param seq_start_indices: Indices of the transitions that start a sequence
     :param seq_end_indices: Indices of the transitions that end a sequence
@@ -57,7 +57,7 @@ def pad_and_flatten(
         (zero padding by default)
     :return:
     """
-    return pad(seq_start_indices, seq_end_indices, device, tensor, padding_value).swapaxes(0, 1).flatten()
+    return pad(seq_start_indices, seq_end_indices, device, tensor, padding_value).flatten()
 
 
 def create_sequencers(
@@ -204,7 +204,7 @@ class RecurrentRolloutBuffer(RolloutBuffer):
         n_layers = self.hidden_states_pi.shape[1]
         # Number of sequences
         n_seq = len(self.seq_start_indices)
-        max_length = self.pad(self.actions[batch_inds]).shape[0]
+        max_length = self.pad(self.actions[batch_inds]).shape[1]
         padded_batch_size = n_seq * max_length
         # We retrieve the lstm hidden states that will allow
         # to properly initialize the LSTM at the beginning of each sequence
@@ -222,9 +222,9 @@ class RecurrentRolloutBuffer(RolloutBuffer):
         lstm_states_vf = (self.to_torch(lstm_states_vf[0]), self.to_torch(lstm_states_vf[1]))
 
         return RecurrentRolloutBufferSamples(
-            # (max_length, n_seq, obs_dim) to (n_seq, max_length, obs_dim) -> (n_seq * max_length, obs_dim)
-            observations=self.pad(self.observations[batch_inds]).swapaxes(0, 1).reshape((padded_batch_size,) + self.obs_shape),
-            actions=self.pad(self.actions[batch_inds]).swapaxes(0, 1).reshape((padded_batch_size,) + self.actions.shape[1:]),
+            # (batch_size, obs_dim) -> (n_seq, max_length, obs_dim) -> (n_seq * max_length, obs_dim)
+            observations=self.pad(self.observations[batch_inds]).reshape((padded_batch_size,) + self.obs_shape),
+            actions=self.pad(self.actions[batch_inds]).reshape((padded_batch_size,) + self.actions.shape[1:]),
             old_values=self.pad_and_flatten(self.values[batch_inds]),
             old_log_prob=self.pad_and_flatten(self.log_probs[batch_inds]),
             advantages=self.pad_and_flatten(self.advantages[batch_inds]),
@@ -357,7 +357,7 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
 
         n_layers = self.hidden_states_pi.shape[1]
         n_seq = len(self.seq_start_indices)
-        max_length = self.pad(self.actions[batch_inds]).shape[0]
+        max_length = self.pad(self.actions[batch_inds]).shape[1]
         padded_batch_size = n_seq * max_length
         # We retrieve the lstm hidden states that will allow
         # to properly initialize the LSTM at the beginning of each sequence
@@ -375,13 +375,11 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
         lstm_states_vf = (self.to_torch(lstm_states_vf[0]), self.to_torch(lstm_states_vf[1]))
 
         observations = {key: self.pad(obs[batch_inds]) for (key, obs) in self.observations.items()}
-        observations = {
-            key: obs.swapaxes(0, 1).reshape((padded_batch_size,) + self.obs_shape[key]) for (key, obs) in observations.items()
-        }
+        observations = {key: obs.reshape((padded_batch_size,) + self.obs_shape[key]) for (key, obs) in observations.items()}
 
         return RecurrentDictRolloutBufferSamples(
             observations=observations,
-            actions=self.pad(self.actions[batch_inds]).swapaxes(0, 1).reshape((padded_batch_size,) + self.actions.shape[1:]),
+            actions=self.pad(self.actions[batch_inds]).reshape((padded_batch_size,) + self.actions.shape[1:]),
             old_values=self.pad_and_flatten(self.values[batch_inds]),
             old_log_prob=self.pad_and_flatten(self.log_probs[batch_inds]),
             advantages=self.pad_and_flatten(self.advantages[batch_inds]),
