@@ -55,7 +55,7 @@ def pad_and_flatten(
     :param tensor: Tensor of shape (max_length, n_seq, 1)
     :param padding_value: Value used to pad sequence to the same length
         (zero padding by default)
-    :return:
+    :return: (n_seq * max_length,) aka (padded_batch_size,)
     """
     return pad(seq_start_indices, seq_end_indices, device, tensor, padding_value).flatten()
 
@@ -73,7 +73,9 @@ def create_sequencers(
     :param env_change: Indices where the data collected
         come from a different env (when using multiple env for data collection)
     :param device: PyTorch device
-    :return:
+    :return: Indices of the transitions that start a sequence,
+        pad and pad_and_flatten utilities tailored for this batch
+        (sequence starts and ends indices are fixed)
     """
     # Create sequence if env changes too
     seq_start = np.logical_or(episode_starts, env_change).flatten()
@@ -94,12 +96,13 @@ def create_sequencers(
 
 class RecurrentRolloutBuffer(RolloutBuffer):
     """
-    Rollout buffer that also stores the invalid action masks associated with each observation.
+    Rollout buffer that also stores the LSTM cell and hidden states.
 
     :param buffer_size: Max number of element in the buffer
     :param observation_space: Observation space
     :param action_space: Action space
     :param hidden_state_shape: Shape of the buffer that will collect lstm states
+        (n_steps, lstm.num_layers, n_envs, lstm.hidden_size)
     :param device: PyTorch device
     :param gae_lambda: Factor for trade-off of bias vs variance for Generalized Advantage Estimator
         Equivalent to classic advantage when set to 1.
@@ -119,7 +122,6 @@ class RecurrentRolloutBuffer(RolloutBuffer):
         n_envs: int = 1,
     ):
         self.hidden_state_shape = hidden_state_shape
-        self.initial_lstm_states = None
         self.seq_start_indices, self.seq_end_indices = None, None
         super().__init__(buffer_size, observation_space, action_space, device, gae_lambda, gamma, n_envs)
 
@@ -151,6 +153,9 @@ class RecurrentRolloutBuffer(RolloutBuffer):
             for tensor in ["hidden_states_pi", "cell_states_pi", "hidden_states_vf", "cell_states_vf"]:
                 self.__dict__[tensor] = self.__dict__[tensor].swapaxes(1, 2)
 
+            # flatten but keep the sequence order
+            # 1. (n_steps, n_envs, *tensor_shape) -> (n_envs, n_steps, *tensor_shape)
+            # 2. (n_envs, n_steps, *tensor_shape) -> (n_envs * n_steps, *tensor_shape)
             for tensor in [
                 "observations",
                 "actions",
@@ -240,16 +245,6 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
     Dict Rollout buffer used in on-policy algorithms like A2C/PPO.
     Extends the RecurrentRolloutBuffer to use dictionary observations
 
-    It corresponds to ``buffer_size`` transitions collected
-    using the current policy.
-    This experience will be discarded after the policy update.
-    In order to use PPO objective, we also store the current value of each state
-    and the log probability of each taken action.
-
-    The term rollout here refers to the model-free notion and should not
-    be used with the concept of rollout used in model-based RL or planning.
-    Hence, it is only involved in policy and value function training but not action selection.
-
     :param buffer_size: Max number of element in the buffer
     :param observation_space: Observation space
     :param action_space: Action space
@@ -273,7 +268,6 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
         n_envs: int = 1,
     ):
         self.hidden_state_shape = hidden_state_shape
-        self.initial_lstm_states = None
         self.seq_start_indices, self.seq_end_indices = None, None
         super().__init__(buffer_size, observation_space, action_space, device, gae_lambda, gamma, n_envs=n_envs)
 

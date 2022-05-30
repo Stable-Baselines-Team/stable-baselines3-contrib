@@ -153,6 +153,8 @@ class RecurrentPPO(OnPolicyAlgorithm):
         )
         self.policy = self.policy.to(self.device)
 
+        # We assume that LSTM for the actor and the critic
+        # have the same architecture
         lstm = self.policy.lstm_actor
 
         if not isinstance(self.policy, RecurrentActorCriticPolicy):
@@ -188,7 +190,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
         self.clip_range = get_schedule_fn(self.clip_range)
         if self.clip_range_vf is not None:
             if isinstance(self.clip_range_vf, (float, int)):
-                assert self.clip_range_vf > 0, "`clip_range_vf` must be positive, " "pass `None` to deactivate vf clipping"
+                assert self.clip_range_vf > 0, "`clip_range_vf` must be positive, pass `None` to deactivate vf clipping"
 
             self.clip_range_vf = get_schedule_fn(self.clip_range_vf)
 
@@ -201,7 +203,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
         n_eval_episodes: int = 5,
         log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
-        tb_log_name: str = "run",
+        tb_log_name: str = "RecurrentPPO",
     ) -> Tuple[int, BaseCallback]:
         """
         Initialize different variables needed for training.
@@ -251,7 +253,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
         """
         assert isinstance(
             rollout_buffer, (RecurrentRolloutBuffer, RecurrentDictRolloutBuffer)
-        ), "RolloutBuffer doesn't support recurrent policy"
+        ), f"{rollout_buffer} doesn't support recurrent policy"
 
         assert self._last_obs is not None, "No previous observation was provided"
         # Switch to eval mode (this affects batch norm / dropout)
@@ -265,7 +267,6 @@ class RecurrentPPO(OnPolicyAlgorithm):
 
         callback.on_rollout_start()
 
-        rollout_buffer.initial_lstm_states = deepcopy(self._last_lstm_states)
         lstm_states = deepcopy(self._last_lstm_states)
 
         while n_steps < n_rollout_steps:
@@ -366,7 +367,6 @@ class RecurrentPPO(OnPolicyAlgorithm):
         clip_fractions = []
 
         continue_training = True
-        # self.policy.features_extractor.debug = True
 
         # train for n_epochs epochs
         for epoch in range(self.n_epochs):
@@ -429,9 +429,9 @@ class RecurrentPPO(OnPolicyAlgorithm):
                 # Entropy loss favor exploration
                 if entropy is None:
                     # Approximate entropy when no analytical form
-                    entropy_loss = -th.mean(-log_prob)
+                    entropy_loss = -th.mean(-(log_prob * rollout_data.mask))
                 else:
-                    entropy_loss = -th.mean(entropy)
+                    entropy_loss = -th.mean(entropy * rollout_data.mask)
 
                 entropy_losses.append(entropy_loss.item())
 
