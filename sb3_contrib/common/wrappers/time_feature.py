@@ -1,4 +1,4 @@
-from typing import Dict, Union
+from typing import Dict, Optional, Union
 
 import gym
 import numpy as np
@@ -65,9 +65,10 @@ class TimeFeatureWrapper(gym.Wrapper):
         self._current_step = 0
         self._test_mode = test_mode
 
-    def reset(self) -> GymObs:
+    def reset(self, seed: Optional[int] = None) -> GymObs:
         self._current_step = 0
-        return self._get_obs(self.env.reset())
+        kwargs = {} if seed is None else {"seed": seed}
+        return self._get_obs(self.env.reset(**kwargs))
 
     def step(self, action: Union[int, np.ndarray]) -> GymStepReturn:
         self._current_step += 1
