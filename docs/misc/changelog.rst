@@ -3,13 +3,15 @@
 Changelog
 ==========
 
-Release 1.5.1a5 (WIP)
+Release 1.5.1a8 (WIP)
 -------------------------------
+
+**Add RecurrentPPO (aka PPO LSTM)**
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
-- Upgraded to Stable-Baselines3 >= 1.5.1a5
 - Changed default policy architecture for ARS/CEM to ``[32]`` instead of ``[64, 64]``
+- Upgraded to Stable-Baselines3 >= 1.5.1a7
 - Changed the way policy "aliases" are handled ("MlpPolicy", "CnnPolicy", ...), removing the former
   ``register_policy`` helper, ``policy_base`` parameter and using ``policy_aliases`` static attributes instead (@Gregwar)
 - Renamed ``rollout/exploration rate`` key to ``rollout/exploration_rate`` for QRDQN (to be consistent with SB3 DQN)
@@ -19,6 +21,7 @@ Breaking Changes:
 New Features:
 ^^^^^^^^^^^^^
 - Added noisy Cross Entropy Method (CEM)
+- Added ``RecurrentPPO`` (aka PPO LSTM)
 
 Bug Fixes:
 ^^^^^^^^^^
@@ -39,7 +42,8 @@ Breaking Changes:
 
 New Features:
 ^^^^^^^^^^^^^
-- Allow PPO to turn of advantage normalization (see `PR #61 <https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/pull/61>`_) @vwxyzjn
+- Allow PPO to turn of advantage normalization (see `PR #61 <https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/pull/61>`_) (@vwxyzjn)
+
 
 Bug Fixes:
 ^^^^^^^^^^
@@ -50,6 +54,9 @@ Deprecations:
 
 Others:
 ^^^^^^^
+
+Documentation:
+^^^^^^^^^^^^^^
 
 Release 1.4.0 (2022-01-19)
 -------------------------------

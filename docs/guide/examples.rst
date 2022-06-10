@@ -71,3 +71,38 @@ Train an agent using Augmented Random Search (ARS) agent on the Pendulum environ
    model = ARS("LinearPolicy", "Pendulum-v1", verbose=1)
    model.learn(total_timesteps=10000, log_interval=4)
    model.save("ars_pendulum")
+
+RecurrentPPO
+------------
+
+Train a PPO agent with a recurrent policy on the CartPole environment.
+
+
+.. note::
+
+  It is particularly important to pass the ``lstm_states``
+  and ``episode_start`` argument to the ``predict()`` method,
+  so the cell and hidden states of the LSTM are correctly updated.
+
+
+.. code-block:: python
+
+ import numpy as np
+
+ from sb3_contrib import RecurrentPPO
+
+ model = RecurrentPPO("MlpLstmPolicy", "CartPole-v1", verbose=1)
+ model.learn(5000)
+
+ env = model.get_env()
+ obs = env.reset()
+ # cell and hidden state of the LSTM
+ lstm_states = None
+ num_envs = 1
+ # Episode start signals are used to reset the lstm states
+ episode_starts = np.ones((num_envs,), dtype=bool)
+ while True:
+     action, lstm_states = model.predict(obs, state=lstm_states, episode_start=episode_starts, deterministic=True)
+     obs, rewards, dones, info = env.step(action)
+     episode_starts = dones
+     env.render()
