@@ -22,6 +22,7 @@ New Features:
 - Added ``RecurrentPPO`` (aka PPO LSTM)
 
 Bug Fixes:
+- Fixed a bug in ``RecurrentPPO`` when calculating the masked loss functions (@rnederstigt)
 ^^^^^^^^^^
 
 Deprecations:
@@ -271,4 +272,4 @@ Stable-Baselines3 is currently maintained by `Antonin Raffin`_ (aka `@araffin`_)
 Contributors:
 -------------
 
-@ku2482 @guyk1971 @minhlong94 @ayeright @kronion @glmcdona @cyprienc @sgillen @Gregwar
+@ku2482 @guyk1971 @minhlong94 @ayeright @kronion @glmcdona @cyprienc @sgillen @Gregwar @rnederstigt
