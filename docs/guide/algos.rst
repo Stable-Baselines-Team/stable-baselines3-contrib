@@ -9,14 +9,17 @@ along with some useful characteristics: support for discrete/continuous actions,
 Name         ``Box``     ``Discrete`` ``MultiDiscrete`` ``MultiBinary`` Multi Processing
 ============ =========== ============ ================= =============== ================
 ARS          ✔️          ❌️            ❌                ❌                ✔️
+MaskablePPO  ❌           ✔️             ✔️                ✔️               ✔️
 QR-DQN       ️❌          ️✔️            ❌                ❌                ✔️
+RecurrentPPO ✔️           ✔️             ✔️                ✔️               ✔️
 TQC          ✔️          ❌            ❌                ❌                ✔️
 TRPO         ✔️          ✔️             ✔️                ✔️                ✔️
 ============ =========== ============ ================= =============== ================
 
 
 .. note::
-    Non-array spaces such as ``Dict`` or ``Tuple`` are not currently supported by any algorithm.
+  ``Tuple`` observation spaces are not supported by any environment,
+  however, single-level ``Dict`` spaces are
 
 Actions ``gym.spaces``:
 

@@ -6,11 +6,12 @@ import torch as th
 from stable_baselines3.common.buffers import ReplayBuffer
 from stable_baselines3.common.noise import ActionNoise
 from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
+from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback
 from stable_baselines3.common.utils import polyak_update
 
 from sb3_contrib.common.utils import quantile_huber_loss
-from sb3_contrib.tqc.policies import TQCPolicy
+from sb3_contrib.tqc.policies import CnnPolicy, MlpPolicy, MultiInputPolicy, TQCPolicy
 
 
 class TQC(OffPolicyAlgorithm):
@@ -64,6 +65,12 @@ class TQC(OffPolicyAlgorithm):
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
 
+    policy_aliases: Dict[str, Type[BasePolicy]] = {
+        "MlpPolicy": MlpPolicy,
+        "CnnPolicy": CnnPolicy,
+        "MultiInputPolicy": MultiInputPolicy,
+    }
+
     def __init__(
         self,
         policy: Union[str, Type[TQCPolicy]],
@@ -96,10 +103,9 @@ class TQC(OffPolicyAlgorithm):
         _init_setup_model: bool = True,
     ):
 
-        super(TQC, self).__init__(
+        super().__init__(
             policy,
             env,
-            TQCPolicy,
             learning_rate,
             buffer_size,
             learning_starts,
@@ -138,7 +144,7 @@ class TQC(OffPolicyAlgorithm):
             self._setup_model()
 
     def _setup_model(self) -> None:
-        super(TQC, self)._setup_model()
+        super()._setup_model()
         self._create_aliases()
 
         # Target entropy is used when learning the entropy coefficient
@@ -287,7 +293,7 @@ class TQC(OffPolicyAlgorithm):
         reset_num_timesteps: bool = True,
     ) -> OffPolicyAlgorithm:
 
-        return super(TQC, self).learn(
+        return super().learn(
             total_timesteps=total_timesteps,
             callback=callback,
             log_interval=log_interval,
@@ -301,7 +307,7 @@ class TQC(OffPolicyAlgorithm):
 
     def _excluded_save_params(self) -> List[str]:
         # Exclude aliases
-        return super(TQC, self)._excluded_save_params() + ["actor", "critic", "critic_target"]
+        return super()._excluded_save_params() + ["actor", "critic", "critic_target"]
 
     def _get_torch_save_params(self) -> Tuple[List[str], List[str]]:
         state_dicts = ["policy", "actor.optimizer", "critic.optimizer"]

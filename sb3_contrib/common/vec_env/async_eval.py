@@ -72,7 +72,7 @@ def _worker(
             break
 
 
-class AsyncEval(object):
+class AsyncEval:
     """
     Helper class to do asynchronous evaluation of different policies with multiple processes.
     It is useful when implementing population based methods like Evolution Strategies (ES),

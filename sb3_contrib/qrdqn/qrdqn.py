@@ -5,12 +5,13 @@ import numpy as np
 import torch as th
 from stable_baselines3.common.buffers import ReplayBuffer
 from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
+from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.preprocessing import maybe_transpose
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import get_linear_fn, is_vectorized_observation, polyak_update
 
 from sb3_contrib.common.utils import quantile_huber_loss
-from sb3_contrib.qrdqn.policies import QRDQNPolicy
+from sb3_contrib.qrdqn.policies import CnnPolicy, MlpPolicy, MultiInputPolicy, QRDQNPolicy
 
 
 class QRDQN(OffPolicyAlgorithm):
@@ -57,6 +58,12 @@ class QRDQN(OffPolicyAlgorithm):
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
 
+    policy_aliases: Dict[str, Type[BasePolicy]] = {
+        "MlpPolicy": MlpPolicy,
+        "CnnPolicy": CnnPolicy,
+        "MultiInputPolicy": MultiInputPolicy,
+    }
+
     def __init__(
         self,
         policy: Union[str, Type[QRDQNPolicy]],
@@ -86,10 +93,9 @@ class QRDQN(OffPolicyAlgorithm):
         _init_setup_model: bool = True,
     ):
 
-        super(QRDQN, self).__init__(
+        super().__init__(
             policy,
             env,
-            QRDQNPolicy,
             learning_rate,
             buffer_size,
             learning_starts,
@@ -133,7 +139,7 @@ class QRDQN(OffPolicyAlgorithm):
             self._setup_model()
 
     def _setup_model(self) -> None:
-        super(QRDQN, self)._setup_model()
+        super()._setup_model()
         self._create_aliases()
         self.exploration_schedule = get_linear_fn(
             self.exploration_initial_eps, self.exploration_final_eps, self.exploration_fraction
@@ -153,7 +159,7 @@ class QRDQN(OffPolicyAlgorithm):
             polyak_update(self.quantile_net.parameters(), self.quantile_net_target.parameters(), self.tau)
 
         self.exploration_rate = self.exploration_schedule(self._current_progress_remaining)
-        self.logger.record("rollout/exploration rate", self.exploration_rate)
+        self.logger.record("rollout/exploration_rate", self.exploration_rate)
 
     def train(self, gradient_steps: int, batch_size: int = 100) -> None:
         # Switch to train mode (this affects batch norm / dropout)
@@ -212,13 +218,16 @@ class QRDQN(OffPolicyAlgorithm):
         deterministic: bool = False,
     ) -> Tuple[np.ndarray, Optional[Tuple[np.ndarray, ...]]]:
         """
-        Overrides the base_class predict function to include epsilon-greedy exploration.
+        Get the policy action from an observation (and optional hidden state).
+        Includes sugar-coating to handle different observations (e.g. normalizing images).
 
         :param observation: the input observation
-        :param state: The last states (can be None, used in recurrent policies)
-        :param mask: The last masks (can be None, used in recurrent policies)
+        :param state: The last hidden states (can be None, used in recurrent policies)
+        :param episode_start: The last masks (can be None, used in recurrent policies)
+            this correspond to beginning of episodes,
+            where the hidden states of the RNN must be reset.
         :param deterministic: Whether or not to return deterministic actions.
-        :return: the model's action and the next state
+        :return: the model's action and the next hidden state
             (used in recurrent policies)
         """
         if not deterministic and np.random.rand() < self.exploration_rate:
@@ -247,7 +256,7 @@ class QRDQN(OffPolicyAlgorithm):
         reset_num_timesteps: bool = True,
     ) -> OffPolicyAlgorithm:
 
-        return super(QRDQN, self).learn(
+        return super().learn(
             total_timesteps=total_timesteps,
             callback=callback,
             log_interval=log_interval,
@@ -260,7 +269,7 @@ class QRDQN(OffPolicyAlgorithm):
         )
 
     def _excluded_save_params(self) -> List[str]:
-        return super(QRDQN, self)._excluded_save_params() + ["quantile_net", "quantile_net_target"]
+        return super()._excluded_save_params() + ["quantile_net", "quantile_net_target"]
 
     def _get_torch_save_params(self) -> Tuple[List[str], List[str]]:
         state_dicts = ["policy", "policy.optimizer"]

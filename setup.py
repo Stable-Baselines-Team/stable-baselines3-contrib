@@ -2,7 +2,7 @@ import os
 
 from setuptools import find_packages, setup
 
-with open(os.path.join("sb3_contrib", "version.txt"), "r") as file_handler:
+with open(os.path.join("sb3_contrib", "version.txt")) as file_handler:
     __version__ = file_handler.read().strip()
 
 
@@ -33,6 +33,8 @@ See documentation for the full list of included features.
 - [Truncated Quantile Critics (TQC)](https://arxiv.org/abs/2005.04269)
 - [Quantile Regression DQN (QR-DQN)](https://arxiv.org/abs/1710.10044)
 - [PPO with invalid action masking (MaskablePPO)](https://arxiv.org/abs/2006.14171)
+- [Trust Region Policy Optimization (TRPO)](https://arxiv.org/abs/1502.05477)
+- [Augmented Random Search (ARS)](https://arxiv.org/abs/1803.07055)
 
 **Gym Wrappers**:
 - [Time Feature Wrapper](https://arxiv.org/abs/1712.00378)
@@ -64,7 +66,6 @@ setup(
     package_data={"sb3_contrib": ["py.typed", "version.txt"]},
     install_requires=[
         "stable_baselines3 @ git+https://git@github.com/qgallouedec/stable-baselines3@IM_compat_and_her_alt",
-        "KDEpy",
     ],
     description="Contrib package of Stable Baselines3, experimental code.",
     author="Antonin Raffin",
