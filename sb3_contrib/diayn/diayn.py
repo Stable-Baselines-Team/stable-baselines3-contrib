@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type, Union
 import gym
 import numpy as np
 import torch as th
+import torch.nn.functional as F
 from gym import spaces
 from stable_baselines3 import SAC
 from stable_baselines3.common.buffers import ReplayBuffer
@@ -10,7 +11,6 @@ from stable_baselines3.common.noise import ActionNoise
 from stable_baselines3.common.surgeon import Surgeon
 from stable_baselines3.common.type_aliases import GymEnv, Schedule
 from stable_baselines3.common.utils import get_device, obs_as_tensor
-import torch.nn.functional as F
 from torch import nn
 from torch.distributions import Categorical
 
