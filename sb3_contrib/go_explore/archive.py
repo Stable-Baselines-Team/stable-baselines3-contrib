@@ -1,10 +1,12 @@
-from typing import Union
+from typing import Optional, Union
 
 import numpy as np
 import torch
 from gym import spaces
 from stable_baselines3 import HerReplayBuffer
+from stable_baselines3.common.type_aliases import DictReplayBufferSamples
 from stable_baselines3.common.vec_env import VecEnv
+from stable_baselines3.common.vec_env.vec_normalize import VecNormalize
 from stable_baselines3.her.goal_selection_strategy import GoalSelectionStrategy
 
 from sb3_contrib.go_explore.cells import CellFactory
@@ -25,9 +27,7 @@ class ArchiveBuffer(HerReplayBuffer):
     :param observation_space: Observation space
     :param action_space: Action space
     :param env: The training environment
-    :param inverse_model: Inverse model used to compute embeddings
-    :param distance_threshold: The goal is reached when the distance between the current embedding
-        and the goal embedding is under this threshold
+    :param cell_factory: The cell factory
     :param device: PyTorch device
     :param n_envs: Number of parallel environments
     :param n_sampled_goal: Number of virtual transitions to create per real transition,
@@ -114,11 +114,84 @@ class ArchiveBuffer(HerReplayBuffer):
         goal_pos = self.earliest_cell_pos[cell_uid]
         start = self.ep_start[goal_pos, env_idx]
         # Loop to avoid consecutive repetition
-        trajectory = [self.next_observations["observation"][start, env_idx]]
+        trajectory = [self.cells[start, env_idx]]
         for pos in range(start + 1, goal_pos + 1):
             previous_cell = self.cells[pos - 1, env_idx]
             cell = self.cells[pos, env_idx]
             if (previous_cell != cell).any():
-                obs = self.next_observations["observation"][pos, env_idx]
-                trajectory.append(obs)
+                trajectory.append(cell)
         return np.array(trajectory)
+
+    def _get_virtual_samples(
+        self, batch_inds: np.ndarray, env_indices: np.ndarray, env: Optional[VecNormalize] = None
+    ) -> DictReplayBufferSamples:
+        """
+        Get the samples corresponding to the batch and environment indices.
+
+        :param batch_inds: Indices of the transitions
+        :param env_indices: Indices of the envrionments
+        :param env: associated gym VecEnv to normalize the observations/rewards when sampling, defaults to None
+        :return: Samples
+        """
+        # Get infos and obs
+        obs = {key: obs[batch_inds, env_indices, :] for key, obs in self.observations.items()}
+        next_obs = {key: obs[batch_inds, env_indices, :] for key, obs in self.next_observations.items()}
+        cell = self.cell_factory(obs["observation"])
+
+        # Sample and set new goals
+        new_goals = self._sample_goals(batch_inds, env_indices)
+        obs["goal"] = new_goals
+        # The goal for the next observation must be the same as the previous one. TODO: Why ?
+        next_obs["goal"] = new_goals
+
+        # Compute new reward
+        is_success = (cell == new_goals).all(-1)
+        rewards = is_success.astype(np.float32) - 1
+
+        obs = self._normalize_obs(obs)
+        next_obs = self._normalize_obs(next_obs)
+
+        # Convert to torch tensor
+        observations = {key: self.to_torch(obs) for key, obs in obs.items()}
+        next_observations = {key: self.to_torch(obs) for key, obs in next_obs.items()}
+
+        return DictReplayBufferSamples(
+            observations=observations,
+            actions=self.to_torch(self.actions[batch_inds, env_indices]),
+            next_observations=next_observations,
+            # Only use dones that are not due to timeouts
+            # deactivated by default (timeouts is initialized as an array of False)
+            dones=self.to_torch(self.dones[batch_inds, env_indices] * (1 - self.timeouts[batch_inds, env_indices])).reshape(
+                -1, 1
+            ),
+            rewards=self.to_torch(self._normalize_reward(rewards.reshape(-1, 1), env)),
+        )
+
+    def _sample_goals(self, batch_inds: np.ndarray, env_indices: np.ndarray) -> np.ndarray:
+        """
+        Sample goals based on goal_selection_strategy.
+
+        :param trans_coord: Coordinates of the transistions within the buffer
+        :return: Return sampled goals
+        """
+        batch_ep_start = self.ep_start[batch_inds, env_indices]
+        batch_ep_length = self.ep_length[batch_inds, env_indices]
+
+        if self.goal_selection_strategy == GoalSelectionStrategy.FINAL:
+            # replay with final state of current episode
+            transition_indices_in_episode = batch_ep_length - 1
+
+        elif self.goal_selection_strategy == GoalSelectionStrategy.FUTURE:
+            # replay with random state which comes from the same episode and was observed after current transition
+            current_indices_in_episode = batch_inds - batch_ep_start
+            transition_indices_in_episode = np.random.randint(current_indices_in_episode, batch_ep_length)
+
+        elif self.goal_selection_strategy == GoalSelectionStrategy.EPISODE:
+            # replay with random state which comes from the same episode as current transition
+            transition_indices_in_episode = np.random.randint(0, batch_ep_length)
+
+        else:
+            raise ValueError(f"Strategy {self.goal_selection_strategy} for sampling goals not supported!")
+
+        transition_indices = (transition_indices_in_episode + batch_ep_start) % self.buffer_size
+        return self.next_observations["observation"][transition_indices, env_indices]

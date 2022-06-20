@@ -4,8 +4,7 @@ import gym
 
 from sb3_contrib.ars import ARS
 from sb3_contrib.diayn import DIAYN
-
-# from sb3_contrib.go_explore import GoExplore
+from sb3_contrib.go_explore import GoExplore
 from sb3_contrib.icm import ICM
 from sb3_contrib.ppo_mask import MaskablePPO
 from sb3_contrib.ppo_recurrent import RecurrentPPO
