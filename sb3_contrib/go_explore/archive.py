@@ -102,6 +102,7 @@ class ArchiveBuffer(HerReplayBuffer):
         Sample a trajcetory of observations based on the cells counts and trajectories.
         A goal cell is sampled with weight 1/count**count_pow. Then the shortest
         trajectory to the cell is computed and returned.
+
         :return: A list of observations as array
         """
         if self.weights is None:  # no cells yet
