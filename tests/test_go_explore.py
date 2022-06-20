@@ -40,7 +40,7 @@ def test_sample_trajectory():
         )
 
     archive.recompute_cells()
-    sampled_trajectories = [archive.sample_trajectory().tolist() for _ in range(10)]
+    sampled_trajectories = [archive.sample_trajectory().tolist() for _ in range(30)]
     possible_trajectories = [
         [[1.0, 0.0]],
         [[1.0, 0.0], [2.0, 0.0]],
