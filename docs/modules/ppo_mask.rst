@@ -5,7 +5,7 @@
 Maskable PPO
 ============
 
-Implementation of `invalid action masking <https://arxiv.org/abs/2006.14171>`_ for the Proximal Policy Optimization(PPO)
+Implementation of `invalid action masking <https://arxiv.org/abs/2006.14171>`_ for the Proximal Policy Optimization (PPO)
 algorithm. Other than adding support for action masking, the behavior is the same as in SB3's core PPO algorithm.
 
 

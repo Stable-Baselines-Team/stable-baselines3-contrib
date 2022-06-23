@@ -215,12 +215,12 @@ class MaskableActorCriticPolicy(BasePolicy):
         action_masks: Optional[np.ndarray] = None,
     ) -> Tuple[np.ndarray, Optional[Tuple[np.ndarray, ...]]]:
         """
-        Get the policy action and state from an observation (and optional state).
+        Get the policy action from an observation (and optional hidden state).
         Includes sugar-coating to handle different observations (e.g. normalizing images).
 
         :param observation: the input observation
         :param state: The last states (can be None, used in recurrent policies)
-        :param mask: The last masks (can be None, used in recurrent policies)
+        :param episode_start: The last masks (can be None, used in recurrent policies)
         :param deterministic: Whether or not to return deterministic actions.
         :param action_masks: Action masks to apply to the action distribution
         :return: the model's action and the next state
@@ -229,8 +229,8 @@ class MaskableActorCriticPolicy(BasePolicy):
         # TODO (GH/1): add support for RNN policies
         # if state is None:
         #     state = self.initial_state
-        # if mask is None:
-        #     mask = [False for _ in range(self.n_envs)]
+        # if episode_start is None:
+        #     episode_start = [False for _ in range(self.n_envs)]
 
         # Switch to eval mode (this affects batch norm / dropout)
         self.set_training_mode(False)
@@ -256,7 +256,7 @@ class MaskableActorCriticPolicy(BasePolicy):
                 raise ValueError("Error: The environment must be vectorized when using recurrent policies.")
             actions = actions[0]
 
-        return actions, state
+        return actions, None
 
     def evaluate_actions(
         self,

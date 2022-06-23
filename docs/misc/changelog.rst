@@ -3,8 +3,10 @@
 Changelog
 ==========
 
-Release 1.5.1a7 (WIP)
+Release 1.5.1a9 (WIP)
 -------------------------------
+
+**Add RecurrentPPO (aka PPO LSTM)**
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
@@ -15,11 +17,16 @@ Breaking Changes:
 - Renamed ``rollout/exploration rate`` key to ``rollout/exploration_rate`` for QRDQN (to be consistent with SB3 DQN)
 - Upgraded to python 3.7+ syntax using ``pyupgrade``
 - SB3 now requires PyTorch >= 1.11
+- Changed the default network architecture when using ``CnnPolicy`` or ``MultiInputPolicy`` with TQC,
+  ``share_features_extractor`` is now set to False by default and the ``net_arch=[256, 256]`` (instead of ``net_arch=[]`` that was before)
+
 
 New Features:
 ^^^^^^^^^^^^^
+- Added ``RecurrentPPO`` (aka PPO LSTM)
 
 Bug Fixes:
+- Fixed a bug in ``RecurrentPPO`` when calculating the masked loss functions (@rnederstigt)
 ^^^^^^^^^^
 
 Deprecations:
@@ -35,7 +42,8 @@ Breaking Changes:
 
 New Features:
 ^^^^^^^^^^^^^
-- Allow PPO to turn of advantage normalization (see `PR #61 <https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/pull/61>`_) @vwxyzjn
+- Allow PPO to turn of advantage normalization (see `PR #61 <https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/pull/61>`_) (@vwxyzjn)
+
 
 Bug Fixes:
 ^^^^^^^^^^
@@ -46,6 +54,9 @@ Deprecations:
 
 Others:
 ^^^^^^^
+
+Documentation:
+^^^^^^^^^^^^^^
 
 Release 1.4.0 (2022-01-19)
 -------------------------------
@@ -265,4 +276,4 @@ Stable-Baselines3 is currently maintained by `Antonin Raffin`_ (aka `@araffin`_)
 Contributors:
 -------------
 
-@ku2482 @guyk1971 @minhlong94 @ayeright @kronion @glmcdona @cyprienc @sgillen @Gregwar
+@ku2482 @guyk1971 @minhlong94 @ayeright @kronion @glmcdona @cyprienc @sgillen @Gregwar @rnederstigt
