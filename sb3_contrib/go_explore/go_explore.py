@@ -164,9 +164,10 @@ class GoExplore:
         env = make_vec_env(env_func, n_envs=n_envs)
         replay_buffer_kwargs = {} if replay_buffer_kwargs is None else replay_buffer_kwargs
         replay_buffer_kwargs.update(dict(cell_factory=cell_factory))
+        cell_dim = cell_factory(self.wrapped_env.reset()).shape[0]
         policy_kwargs = dict(
             features_extractor_class=GoExploreExtractor,
-            features_extractor_kwargs=dict(cell_dim=20),
+            features_extractor_kwargs=dict(cell_dim=cell_dim),
         )
         model_kwargs = {} if model_kwargs is None else model_kwargs
         model_kwargs["learning_starts"] = 10_000
