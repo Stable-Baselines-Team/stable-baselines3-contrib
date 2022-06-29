@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import torch
@@ -43,6 +43,7 @@ class ArchiveBuffer(HerReplayBuffer):
         action_space: spaces.Space,
         env: VecEnv,
         cell_factory: CellFactory,
+        cell_dim: int,
         device: Union[torch.device, str] = "cpu",
         n_envs: int = 1,
         optimize_memory_usage: bool = False,
@@ -65,6 +66,21 @@ class ArchiveBuffer(HerReplayBuffer):
         self.cell_factory = cell_factory
         self.weights = None
 
+        self.cells = np.zeros((self.buffer_size, self.n_envs, cell_dim), dtype=np.float32)
+
+    def add(
+        self,
+        obs: Dict[str, np.ndarray],
+        next_obs: Dict[str, np.ndarray],
+        action: np.ndarray,
+        reward: np.ndarray,
+        done: np.ndarray,
+        infos: List[Dict[str, Any]],
+        is_virtual: bool = False,
+    ) -> None:
+        self.cells[self.pos] = self.cell_factory(next_obs["observation"])
+        super().add(obs, next_obs, action, reward, done, infos, is_virtual)
+
     def recompute_cells(self) -> None:
         """
         Recompute cells.
@@ -75,8 +91,8 @@ class ArchiveBuffer(HerReplayBuffer):
         if upper_bound == 0:
             return  # no trajectory yet
 
-        self.cells = self.cell_factory(self.next_observations["observation"][:upper_bound])
-        flat_cells = self.cells.reshape((nb_obs, -1))  # shape from (pos, env_idx, *cell_shape) to (idx, *cell_shape)
+        # shape from (pos, env_idx, *cell_shape) to (idx, *cell_shape)
+        flat_cells = self.cells[:upper_bound].reshape((nb_obs, -1))
         # Compute the unique cells.
         # cells_uid is a tensor of shape (nb_obs,) mapping observation index to its cell index.
         # unique_cells is a tensor of shape (nb_cells, *cell_shape) mapping cell index to the cell.
@@ -195,4 +211,4 @@ class ArchiveBuffer(HerReplayBuffer):
             raise ValueError(f"Strategy {self.goal_selection_strategy} for sampling goals not supported!")
 
         transition_indices = (transition_indices_in_episode + batch_ep_start) % self.buffer_size
-        return self.next_observations["observation"][transition_indices, env_indices]
+        return self.cells[transition_indices, env_indices]
