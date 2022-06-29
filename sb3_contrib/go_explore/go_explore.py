@@ -68,6 +68,7 @@ class Goalify(gym.Wrapper):
 
     def step(self, action: np.ndarray) -> Tuple[Dict[str, np.ndarray], float, bool, Dict[str, Any]]:
         obs, reward, done, info = self.env.step(action)
+        obs = obs.astype(np.float32)
         current_cell = self.cell_factory(obs)
         # Move to next goal here (by modifying self._goal_idx and self._is_last_goal_reached)
         upper_idx = min(self._goal_idx + self.window_size, len(self.goal_cell_trajectory))
@@ -76,12 +77,13 @@ class Goalify(gym.Wrapper):
 
         future_successes = (current_cell == future_goal_cells).all(-1)
         if future_successes.any():
-            furthest_futur_success = future_successes.argmax()
+            furthest_futur_success = np.where(future_successes)[0].max()
             self._goal_idx += furthest_futur_success + 1
         if self._goal_idx == len(self.goal_cell_trajectory):
             self._is_last_goal_reached = True
             self._goal_idx -= 1
-        if future_successes.any() and furthest_futur_success == 0:
+
+        if future_successes[0]:
             # Agent has just reached the current goal
             reward = 0
         else:
@@ -162,9 +164,10 @@ class GoExplore:
             )
 
         env = make_vec_env(env_func, n_envs=n_envs)
-        replay_buffer_kwargs = {} if replay_buffer_kwargs is None else replay_buffer_kwargs
-        replay_buffer_kwargs.update(dict(cell_factory=cell_factory))
         cell_dim = cell_factory(self.wrapped_env.reset()).shape[0]
+        replay_buffer_kwargs = {} if replay_buffer_kwargs is None else replay_buffer_kwargs
+        replay_buffer_kwargs.update(dict(cell_factory=cell_factory, cell_dim=cell_dim))
+
         policy_kwargs = dict(
             features_extractor_class=GoExploreExtractor,
             features_extractor_kwargs=dict(cell_dim=cell_dim),
