@@ -196,6 +196,7 @@ class Goalify(gym.GoalEnv, gym.Wrapper):
 
     def _get_weights(self, goals: th.Tensor, goal_distribution: GaussianMixtureModel, power: float = -1.0) -> th.Tensor:
         log_prob = goal_distribution.log_prob(goals).squeeze()
+        log_prob = th.clamp(log_prob, -10, 2)
         weight = th.exp(log_prob)
         weight = weight**power
         return weight
