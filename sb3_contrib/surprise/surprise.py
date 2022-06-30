@@ -125,8 +125,8 @@ class Surprise(Surgeon):
         new_replay_data = ReplayBufferSamples(
             replay_data.observations, replay_data.actions, replay_data.next_observations, replay_data.dones, new_rewards
         )
-        self.logger.record("Surprise/rew_intr_mean", intrinsic_rewards.mean().item())
-        self.logger.record("Surprise/rew_extr_mean", replay_data.rewards.mean().item())
+        self.logger.record("surprise/rew_intr_mean", intrinsic_rewards.mean().item())
+        self.logger.record("surprise/rew_extr_mean", replay_data.rewards.mean().item())
 
         return new_replay_data
 
@@ -145,4 +145,4 @@ class Surprise(Surgeon):
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-        self.logger.record("Surprise/model_loss", loss.item())
+        self.logger.record("surprise/model_loss", loss.item())
