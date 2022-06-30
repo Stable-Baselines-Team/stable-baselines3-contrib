@@ -9,7 +9,7 @@ from stable_baselines3 import SAC
 from stable_baselines3.common.buffers import ReplayBuffer
 from stable_baselines3.common.noise import ActionNoise
 from stable_baselines3.common.surgeon import Surgeon
-from stable_baselines3.common.type_aliases import GymEnv, Schedule
+from stable_baselines3.common.type_aliases import GymEnv, ReplayBufferSamples, Schedule
 from stable_baselines3.common.utils import get_device, obs_as_tensor
 from torch import nn
 from torch.distributions import Categorical
@@ -32,10 +32,8 @@ class Discriminator(nn.Module):
         net_arch: List[int],
         nb_skills: int,
         activation_fn: Type[nn.Module] = nn.ReLU,
-        device: Union[th.device, str] = "auto",
     ) -> None:
         super().__init__()
-        self.device = get_device(device)
         layers = []
         previous_layer_dim = obs_dim
         # Iterate through the shared layers and build the shared parts of the network
@@ -47,7 +45,7 @@ class Discriminator(nn.Module):
         layers.append(nn.Softmax(dim=-1))
 
         # Create networks
-        self.net = nn.Sequential(*layers).to(self.device)
+        self.net = nn.Sequential(*layers)
 
     def forward(self, obs: th.Tensor) -> th.Tensor:
         probs = self.net(obs)
@@ -55,6 +53,10 @@ class Discriminator(nn.Module):
 
     def probs(self, obs: th.Tensor) -> th.Tensor:
         return self.net(obs)
+
+    @property
+    def device(self):
+        return next(self.parameters()).device
 
 
 class SkillWrapper(gym.GoalEnv, gym.Wrapper):
@@ -96,13 +98,13 @@ class SkillWrapper(gym.GoalEnv, gym.Wrapper):
         return self._get_dict_obs(obs), reward, done, info
 
     def reset(self) -> Dict[str, np.ndarray]:
-        self.skill = self.skill_distribution.sample()  # sample a skill
+        self.skill = self.skill_distribution.sample().item()  # sample a skill
         obs = self.env.reset().astype(np.float32)  # reset the env and ensure that observation type is float32
         return self._get_dict_obs(obs)
 
     def _get_dict_obs(self, obs: np.ndarray) -> Dict[str, np.ndarray]:
         # Returns the dict observation composed of the wrapped observation and the skill.
-        skill = F.one_hot(self.skill, num_classes=self.nb_skills)
+        skill = F.one_hot(self.skill * th.ones(1, dtype=th.long), num_classes=self.nb_skills)
         return {
             "observation": obs,
             "skill": skill,
@@ -117,11 +119,43 @@ class SkillWrapper(gym.GoalEnv, gym.Wrapper):
         :return: Reward or array of rewards, depending on the input
         """
         obs_th = obs_as_tensor(obs, self.discriminator.device)
-        probs = self.discriminator.probs(obs_th)  # q_\varphi(⸱ | s_{t+1})
-        prob = probs[self.skill]  # q_\varphi(z | s_{t+1})
-        skill_log_prob = self.skill_distribution.log_prob(self.skill)  # log p(z)
-        reward = th.log(prob) - skill_log_prob
-        return reward.detach().cpu().item()
+        # skill = self.skill*th.ones(1, dtype=th.long).to(self.discriminator.device)
+        # probs = self.discriminator.probs(obs_th)  # q_\varphi(⸱ | s_{t+1})
+        # prob = probs[self.skill]  # q_\varphi(z | s_{t+1})
+        # skill_log_prob = self.skill_distribution.log_prob(skill)  # log p(z)
+        # reward = th.log(prob) - skill_log_prob
+
+        pred_prob = self.discriminator.probs(obs_th)  # q_\varphi(⸱ | s_{t+1})
+        skill = self.skill * th.ones(1, dtype=th.long).to(self.discriminator.device)
+        pred_skill_prob = pred_prob[skill]  # q_\varphi(z | s_{t+1})
+
+        skill_log_prob = self.skill_distribution.log_prob(skill)  # log p(z)
+        reward = th.log(pred_skill_prob) - skill_log_prob
+
+        return reward[0].item()
+
+
+class RecomputeReward(Surgeon):
+    def __init__(self, discriminator: Discriminator, skill_distribution: Categorical) -> None:
+        self.discriminator = discriminator
+        self.skill_distribution = skill_distribution
+
+    def modify_reward(self, replay_data: ReplayBufferSamples) -> ReplayBufferSamples:
+        obs = replay_data.next_observations["observation"]
+        pred_probs = self.discriminator.probs(obs)  # q_\varphi(⸱ | s_{t+1})
+        skills = replay_data.observations["skill"].argmax(1)
+        pred_skill_probs = pred_probs[th.arange(skills.shape[0]), skills]  # q_\varphi(z | s_{t+1})
+
+        skill_log_prob = self.skill_distribution.log_prob(skills)  # log p(z)
+        rewards = th.log(pred_skill_probs) - skill_log_prob
+        replay_data = ReplayBufferSamples(
+            replay_data.observations,
+            replay_data.actions,
+            replay_data.next_observations,
+            replay_data.dones,
+            rewards.unsqueeze(1),
+        )
+        return replay_data
 
 
 class DIAYN(SAC):
@@ -151,7 +185,6 @@ class DIAYN(SAC):
         tensorboard_log: Optional[str] = None,
         create_eval_env: bool = False,
         policy_kwargs: Optional[Dict[str, Any]] = None,
-        surgeon: Optional[Surgeon] = None,
         verbose: int = 0,
         seed: Optional[int] = None,
         device: Union[th.device, str] = "auto",
@@ -161,9 +194,11 @@ class DIAYN(SAC):
         obs_dim = env.observation_space.shape[0]
         if net_arch is None:
             net_arch = [256, 256]
-        skill_distribution = Categorical(logits=th.ones(nb_skills))
-        self.discriminator = Discriminator(obs_dim, net_arch=net_arch, nb_skills=nb_skills)
+        device = get_device(device)
+        skill_distribution = Categorical(logits=th.ones(nb_skills).to(device))
+        self.discriminator = Discriminator(obs_dim, net_arch=net_arch, nb_skills=nb_skills).to(device)
         env = SkillWrapper(env, skill_distribution, self.discriminator)
+        surgeon = RecomputeReward(self.discriminator, skill_distribution)
         self.discriminator_optimizer = th.optim.SGD(self.discriminator.parameters(), learning_rate)
 
         super().__init__(
@@ -205,6 +240,7 @@ class DIAYN(SAC):
             # Sample replay buffer
             replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)
             observations = replay_data.next_observations["observation"]
+            self.discriminator.train()
             input = self.discriminator.probs(observations)
             target = replay_data.observations["skill"]
             discriminator_loss = F.cross_entropy(input, target)
