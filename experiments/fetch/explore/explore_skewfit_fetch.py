@@ -1,7 +1,7 @@
 import os
 
 import gym
-import gym_continuous_maze
+import gym_robotics
 import numpy as np
 from toolbox.fetch_utils import cumulative_object_coverage
 
