@@ -15,7 +15,6 @@ from sb3_contrib.skew_fit import SkewFit
 from sb3_contrib.surprise import Surprise
 from sb3_contrib.tqc import TQC
 from sb3_contrib.trpo import TRPO
-from sb3_contrib.vime import VIME
 
 # Read version from file
 version_file = os.path.join(os.path.dirname(__file__), "version.txt")

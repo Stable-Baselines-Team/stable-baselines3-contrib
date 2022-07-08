@@ -36,7 +36,6 @@ See documentation for the full list of included features.
 - [Intrinsic Curiosity Module (ICM)](https://arxiv.org/abs/1705.05363)
 - [Random Network Distillation (RND)](https://arxiv.org/abs/1810.12894)
 - [Skew-Fit](https://arxiv.org/abs/1903.03698)
-- [Variational Information Maximizing Exploration (VIME)](https://arxiv.org/abs/1605.09674)
 - [Go-Explore](https://arxiv.org/abs/2004.12919)
 
 **Gym Wrappers**:
