@@ -7,7 +7,7 @@ from toolbox.maze_grid import compute_coverage
 
 from sb3_contrib import DIAYN
 
-NUM_TIMESTEPS = 30_000
+NUM_TIMESTEPS = 100_000
 NUM_RUN = 5
 
 for run_idx in range(NUM_RUN):

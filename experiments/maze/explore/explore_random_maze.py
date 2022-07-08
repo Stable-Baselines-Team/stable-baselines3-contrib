@@ -6,7 +6,7 @@ import numpy as np
 from stable_baselines3 import SAC
 from toolbox.maze_grid import compute_coverage
 
-NUM_TIMESTEPS = 30_000
+NUM_TIMESTEPS = 100_000
 NUM_RUN = 5
 
 for run_idx in range(NUM_RUN):

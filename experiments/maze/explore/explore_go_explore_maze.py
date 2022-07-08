@@ -9,7 +9,7 @@ from toolbox.maze_grid import compute_coverage
 from sb3_contrib import GoExplore
 from sb3_contrib.go_explore.cells import Downscale
 
-NUM_TIMESTEPS = 30_000
+NUM_TIMESTEPS = 100_000
 NUM_RUN = 5
 
 for run_idx in range(NUM_RUN):
