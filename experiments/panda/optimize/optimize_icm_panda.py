@@ -3,7 +3,7 @@ import panda_gym
 import numpy as np
 import optuna
 from stable_baselines3 import SAC
-from toolbox.fetch_utils import cumulative_object_coverage
+from toolbox.panda_utils import cumulative_object_coverage
 
 from sb3_contrib import ICM
 
