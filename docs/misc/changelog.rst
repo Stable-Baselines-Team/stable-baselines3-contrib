@@ -3,7 +3,7 @@
 Changelog
 ==========
 
-Release 1.5.1a9 (WIP)
+Release 1.6.0 (2022-07-11)
 -------------------------------
 
 **Add RecurrentPPO (aka PPO LSTM)**
@@ -25,8 +25,9 @@ New Features:
 - Added ``RecurrentPPO`` (aka PPO LSTM)
 
 Bug Fixes:
-- Fixed a bug in ``RecurrentPPO`` when calculating the masked loss functions (@rnederstigt)
 ^^^^^^^^^^
+- Fixed a bug in ``RecurrentPPO`` when calculating the masked loss functions (@rnederstigt)
+- Fixed a bug in ``TRPO`` where kl divergence was not implemented for ``MultiDiscrete`` space
 
 Deprecations:
 ^^^^^^^^^^^^^
