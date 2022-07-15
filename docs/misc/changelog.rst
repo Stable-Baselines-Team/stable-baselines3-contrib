@@ -3,6 +3,22 @@
 Changelog
 ==========
 
+Release 1.7.0 (WIP)
+-------------------------------
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Fixed the issue that ``predict`` does not always return action as ``np.ndarray`` (@qgallouedec)
+
+New Features:
+^^^^^^^^^^^^^
+
+Bug Fixes:
+^^^^^^^^^^
+
+Deprecations:
+^^^^^^^^^^^^^
+
 Release 1.6.0 (2022-07-11)
 -------------------------------
 
