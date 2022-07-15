@@ -254,7 +254,7 @@ class MaskableActorCriticPolicy(BasePolicy):
         if not vectorized_env:
             if state is not None:
                 raise ValueError("Error: The environment must be vectorized when using recurrent policies.")
-            actions = actions[0]
+            actions = actions.squeeze(0)
 
         return actions, None
 
