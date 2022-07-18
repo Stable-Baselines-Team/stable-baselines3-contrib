@@ -6,12 +6,12 @@ from typing import Any, Dict, List, Optional, Tuple, Type, Union
 import numpy as np
 import torch as th
 from gym import spaces
+from stable_baselines3.common.distributions import kl_divergence
 from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
 from stable_baselines3.common.policies import ActorCriticPolicy, BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, RolloutBufferSamples, Schedule
 from stable_baselines3.common.utils import explained_variance
 from torch import nn
-from torch.distributions import kl_divergence
 from torch.nn import functional as F
 
 from sb3_contrib.common.utils import conjugate_gradient_solver, flat_grad
@@ -279,7 +279,7 @@ class TRPO(OnPolicyAlgorithm):
             policy_objective = (advantages * ratio).mean()
 
             # KL divergence
-            kl_div = kl_divergence(distribution.distribution, old_distribution.distribution).mean()
+            kl_div = kl_divergence(distribution, old_distribution).mean()
 
             # Surrogate & KL gradient
             self.policy.optimizer.zero_grad()
@@ -332,7 +332,7 @@ class TRPO(OnPolicyAlgorithm):
                     new_policy_objective = (advantages * ratio).mean()
 
                     # New KL-divergence
-                    kl_div = kl_divergence(distribution.distribution, old_distribution.distribution).mean()
+                    kl_div = kl_divergence(distribution, old_distribution).mean()
 
                     # Constraint criteria:
                     # we need to improve the surrogate policy objective

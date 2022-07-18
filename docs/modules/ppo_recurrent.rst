@@ -22,7 +22,7 @@ algorithm. Other than adding support for recurrent policies (LSTM here), the beh
 Notes
 -----
 
-- Blog post: https://ppo-details.cleanrl.dev//2021/11/05/ppo-implementation-details/
+- Blog post: https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/
 
 
 Can I use?
