@@ -34,6 +34,9 @@ class MaskableEvalCallback(EvalCallback):
         self.use_masking = use_masking
 
     def _on_step(self) -> bool:
+
+        continue_training = True
+
         if self.eval_freq > 0 and self.n_calls % self.eval_freq == 0:
             # Sync training and eval env if there is VecNormalize
             sync_envs_normalization(self.training_env, self.eval_env)
@@ -100,8 +103,12 @@ class MaskableEvalCallback(EvalCallback):
                 if self.best_model_save_path is not None:
                     self.model.save(os.path.join(self.best_model_save_path, "best_model"))
                 self.best_mean_reward = mean_reward
-                # Trigger callback if needed
-                if self.callback is not None:
-                    return self._on_event()
+                # Trigger callback on new best model, if needed
+                if self.callback_on_new_best is not None:
+                    continue_training = self.callback_on_new_best.on_step()
 
-        return True
+            # Trigger callback after every evaluation, if needed
+            if self.callback is not None:
+                continue_training = continue_training and self._on_event()
+
+        return continue_training
