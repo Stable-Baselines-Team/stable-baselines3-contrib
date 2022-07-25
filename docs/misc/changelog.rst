@@ -31,6 +31,7 @@ New Features:
 
 Bug Fixes:
 ^^^^^^^^^^
+- Fixed division by zero error when computing FPS when a small number of time has elapsed in operating systems with low-precision timers.
 
 Deprecations:
 ^^^^^^^^^^^^^
