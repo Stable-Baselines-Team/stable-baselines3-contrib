@@ -14,6 +14,8 @@ class MaskableEvalCallback(EvalCallback):
     :param eval_env: The environment used for initialization
     :param callback_on_new_best: Callback to trigger
         when there is a new best model according to the ``mean_reward``
+    :param callback_after_eval: Callback to trigger after every evaluation
+        when there is a new best model according to the ``mean_reward``
     :param n_eval_episodes: The number of episodes to test the agent
     :param eval_freq: Evaluate the agent every eval_freq call of the callback.
     :param log_path: Path to a folder where the evaluations (``evaluations.npz``)
@@ -26,7 +28,7 @@ class MaskableEvalCallback(EvalCallback):
     :param verbose:
     :param warn: Passed to ``evaluate_policy`` (warns if ``eval_env`` has not been
         wrapped with a Monitor wrapper)
-    :param use_masking: Whether or not to use invalid action masks during evaluation
+    :param use_masking: Whether to use invalid action masks during evaluation
     """
 
     def __init__(self, *args, use_masking: bool = True, **kwargs):
