@@ -38,8 +38,17 @@ class MaskableEvalCallback(EvalCallback):
         continue_training = True
 
         if self.eval_freq > 0 and self.n_calls % self.eval_freq == 0:
+
             # Sync training and eval env if there is VecNormalize
-            sync_envs_normalization(self.training_env, self.eval_env)
+            if self.model.get_vec_normalize_env() is not None:
+                try:
+                    sync_envs_normalization(self.training_env, self.eval_env)
+                except AttributeError as e:
+                    raise AssertionError(
+                        "Training and eval env are not wrapped the same way, "
+                        "see https://stable-baselines3.readthedocs.io/en/master/guide/callbacks.html#evalcallback "
+                        "and warning above."
+                    ) from e
 
             # Reset success rate buffer
             self._is_success_buffer = []
@@ -94,7 +103,7 @@ class MaskableEvalCallback(EvalCallback):
                 self.logger.record("eval/success_rate", success_rate)
 
             # Dump log so the evaluation results are printed with the correct timestep
-            self.logger.record("time/total timesteps", self.num_timesteps, exclude="tensorboard")
+            self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
             self.logger.dump(self.num_timesteps)
 
             if mean_reward > self.best_mean_reward:
