@@ -11,7 +11,7 @@ from stable_baselines3.common import utils
 from stable_baselines3.common.buffers import RolloutBuffer
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList, ConvertCallback
 from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
-from stable_baselines3.common.policies import BasePolicy, register_policy
+from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import explained_variance, get_schedule_fn, obs_as_tensor, safe_mean
 from stable_baselines3.common.vec_env import VecEnv
@@ -99,9 +99,6 @@ class MaskablePPO(OnPolicyAlgorithm):
         device: Union[th.device, str] = "auto",
         _init_setup_model: bool = True,
     ):
-        for name, base_policy in self.policy_aliases.items():
-            register_policy(name, base_policy)
-
         super().__init__(
             policy,
             env,
@@ -117,7 +114,6 @@ class MaskablePPO(OnPolicyAlgorithm):
             tensorboard_log=tensorboard_log,
             create_eval_env=create_eval_env,
             policy_kwargs=policy_kwargs,
-            policy_base=MaskableActorCriticPolicy,
             verbose=verbose,
             seed=seed,
             device=device,
