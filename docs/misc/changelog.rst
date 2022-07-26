@@ -17,7 +17,7 @@ Bug Fixes:
 ^^^^^^^^^^
 - Fixed the issue of wrongly passing policy arguments when using CnnLstmPolicy or MultiInputLstmPolicy with ``RecurrentPPO`` (@mlodel)
 - Fixed division by zero error when computing FPS when a small number of time has elapsed in operating systems with low-precision timers.
-- Fixed calling child callbacks in MaskableEvalCallback
+- Fixed calling child callbacks in MaskableEvalCallback (@CppMaster)
 
 
 Deprecations:

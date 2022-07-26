@@ -202,9 +202,9 @@ def test_child_callback():
     model = MaskablePPO("MlpPolicy", env)
     stop_callback = StopTrainingOnNoModelImprovement(1, 2)
     new_best_mean_callback = EventCallback()
-    eval_callback = MaskableEvalCallback(Monitor(eval_env), eval_freq=1, callback_after_eval=stop_callback,
+    eval_callback = MaskableEvalCallback(Monitor(eval_env), eval_freq=64, callback_after_eval=stop_callback,
                                          callback_on_new_best=new_best_mean_callback)
-    model.learn(1000, callback=eval_callback)
+    model.learn(128, callback=eval_callback)
     assert new_best_mean_callback.n_calls > 0
     assert stop_callback.n_calls > 0
     assert stop_callback.n_calls >= new_best_mean_callback.n_calls
