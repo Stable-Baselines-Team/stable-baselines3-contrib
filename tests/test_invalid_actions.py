@@ -2,6 +2,7 @@ import random
 
 import gym
 import pytest
+from stable_baselines3.common.callbacks import StopTrainingOnNoModelImprovement, EventCallback
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.envs import FakeImageEnv, IdentityEnv, IdentityEnvBox
 from stable_baselines3.common.monitor import Monitor
@@ -189,6 +190,24 @@ def test_callback(tmp_path):
     model.learn(100, callback=MaskableEvalCallback(eval_env, eval_freq=100, warn=False, log_path=tmp_path))
 
     model.learn(100, callback=MaskableEvalCallback(Monitor(eval_env), eval_freq=100, warn=False))
+
+
+def test_child_callback():
+    """
+    Stop callback and callback on new best rewards
+    """
+
+    env = make_env()
+    eval_env = make_env()
+    model = MaskablePPO("MlpPolicy", env)
+    stop_callback = StopTrainingOnNoModelImprovement(1, 2)
+    new_best_mean_callback = EventCallback()
+    eval_callback = MaskableEvalCallback(Monitor(eval_env), eval_freq=1, callback_after_eval=stop_callback,
+                                         callback_on_new_best=new_best_mean_callback)
+    model.learn(1000, callback=eval_callback)
+    assert new_best_mean_callback.n_calls > 0
+    assert stop_callback.n_calls > 0
+    assert stop_callback.n_calls >= new_best_mean_callback.n_calls
 
 
 def test_maskable_policy_required():
