@@ -2,7 +2,7 @@ import random
 
 import gym
 import pytest
-from stable_baselines3.common.callbacks import StopTrainingOnNoModelImprovement, EventCallback
+from stable_baselines3.common.callbacks import EventCallback, StopTrainingOnNoModelImprovement
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.envs import FakeImageEnv, IdentityEnv, IdentityEnvBox
 from stable_baselines3.common.monitor import Monitor
@@ -199,11 +199,15 @@ def test_child_callback():
 
     env = make_env()
     eval_env = make_env()
-    model = MaskablePPO("MlpPolicy", env)
+    model = MaskablePPO("MlpPolicy", env, n_steps=64, n_epochs=1)
     stop_callback = StopTrainingOnNoModelImprovement(1, 2)
     new_best_mean_callback = EventCallback()
-    eval_callback = MaskableEvalCallback(Monitor(eval_env), eval_freq=64, callback_after_eval=stop_callback,
-                                         callback_on_new_best=new_best_mean_callback)
+    eval_callback = MaskableEvalCallback(
+        Monitor(eval_env),
+        eval_freq=64,
+        callback_after_eval=stop_callback,
+        callback_on_new_best=new_best_mean_callback,
+    )
     model.learn(128, callback=eval_callback)
     assert new_best_mean_callback.n_calls > 0
     assert stop_callback.n_calls > 0
