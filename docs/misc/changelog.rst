@@ -3,6 +3,27 @@
 Changelog
 ==========
 
+Release 1.6.1a2 (WIP)
+-------------------------------
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Fixed the issue that ``predict`` does not always return action as ``np.ndarray`` (@qgallouedec)
+
+New Features:
+^^^^^^^^^^^^^
+
+Bug Fixes:
+^^^^^^^^^^
+- Fixed the issue of wrongly passing policy arguments when using CnnLstmPolicy or MultiInputLstmPolicy with ``RecurrentPPO`` (@mlodel)
+- Fixed division by zero error when computing FPS when a small number of time has elapsed in operating systems with low-precision timers.
+- Fixed calling child callbacks in MaskableEvalCallback (@CppMaster)
+- Fixed missing verbose parameter passing in the ``MaskableEvalCallback`` constructor (@burakdmb)
+
+
+Deprecations:
+^^^^^^^^^^^^^
+
 Release 1.6.0 (2022-07-11)
 -------------------------------
 
@@ -276,4 +297,5 @@ Stable-Baselines3 is currently maintained by `Antonin Raffin`_ (aka `@araffin`_)
 Contributors:
 -------------
 
-@ku2482 @guyk1971 @minhlong94 @ayeright @kronion @glmcdona @cyprienc @sgillen @Gregwar @rnederstigt
+@ku2482 @guyk1971 @minhlong94 @ayeright @kronion @glmcdona @cyprienc @sgillen @Gregwar @rnederstigt @qgallouedec
+@mlodel @CppMaster @burakdmb
