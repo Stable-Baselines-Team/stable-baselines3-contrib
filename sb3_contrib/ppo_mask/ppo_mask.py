@@ -210,6 +210,7 @@ class MaskablePPO(OnPolicyAlgorithm):
                 eval_freq=eval_freq,
                 n_eval_episodes=n_eval_episodes,
                 use_masking=use_masking,
+                verbose=self.verbose,
             )
             callback = CallbackList([callback, eval_callback])
 
