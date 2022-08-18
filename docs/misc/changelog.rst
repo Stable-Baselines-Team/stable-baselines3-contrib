@@ -24,6 +24,11 @@ Bug Fixes:
 Deprecations:
 ^^^^^^^^^^^^^
 
+Others:
+^^^^^^^
+- Changed the default buffer device from ``"cpu"`` to ``"auto"``
+
+
 Release 1.6.0 (2022-07-11)
 -------------------------------
 
