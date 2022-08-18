@@ -40,7 +40,7 @@ class ARS(BaseAlgorithm):
     :param tensorboard_log: String with the directory to put tensorboard logs:
     :param seed: Random seed for the training
     :param verbose: Verbosity level: 0 no output, 1 info, 2 debug
-    :param device: Torch device to use for training, defaults to "auto"
+    :param device: Torch device to use for training, defaults to "cpu"
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
 
@@ -64,7 +64,7 @@ class ARS(BaseAlgorithm):
         tensorboard_log: Optional[str] = None,
         seed: Optional[int] = None,
         verbose: int = 0,
-        device: Union[th.device, str] = "auto",
+        device: Union[th.device, str] = "cpu",
         _init_setup_model: bool = True,
     ):
 
