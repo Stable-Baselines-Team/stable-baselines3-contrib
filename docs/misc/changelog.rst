@@ -9,6 +9,8 @@ Release 1.6.1a2 (WIP)
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
 - Fixed the issue that ``predict`` does not always return action as ``np.ndarray`` (@qgallouedec)
+- Upgraded to Stable-Baselines3 >= 1.6.1a2
+
 
 New Features:
 ^^^^^^^^^^^^^
