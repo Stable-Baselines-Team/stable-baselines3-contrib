@@ -109,20 +109,13 @@ def test_feature_extractor_target_net(model_class, share_features_extractor):
         if model_class != QRDQN:
             assert id(model.policy.actor.features_extractor) != id(model.policy.critic.features_extractor)
 
-    # Critic and target should be equal at the beginning of training
+    # Critic and target should be equal at the begginning of training
     params_should_match(model.critic.parameters(), model.critic_target.parameters())
 
     model.learn(200)
 
     # Critic and target should differ
     params_should_differ(model.critic.parameters(), model.critic_target.parameters())
-
-    # Force stats copy
-    model.target_update_interval = 1
-    model._on_step()
-
-    # running stats are copied, see https://github.com/DLR-RM/stable-baselines3/issues/996
-    params_should_match(model.batch_norm_stats, model.batch_norm_stats_target)
 
     # Re-initialize and collect some random data (without doing gradient steps)
     model = model_class("CnnPolicy", env, seed=0, **kwargs).learn(10)
@@ -141,13 +134,6 @@ def test_feature_extractor_target_net(model_class, share_features_extractor):
 
     # not the same for critic net (updated by gradient descent)
     params_should_differ(original_param, model.critic.parameters())
-
-    # Force stats copy
-    model.target_update_interval = 1
-    model._on_step()
-
-    # running stats are copied even when tau=0, see https://github.com/DLR-RM/stable-baselines3/issues/996
-    params_should_match(model.batch_norm_stats, model.batch_norm_stats_target)
 
     # Update the reference as it should not change in the next step
     original_param = deepcopy(list(model.critic.parameters()))
