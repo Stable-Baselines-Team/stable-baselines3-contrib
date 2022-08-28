@@ -197,6 +197,7 @@ class TQC(OffPolicyAlgorithm):
 
         ent_coef_losses, ent_coefs = [], []
         actor_losses, critic_losses = [], []
+        # TODO: properly handle it when train_freq > 1
         policy_update_delay = gradient_steps
 
         for gradient_step in range(gradient_steps):
