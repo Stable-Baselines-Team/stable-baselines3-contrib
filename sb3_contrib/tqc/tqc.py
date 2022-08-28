@@ -197,8 +197,10 @@ class TQC(OffPolicyAlgorithm):
 
         ent_coef_losses, ent_coefs = [], []
         actor_losses, critic_losses = [], []
+        policy_update_delay = gradient_steps
 
         for gradient_step in range(gradient_steps):
+            update_actor = ((gradient_step + 1) % policy_update_delay == 0) or gradient_step == gradient_steps - 1
             # Sample replay buffer
             replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)
 
@@ -216,8 +218,9 @@ class TQC(OffPolicyAlgorithm):
                 # so we don't change it with other losses
                 # see https://github.com/rail-berkeley/softlearning/issues/60
                 ent_coef = th.exp(self.log_ent_coef.detach())
-                ent_coef_loss = -(self.log_ent_coef * (log_prob + self.target_entropy).detach()).mean()
-                ent_coef_losses.append(ent_coef_loss.item())
+                if update_actor:
+                    ent_coef_loss = -(self.log_ent_coef * (log_prob + self.target_entropy).detach()).mean()
+                    ent_coef_losses.append(ent_coef_loss.item())
             else:
                 ent_coef = self.ent_coef_tensor
 
@@ -261,14 +264,15 @@ class TQC(OffPolicyAlgorithm):
             self.critic.optimizer.step()
 
             # Compute actor loss
-            qf_pi = self.critic(replay_data.observations, actions_pi).mean(dim=2).mean(dim=1, keepdim=True)
-            actor_loss = (ent_coef * log_prob - qf_pi).mean()
-            actor_losses.append(actor_loss.item())
+            if update_actor:
+                qf_pi = self.critic(replay_data.observations, actions_pi).mean(dim=2).mean(dim=1, keepdim=True)
+                actor_loss = (ent_coef * log_prob - qf_pi).mean()
+                actor_losses.append(actor_loss.item())
 
-            # Optimize the actor
-            self.actor.optimizer.zero_grad()
-            actor_loss.backward()
-            self.actor.optimizer.step()
+                # Optimize the actor
+                self.actor.optimizer.zero_grad()
+                actor_loss.backward()
+                self.actor.optimizer.step()
 
             # Update target networks
             if gradient_step % self.target_update_interval == 0:
