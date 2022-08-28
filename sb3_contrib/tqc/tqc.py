@@ -239,6 +239,7 @@ class TQC(OffPolicyAlgorithm):
                 next_actions, next_log_prob = self.actor.action_log_prob(replay_data.next_observations)
                 # Compute and cut quantiles at the next state
                 # batch x nets x quantiles
+                # Note: in dropq dropout seems to be on for target net too
                 next_quantiles = self.critic_target(replay_data.next_observations, next_actions)
 
                 # Sort and drop top k quantiles to control overestimation.
