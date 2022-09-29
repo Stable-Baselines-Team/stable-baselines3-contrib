@@ -3,13 +3,15 @@
 Changelog
 ==========
 
-Release 1.6.1a2 (WIP)
+Release 1.6.1 (2022-09-29)
 -------------------------------
+
+**Bug fix release**
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
 - Fixed the issue that ``predict`` does not always return action as ``np.ndarray`` (@qgallouedec)
-- Upgraded to Stable-Baselines3 >= 1.6.1a2
+- Upgraded to Stable-Baselines3 >= 1.6.1
 
 
 New Features:
