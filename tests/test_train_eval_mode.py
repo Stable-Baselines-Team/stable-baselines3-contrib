@@ -143,6 +143,9 @@ def test_qrdqn_train_with_batch_norm():
     ) = clone_qrdqn_batch_norm_stats(model)
 
     model.learn(total_timesteps=200)
+    # Force stats copy
+    model.target_update_interval = 1
+    model._on_step()
 
     (
         quantile_net_bias_after,
@@ -152,10 +155,12 @@ def test_qrdqn_train_with_batch_norm():
     ) = clone_qrdqn_batch_norm_stats(model)
 
     assert ~th.isclose(quantile_net_bias_before, quantile_net_bias_after).all()
-    assert ~th.isclose(quantile_net_running_mean_before, quantile_net_running_mean_after).all()
+    # Running stat should be copied even when tau=0
+    assert th.isclose(quantile_net_running_mean_before, quantile_net_target_running_mean_before).all()
 
     assert th.isclose(quantile_net_target_bias_before, quantile_net_target_bias_after).all()
-    assert th.isclose(quantile_net_target_running_mean_before, quantile_net_target_running_mean_after).all()
+    # Running stat should be copied even when tau=0
+    assert th.isclose(quantile_net_running_mean_after, quantile_net_target_running_mean_after).all()
 
 
 def test_tqc_train_with_batch_norm():
@@ -178,6 +183,9 @@ def test_tqc_train_with_batch_norm():
     ) = clone_tqc_batch_norm_stats(model)
 
     model.learn(total_timesteps=200)
+    # Force stats copy
+    model.target_update_interval = 1
+    model._on_step()
 
     (
         actor_bias_after,
@@ -192,10 +200,12 @@ def test_tqc_train_with_batch_norm():
     assert ~th.isclose(actor_running_mean_before, actor_running_mean_after).all()
 
     assert ~th.isclose(critic_bias_before, critic_bias_after).all()
-    assert ~th.isclose(critic_running_mean_before, critic_running_mean_after).all()
+    # Running stat should be copied even when tau=0
+    assert th.isclose(critic_running_mean_before, critic_target_running_mean_before).all()
 
     assert th.isclose(critic_target_bias_before, critic_target_bias_after).all()
-    assert th.isclose(critic_target_running_mean_before, critic_target_running_mean_after).all()
+    # Running stat should be copied even when tau=0
+    assert th.isclose(critic_running_mean_after, critic_target_running_mean_after).all()
 
 
 @pytest.mark.parametrize("model_class", [QRDQN, TQC])

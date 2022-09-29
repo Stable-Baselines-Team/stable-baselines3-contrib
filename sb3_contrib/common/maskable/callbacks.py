@@ -14,6 +14,8 @@ class MaskableEvalCallback(EvalCallback):
     :param eval_env: The environment used for initialization
     :param callback_on_new_best: Callback to trigger
         when there is a new best model according to the ``mean_reward``
+    :param callback_after_eval: Callback to trigger after every evaluation
+        when there is a new best model according to the ``mean_reward``
     :param n_eval_episodes: The number of episodes to test the agent
     :param eval_freq: Evaluate the agent every eval_freq call of the callback.
     :param log_path: Path to a folder where the evaluations (``evaluations.npz``)
@@ -26,7 +28,7 @@ class MaskableEvalCallback(EvalCallback):
     :param verbose:
     :param warn: Passed to ``evaluate_policy`` (warns if ``eval_env`` has not been
         wrapped with a Monitor wrapper)
-    :param use_masking: Whether or not to use invalid action masks during evaluation
+    :param use_masking: Whether to use invalid action masks during evaluation
     """
 
     def __init__(self, *args, use_masking: bool = True, **kwargs):
@@ -34,9 +36,21 @@ class MaskableEvalCallback(EvalCallback):
         self.use_masking = use_masking
 
     def _on_step(self) -> bool:
+
+        continue_training = True
+
         if self.eval_freq > 0 and self.n_calls % self.eval_freq == 0:
+
             # Sync training and eval env if there is VecNormalize
-            sync_envs_normalization(self.training_env, self.eval_env)
+            if self.model.get_vec_normalize_env() is not None:
+                try:
+                    sync_envs_normalization(self.training_env, self.eval_env)
+                except AttributeError as e:
+                    raise AssertionError(
+                        "Training and eval env are not wrapped the same way, "
+                        "see https://stable-baselines3.readthedocs.io/en/master/guide/callbacks.html#evalcallback "
+                        "and warning above."
+                    ) from e
 
             # Reset success rate buffer
             self._is_success_buffer = []
@@ -91,7 +105,7 @@ class MaskableEvalCallback(EvalCallback):
                 self.logger.record("eval/success_rate", success_rate)
 
             # Dump log so the evaluation results are printed with the correct timestep
-            self.logger.record("time/total timesteps", self.num_timesteps, exclude="tensorboard")
+            self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
             self.logger.dump(self.num_timesteps)
 
             if mean_reward > self.best_mean_reward:
@@ -100,8 +114,12 @@ class MaskableEvalCallback(EvalCallback):
                 if self.best_model_save_path is not None:
                     self.model.save(os.path.join(self.best_model_save_path, "best_model"))
                 self.best_mean_reward = mean_reward
-                # Trigger callback if needed
-                if self.callback is not None:
-                    return self._on_event()
+                # Trigger callback on new best model, if needed
+                if self.callback_on_new_best is not None:
+                    continue_training = self.callback_on_new_best.on_step()
 
-        return True
+            # Trigger callback after every evaluation, if needed
+            if self.callback is not None:
+                continue_training = continue_training and self._on_event()
+
+        return continue_training

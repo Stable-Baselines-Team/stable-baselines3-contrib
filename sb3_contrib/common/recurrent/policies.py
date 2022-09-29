@@ -483,6 +483,7 @@ class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
         lstm_hidden_size: int = 256,
         n_lstm_layers: int = 1,
+        shared_lstm: bool = False,
         enable_critic_lstm: bool = True,
         lstm_kwargs: Optional[Dict[str, Any]] = None,
     ):
@@ -506,6 +507,7 @@ class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
             optimizer_kwargs,
             lstm_hidden_size,
             n_lstm_layers,
+            shared_lstm,
             enable_critic_lstm,
             lstm_kwargs,
         )
@@ -573,6 +575,7 @@ class RecurrentMultiInputActorCriticPolicy(RecurrentActorCriticPolicy):
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
         lstm_hidden_size: int = 256,
         n_lstm_layers: int = 1,
+        shared_lstm: bool = False,
         enable_critic_lstm: bool = True,
         lstm_kwargs: Optional[Dict[str, Any]] = None,
     ):
@@ -596,6 +599,7 @@ class RecurrentMultiInputActorCriticPolicy(RecurrentActorCriticPolicy):
             optimizer_kwargs,
             lstm_hidden_size,
             n_lstm_layers,
+            shared_lstm,
             enable_critic_lstm,
             lstm_kwargs,
         )

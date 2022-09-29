@@ -3,13 +3,14 @@
 Changelog
 ==========
 
-Release 1.6.1a0 (WIP)
+Release 1.6.1a2 (WIP)
 -------------------------------
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
 - Fixed the issue that ``predict`` does not always return action as ``np.ndarray`` (@qgallouedec)
 - Changed default policy architecture for ARS/CEM to ``[32]`` instead of ``[64, 64]``
+- Upgraded to Stable-Baselines3 >= 1.6.1a2
 
 
 New Features:
@@ -18,9 +19,20 @@ New Features:
 
 Bug Fixes:
 ^^^^^^^^^^
+- Fixed the issue of wrongly passing policy arguments when using CnnLstmPolicy or MultiInputLstmPolicy with ``RecurrentPPO`` (@mlodel)
+- Fixed division by zero error when computing FPS when a small number of time has elapsed in operating systems with low-precision timers.
+- Fixed calling child callbacks in MaskableEvalCallback (@CppMaster)
+- Fixed missing verbose parameter passing in the ``MaskableEvalCallback`` constructor (@burakdmb)
+- Fixed the issue that when updating the target network in QRDQN, TQC, the ``running_mean`` and ``running_var`` properties of batch norm layers are not updated (@honglu2875)
+
 
 Deprecations:
 ^^^^^^^^^^^^^
+
+Others:
+^^^^^^^
+- Changed the default buffer device from ``"cpu"`` to ``"auto"``
+
 
 Release 1.6.0 (2022-07-11)
 -------------------------------
@@ -299,3 +311,4 @@ Contributors:
 -------------
 
 @ku2482 @guyk1971 @minhlong94 @ayeright @kronion @glmcdona @cyprienc @sgillen @Gregwar @rnederstigt @qgallouedec
+@mlodel @CppMaster @burakdmb @honglu2875
