@@ -28,6 +28,7 @@ Bug Fixes:
 
 Deprecations:
 ^^^^^^^^^^^^^
+- Deprecate parameters ``eval_env``, ``eval_freq`` and ``create_eval_env``
 
 Others:
 ^^^^^^^
