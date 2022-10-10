@@ -297,6 +297,7 @@ class TQC(OffPolicyAlgorithm):
         tb_log_name: str = "TQC",
         eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
+        progress_bar: bool = False,
     ) -> OffPolicyAlgorithm:
 
         return super().learn(
@@ -309,6 +310,7 @@ class TQC(OffPolicyAlgorithm):
             tb_log_name=tb_log_name,
             eval_log_path=eval_log_path,
             reset_num_timesteps=reset_num_timesteps,
+            progress_bar=progress_bar,
         )
 
     def _excluded_save_params(self) -> List[str]:

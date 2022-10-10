@@ -20,7 +20,7 @@ def test_tqc(ent_coef):
             create_eval_env=True,
             ent_coef=ent_coef,
         )
-        model.learn(total_timesteps=300, eval_freq=250)
+        model.learn(total_timesteps=300, eval_freq=250, progress_bar=True)
 
 
 @pytest.mark.parametrize("n_critics", [1, 3])
