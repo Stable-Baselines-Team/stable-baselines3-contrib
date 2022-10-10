@@ -64,15 +64,6 @@ def test_bootstraping():
     model.learn(128)
 
 
-def test_eval_env():
-    env = InvalidActionEnvDiscrete(dim=20, n_invalid_actions=10)
-    eval_env = InvalidActionEnvDiscrete(dim=20, n_invalid_actions=10)
-    model = MaskablePPO("MlpPolicy", env, clip_range_vf=0.2, n_steps=32, seed=8)
-    with pytest.warns(DeprecationWarning):  # `eval_env` is deprecated
-        model.learn(32, eval_env=eval_env, eval_freq=16)
-    model.learn(32, reset_num_timesteps=False)
-
-
 def test_supports_discrete_action_space():
     """
     No errors using algorithm with an env that has a discrete action space
