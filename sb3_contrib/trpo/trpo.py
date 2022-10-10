@@ -1,7 +1,7 @@
 import copy
 import warnings
 from functools import partial
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 import numpy as np
 import torch as th
@@ -16,6 +16,8 @@ from torch.nn import functional as F
 
 from sb3_contrib.common.utils import conjugate_gradient_solver, flat_grad
 from sb3_contrib.trpo.policies import CnnPolicy, MlpPolicy, MultiInputPolicy
+
+TRPOSelf = TypeVar("TRPOSelf", bound="TRPO")
 
 
 class TRPO(OnPolicyAlgorithm):
@@ -402,7 +404,7 @@ class TRPO(OnPolicyAlgorithm):
         return flat_grad(jacobian_vector_product, params, retain_graph=retain_graph) + self.cg_damping * vector
 
     def learn(
-        self,
+        self: TRPOSelf,
         total_timesteps: int,
         callback: MaybeCallback = None,
         log_interval: int = 1,
@@ -412,7 +414,7 @@ class TRPO(OnPolicyAlgorithm):
         tb_log_name: str = "TRPO",
         eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
-    ) -> OnPolicyAlgorithm:
+    ) -> TRPOSelf:
 
         return super().learn(
             total_timesteps=total_timesteps,
