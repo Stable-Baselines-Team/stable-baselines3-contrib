@@ -1,7 +1,7 @@
 import sys
 import time
 from copy import deepcopy
-from typing import Any, Dict, Optional, Type, Union, TypeVar
+from typing import Any, Dict, Optional, Type, TypeVar, Union
 
 import gym
 import numpy as np
