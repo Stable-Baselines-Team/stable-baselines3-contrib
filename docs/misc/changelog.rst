@@ -3,14 +3,41 @@
 Changelog
 ==========
 
-Release 1.6.1a2 (WIP)
+
+Release 1.6.2 (2022-10-10)
+--------------------------
+
+**Progress bar and upgrade to latest SB3 version**
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Upgraded to Stable-Baselines3 >= 1.6.2
+
+New Features:
+^^^^^^^^^^^^^
+- Added ``progress_bar`` argument in the ``learn()`` method, displayed using TQDM and rich packages
+
+Bug Fixes:
+^^^^^^^^^^
+
+Deprecations:
+^^^^^^^^^^^^^
+- Deprecate parameters ``eval_env``, ``eval_freq`` and ``create_eval_env``
+
+Others:
+^^^^^^^
+- Fixed the return type of ``.load()`` methods so that they now use ``TypeVar``
+
+
+Release 1.6.1 (2022-09-29)
 -------------------------------
+
+**Bug fix release**
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
 - Fixed the issue that ``predict`` does not always return action as ``np.ndarray`` (@qgallouedec)
-- Upgraded to Stable-Baselines3 >= 1.6.1a2
-
+- Upgraded to Stable-Baselines3 >= 1.6.1
 
 New Features:
 ^^^^^^^^^^^^^
@@ -23,7 +50,6 @@ Bug Fixes:
 - Fixed missing verbose parameter passing in the ``MaskableEvalCallback`` constructor (@burakdmb)
 - Fixed the issue that when updating the target network in QRDQN, TQC, the ``running_mean`` and ``running_var`` properties of batch norm layers are not updated (@honglu2875)
 
-
 Deprecations:
 ^^^^^^^^^^^^^
 
@@ -33,7 +59,7 @@ Others:
 
 
 Release 1.6.0 (2022-07-11)
--------------------------------
+--------------------------
 
 **Add RecurrentPPO (aka PPO LSTM)**
 

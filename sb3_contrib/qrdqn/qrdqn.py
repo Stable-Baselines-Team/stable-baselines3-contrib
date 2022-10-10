@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 import gym
 import numpy as np
@@ -12,6 +12,8 @@ from stable_baselines3.common.utils import get_linear_fn, get_parameters_by_name
 
 from sb3_contrib.common.utils import quantile_huber_loss
 from sb3_contrib.qrdqn.policies import CnnPolicy, MlpPolicy, MultiInputPolicy, QRDQNPolicy
+
+QRDQNSelf = TypeVar("QRDQNSelf", bound="QRDQN")
 
 
 class QRDQN(OffPolicyAlgorithm):
@@ -49,7 +51,8 @@ class QRDQN(OffPolicyAlgorithm):
     :param max_grad_norm: The maximum value for the gradient clipping (if None, no clipping)
     :param tensorboard_log: the log location for tensorboard (if None, no logging)
     :param create_eval_env: Whether to create a second environment that will be
-        used for evaluating the agent periodically. (Only available when passing string for the environment)
+        used for evaluating the agent periodically (Only available when passing string for the environment).
+        Caution, this parameter is deprecated and will be removed in the future.
     :param policy_kwargs: additional arguments to be passed to the policy on creation
     :param verbose: the verbosity level: 0 no output, 1 info, 2 debug
     :param seed: Seed for the pseudo random generators
@@ -249,7 +252,7 @@ class QRDQN(OffPolicyAlgorithm):
         return action, state
 
     def learn(
-        self,
+        self: QRDQNSelf,
         total_timesteps: int,
         callback: MaybeCallback = None,
         log_interval: int = 4,
@@ -259,7 +262,8 @@ class QRDQN(OffPolicyAlgorithm):
         tb_log_name: str = "QRDQN",
         eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
-    ) -> OffPolicyAlgorithm:
+        progress_bar: bool = False,
+    ) -> QRDQNSelf:
 
         return super().learn(
             total_timesteps=total_timesteps,
@@ -271,6 +275,7 @@ class QRDQN(OffPolicyAlgorithm):
             tb_log_name=tb_log_name,
             eval_log_path=eval_log_path,
             reset_num_timesteps=reset_num_timesteps,
+            progress_bar=progress_bar,
         )
 
     def _excluded_save_params(self) -> List[str]:

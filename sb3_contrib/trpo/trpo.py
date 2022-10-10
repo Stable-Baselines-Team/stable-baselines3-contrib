@@ -1,7 +1,7 @@
 import copy
 import warnings
 from functools import partial
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 import numpy as np
 import torch as th
@@ -16,6 +16,8 @@ from torch.nn import functional as F
 
 from sb3_contrib.common.utils import conjugate_gradient_solver, flat_grad
 from sb3_contrib.trpo.policies import CnnPolicy, MlpPolicy, MultiInputPolicy
+
+TRPOSelf = TypeVar("TRPOSelf", bound="TRPO")
 
 
 class TRPO(OnPolicyAlgorithm):
@@ -58,7 +60,8 @@ class TRPO(OnPolicyAlgorithm):
         see p40-42 of John Schulman thesis http://joschu.net/docs/thesis.pdf
     :param tensorboard_log: the log location for tensorboard (if None, no logging)
     :param create_eval_env: Whether to create a second environment that will be
-        used for evaluating the agent periodically. (Only available when passing string for the environment)
+        used for evaluating the agent periodically (Only available when passing string for the environment).
+        Caution, this parameter is deprecated and will be removed in the future.
     :param policy_kwargs: additional arguments to be passed to the policy on creation
     :param verbose: the verbosity level: 0 no output, 1 info, 2 debug
     :param seed: Seed for the pseudo random generators
@@ -402,7 +405,7 @@ class TRPO(OnPolicyAlgorithm):
         return flat_grad(jacobian_vector_product, params, retain_graph=retain_graph) + self.cg_damping * vector
 
     def learn(
-        self,
+        self: TRPOSelf,
         total_timesteps: int,
         callback: MaybeCallback = None,
         log_interval: int = 1,
@@ -412,7 +415,8 @@ class TRPO(OnPolicyAlgorithm):
         tb_log_name: str = "TRPO",
         eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
-    ) -> OnPolicyAlgorithm:
+        progress_bar: bool = False,
+    ) -> TRPOSelf:
 
         return super().learn(
             total_timesteps=total_timesteps,
@@ -424,4 +428,5 @@ class TRPO(OnPolicyAlgorithm):
             tb_log_name=tb_log_name,
             eval_log_path=eval_log_path,
             reset_num_timesteps=reset_num_timesteps,
+            progress_bar=progress_bar,
         )
