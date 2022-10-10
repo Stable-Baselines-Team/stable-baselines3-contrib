@@ -24,7 +24,7 @@ Bug Fixes:
 - Fixed calling child callbacks in MaskableEvalCallback (@CppMaster)
 - Fixed missing verbose parameter passing in the ``MaskableEvalCallback`` constructor (@burakdmb)
 - Fixed the issue that when updating the target network in QRDQN, TQC, the ``running_mean`` and ``running_var`` properties of batch norm layers are not updated (@honglu2875)
-
+- Fixed the return type of ``.load()`` methods so that they now use ``TypeVar``
 
 Deprecations:
 ^^^^^^^^^^^^^
