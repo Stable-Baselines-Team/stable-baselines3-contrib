@@ -315,6 +315,7 @@ class ARS(BaseAlgorithm):
         eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
         async_eval: Optional[AsyncEval] = None,
+        progress_bar: bool = False,
     ) -> ARSSelf:
         """
         Return a trained model.
@@ -333,11 +334,20 @@ class ARS(BaseAlgorithm):
         :param eval_log_path: Path to a folder where the evaluations will be saved
         :param reset_num_timesteps: whether or not to reset the current timestep number (used in logging)
         :param async_eval: The object for asynchronous evaluation of candidates.
+        :param progress_bar: Display a progress bar using tqdm and rich.
         :return: the trained model
         """
 
         total_steps, callback = self._setup_learn(
-            total_timesteps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
+            total_timesteps,
+            eval_env,
+            callback,
+            eval_freq,
+            n_eval_episodes,
+            eval_log_path,
+            reset_num_timesteps,
+            tb_log_name,
+            progress_bar,
         )
 
         callback.on_training_start(locals(), globals())

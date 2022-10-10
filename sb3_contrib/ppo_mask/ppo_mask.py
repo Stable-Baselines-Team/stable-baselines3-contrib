@@ -10,7 +10,7 @@ import torch as th
 from gym import spaces
 from stable_baselines3.common import utils
 from stable_baselines3.common.buffers import RolloutBuffer
-from stable_baselines3.common.callbacks import BaseCallback, CallbackList, ConvertCallback
+from stable_baselines3.common.callbacks import BaseCallback, CallbackList, ConvertCallback, ProgressBarCallback
 from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
@@ -184,6 +184,7 @@ class MaskablePPO(OnPolicyAlgorithm):
         n_eval_episodes: int = 5,
         log_path: Optional[str] = None,
         use_masking: bool = True,
+        progress_bar: bool = False,
     ) -> BaseCallback:
         """
         :param callback: Callback(s) called at every step with state of the algorithm.
@@ -196,6 +197,7 @@ class MaskablePPO(OnPolicyAlgorithm):
         :param n_eval_episodes: How many episodes to play per evaluation
         :param log_path: Path to a folder where the evaluations will be saved
         :param use_masking: Whether or not to use invalid action masks during evaluation
+        :param progress_bar: Display a progress bar using tqdm and rich.
         :return: A hybrid callback calling `callback` and performing evaluation.
         """
         # Convert a list of callbacks into a callback
@@ -205,6 +207,10 @@ class MaskablePPO(OnPolicyAlgorithm):
         # Convert functional callback to object
         if not isinstance(callback, BaseCallback):
             callback = ConvertCallback(callback)
+
+        # Add progress bar callback
+        if progress_bar:
+            callback = CallbackList([callback, ProgressBarCallback()])
 
         # Create eval callback in charge of the evaluation
         if eval_env is not None:
@@ -236,6 +242,7 @@ class MaskablePPO(OnPolicyAlgorithm):
         reset_num_timesteps: bool = True,
         tb_log_name: str = "run",
         use_masking: bool = True,
+        progress_bar: bool = False,
     ) -> Tuple[int, BaseCallback]:
         """
         Initialize different variables needed for training.
@@ -253,6 +260,7 @@ class MaskablePPO(OnPolicyAlgorithm):
         :param reset_num_timesteps: Whether to reset or not the ``num_timesteps`` attribute
         :param tb_log_name: the name of the run for tensorboard log
         :param use_masking: Whether or not to use invalid action masks during training
+        :param progress_bar: Display a progress bar using tqdm and rich.
         :return:
         """
 
@@ -299,7 +307,7 @@ class MaskablePPO(OnPolicyAlgorithm):
             self._logger = utils.configure_logger(self.verbose, self.tensorboard_log, tb_log_name, reset_num_timesteps)
 
         # Create eval callback if needed
-        callback = self._init_callback(callback, eval_env, eval_freq, n_eval_episodes, log_path, use_masking)
+        callback = self._init_callback(callback, eval_env, eval_freq, n_eval_episodes, log_path, use_masking, progress_bar)
 
         return total_timesteps, callback
 
@@ -563,6 +571,7 @@ class MaskablePPO(OnPolicyAlgorithm):
         eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
         use_masking: bool = True,
+        progress_bar: bool = False,
     ) -> MaskablePPOSelf:
         iteration = 0
 
@@ -576,6 +585,7 @@ class MaskablePPO(OnPolicyAlgorithm):
             reset_num_timesteps,
             tb_log_name,
             use_masking,
+            progress_bar,
         )
 
         callback.on_training_start(locals(), globals())

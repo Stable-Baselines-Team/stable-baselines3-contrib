@@ -15,6 +15,7 @@ Breaking Changes:
 
 New Features:
 ^^^^^^^^^^^^^
+- Added ``progress_bar`` argument in the ``learn()`` method, displayed using TQDM and rich packages
 
 Bug Fixes:
 ^^^^^^^^^^
