@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 import gym
 import numpy as np
@@ -12,6 +12,8 @@ from stable_baselines3.common.utils import get_linear_fn, get_parameters_by_name
 
 from sb3_contrib.common.utils import quantile_huber_loss
 from sb3_contrib.qrdqn.policies import CnnPolicy, MlpPolicy, MultiInputPolicy, QRDQNPolicy
+
+QRDQNSelf = TypeVar("QRDQNSelf", bound="QRDQN")
 
 
 class QRDQN(OffPolicyAlgorithm):
@@ -250,7 +252,7 @@ class QRDQN(OffPolicyAlgorithm):
         return action, state
 
     def learn(
-        self,
+        self: QRDQNSelf,
         total_timesteps: int,
         callback: MaybeCallback = None,
         log_interval: int = 4,
@@ -260,7 +262,7 @@ class QRDQN(OffPolicyAlgorithm):
         tb_log_name: str = "QRDQN",
         eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
-    ) -> OffPolicyAlgorithm:
+    ) -> QRDQNSelf:
 
         return super().learn(
             total_timesteps=total_timesteps,

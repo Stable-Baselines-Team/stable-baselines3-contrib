@@ -25,6 +25,8 @@ Deprecations:
 
 Others:
 ^^^^^^^
+- Fixed the return type of ``.load()`` methods so that they now use ``TypeVar``
+
 
 Release 1.6.1 (2022-09-29)
 -------------------------------

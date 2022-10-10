@@ -2,7 +2,7 @@ import sys
 import time
 import warnings
 from collections import deque
-from typing import Any, Dict, Optional, Tuple, Type, Union
+from typing import Any, Dict, Optional, Tuple, Type, TypeVar, Union
 
 import gym
 import numpy as np
@@ -22,6 +22,8 @@ from sb3_contrib.common.maskable.buffers import MaskableDictRolloutBuffer, Maska
 from sb3_contrib.common.maskable.policies import MaskableActorCriticPolicy
 from sb3_contrib.common.maskable.utils import get_action_masks, is_masking_supported
 from sb3_contrib.ppo_mask.policies import CnnPolicy, MlpPolicy, MultiInputPolicy
+
+MaskablePPOSelf = TypeVar("MaskablePPOSelf", bound="MaskablePPO")
 
 
 class MaskablePPO(OnPolicyAlgorithm):
@@ -550,7 +552,7 @@ class MaskablePPO(OnPolicyAlgorithm):
             self.logger.record("train/clip_range_vf", clip_range_vf)
 
     def learn(
-        self,
+        self: MaskablePPOSelf,
         total_timesteps: int,
         callback: MaybeCallback = None,
         log_interval: int = 1,
@@ -561,7 +563,7 @@ class MaskablePPO(OnPolicyAlgorithm):
         eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
         use_masking: bool = True,
-    ) -> "MaskablePPO":
+    ) -> MaskablePPOSelf:
         iteration = 0
 
         total_timesteps, callback = self._setup_learn(
