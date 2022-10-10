@@ -1,7 +1,7 @@
 import sys
 import time
 from copy import deepcopy
-from typing import Any, Dict, Optional, Type, Union
+from typing import Any, Dict, Optional, Type, Union, TypeVar
 
 import gym
 import numpy as np
@@ -19,6 +19,8 @@ from sb3_contrib.common.recurrent.buffers import RecurrentDictRolloutBuffer, Rec
 from sb3_contrib.common.recurrent.policies import RecurrentActorCriticPolicy
 from sb3_contrib.common.recurrent.type_aliases import RNNStates
 from sb3_contrib.ppo_recurrent.policies import CnnLstmPolicy, MlpLstmPolicy, MultiInputLstmPolicy
+
+RecurrentPPOSelf = TypeVar("RecurrentPPOSelf", bound="RecurrentPPO")
 
 
 class RecurrentPPO(OnPolicyAlgorithm):
@@ -447,7 +449,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
             self.logger.record("train/clip_range_vf", clip_range_vf)
 
     def learn(
-        self,
+        self: RecurrentPPOSelf,
         total_timesteps: int,
         callback: MaybeCallback = None,
         log_interval: int = 1,
@@ -458,7 +460,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
         eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
         progress_bar: bool = False,
-    ) -> "RecurrentPPO":
+    ) -> RecurrentPPOSelf:
         iteration = 0
 
         total_timesteps, callback = self._setup_learn(

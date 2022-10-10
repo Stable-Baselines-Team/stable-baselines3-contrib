@@ -3,7 +3,7 @@ import sys
 import time
 import warnings
 from functools import partial
-from typing import Any, Dict, Optional, Type, Union
+from typing import Any, Dict, Optional, Type, TypeVar, Union
 
 import gym
 import numpy as np
@@ -18,6 +18,8 @@ from stable_baselines3.common.utils import get_schedule_fn, safe_mean
 
 from sb3_contrib.ars.policies import ARSPolicy, LinearPolicy, MlpPolicy
 from sb3_contrib.common.vec_env.async_eval import AsyncEval
+
+ARSSelf = TypeVar("ARSSelf", bound="ARS")
 
 
 class ARS(BaseAlgorithm):
@@ -302,7 +304,7 @@ class ARS(BaseAlgorithm):
         self._n_updates += 1
 
     def learn(
-        self,
+        self: ARSSelf,
         total_timesteps: int,
         callback: MaybeCallback = None,
         log_interval: int = 1,
@@ -314,7 +316,7 @@ class ARS(BaseAlgorithm):
         reset_num_timesteps: bool = True,
         async_eval: Optional[AsyncEval] = None,
         progress_bar: bool = False,
-    ) -> "ARS":
+    ) -> ARSSelf:
         """
         Return a trained model.
 
