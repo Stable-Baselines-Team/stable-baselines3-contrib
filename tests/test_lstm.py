@@ -129,32 +129,28 @@ def test_check():
 
 @pytest.mark.parametrize("env", ["Pendulum-v1", "CartPole-v1"])
 def test_run(env):
-    with pytest.warns(DeprecationWarning):  # `create_eval_env` and `eval_freq` are deprecated
-        model = RecurrentPPO(
-            "MlpLstmPolicy",
-            env,
-            n_steps=16,
-            seed=0,
-            create_eval_env=True,
-        )
+    model = RecurrentPPO(
+        "MlpLstmPolicy",
+        env,
+        n_steps=16,
+        seed=0,
+    )
 
-        model.learn(total_timesteps=32, eval_freq=16)
+    model.learn(total_timesteps=32)
 
 
 def test_run_sde():
-    with pytest.warns(DeprecationWarning):  # `create_eval_env` and `eval_freq` are deprecated
-        model = RecurrentPPO(
-            "MlpLstmPolicy",
-            "Pendulum-v1",
-            n_steps=16,
-            seed=0,
-            create_eval_env=True,
-            sde_sample_freq=4,
-            use_sde=True,
-            clip_range_vf=0.1,
-        )
+    model = RecurrentPPO(
+        "MlpLstmPolicy",
+        "Pendulum-v1",
+        n_steps=16,
+        seed=0,
+        sde_sample_freq=4,
+        use_sde=True,
+        clip_range_vf=0.1,
+    )
 
-        model.learn(total_timesteps=200, eval_freq=150)
+    model.learn(total_timesteps=200)
 
 
 @pytest.mark.parametrize(

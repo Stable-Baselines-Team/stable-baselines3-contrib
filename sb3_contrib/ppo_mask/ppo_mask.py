@@ -1,6 +1,5 @@
 import sys
 import time
-import warnings
 from collections import deque
 from typing import Any, Dict, Optional, Tuple, Type, TypeVar, Union
 
@@ -61,9 +60,6 @@ class MaskablePPO(OnPolicyAlgorithm):
         see issue #213 (cf https://github.com/hill-a/stable-baselines/issues/213)
         By default, there is no limit on the kl div.
     :param tensorboard_log: the log location for tensorboard (if None, no logging)
-    :param create_eval_env: Whether to create a second environment that will be
-        used for evaluating the agent periodically (Only available when passing string for the environment).
-        Caution, this parameter is deprecated and will be removed in the future.
     :param policy_kwargs: additional arguments to be passed to the policy on creation
     :param verbose: the verbosity level: 0 no output, 1 info, 2 debug
     :param seed: Seed for the pseudo random generators
@@ -96,7 +92,6 @@ class MaskablePPO(OnPolicyAlgorithm):
         max_grad_norm: float = 0.5,
         target_kl: Optional[float] = None,
         tensorboard_log: Optional[str] = None,
-        create_eval_env: bool = False,
         policy_kwargs: Optional[Dict[str, Any]] = None,
         verbose: int = 0,
         seed: Optional[int] = None,
@@ -116,7 +111,6 @@ class MaskablePPO(OnPolicyAlgorithm):
             use_sde=False,
             sde_sample_freq=-1,
             tensorboard_log=tensorboard_log,
-            create_eval_env=create_eval_env,
             policy_kwargs=policy_kwargs,
             verbose=verbose,
             seed=seed,
@@ -179,23 +173,11 @@ class MaskablePPO(OnPolicyAlgorithm):
     def _init_callback(
         self,
         callback: MaybeCallback,
-        eval_env: Optional[VecEnv] = None,
-        eval_freq: int = 10000,
-        n_eval_episodes: int = 5,
-        log_path: Optional[str] = None,
         use_masking: bool = True,
         progress_bar: bool = False,
     ) -> BaseCallback:
         """
         :param callback: Callback(s) called at every step with state of the algorithm.
-        :param eval_env: Environment to use for evaluation.
-            Caution, this parameter is deprecated and will be removed in the future.
-            Please use `MaskableEvalCallback` or a custom Callback instead.
-        :param eval_freq: Evaluate the agent every ``eval_freq`` timesteps (this may vary a little).
-            Caution, this parameter is deprecated and will be removed in the future.
-            Please use `MaskableEvalCallback` or a custom Callback instead.
-        :param n_eval_episodes: How many episodes to play per evaluation
-        :param log_path: Path to a folder where the evaluations will be saved
         :param use_masking: Whether or not to use invalid action masks during evaluation
         :param progress_bar: Display a progress bar using tqdm and rich.
         :return: A hybrid callback calling `callback` and performing evaluation.
@@ -212,33 +194,13 @@ class MaskablePPO(OnPolicyAlgorithm):
         if progress_bar:
             callback = CallbackList([callback, ProgressBarCallback()])
 
-        # Create eval callback in charge of the evaluation
-        if eval_env is not None:
-            # Avoid circular import error
-            from sb3_contrib.common.maskable.callbacks import MaskableEvalCallback
-
-            eval_callback = MaskableEvalCallback(
-                eval_env,
-                best_model_save_path=log_path,
-                log_path=log_path,
-                eval_freq=eval_freq,
-                n_eval_episodes=n_eval_episodes,
-                use_masking=use_masking,
-                verbose=self.verbose,
-            )
-            callback = CallbackList([callback, eval_callback])
-
         callback.init_callback(self)
         return callback
 
     def _setup_learn(
         self,
         total_timesteps: int,
-        eval_env: Optional[GymEnv],
         callback: MaybeCallback = None,
-        eval_freq: int = 10000,
-        n_eval_episodes: int = 5,
-        log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
         tb_log_name: str = "run",
         use_masking: bool = True,
@@ -248,32 +210,13 @@ class MaskablePPO(OnPolicyAlgorithm):
         Initialize different variables needed for training.
 
         :param total_timesteps: The total number of samples (env steps) to train on
-        :param eval_env: Environment to use for evaluation.
-            Caution, this parameter is deprecated and will be removed in the future.
-            Please use `MaskableEvalCallback` or a custom Callback instead.
         :param callback: Callback(s) called at every step with state of the algorithm.
-        :param eval_freq: Evaluate the agent every ``eval_freq`` timesteps (this may vary a little).
-            Caution, this parameter is deprecated and will be removed in the future.
-            Please use `MaskableEvalCallback` or a custom Callback instead.
-        :param n_eval_episodes: How many episodes to play per evaluation
-        :param log_path: Path to a folder where the evaluations will be saved
         :param reset_num_timesteps: Whether to reset or not the ``num_timesteps`` attribute
         :param tb_log_name: the name of the run for tensorboard log
         :param use_masking: Whether or not to use invalid action masks during training
         :param progress_bar: Display a progress bar using tqdm and rich.
         :return:
         """
-
-        if eval_env is not None or eval_freq != -1:
-            warnings.warn(
-                "Parameters `eval_env` and `eval_freq` are deprecated and will be removed in the future. "
-                "Please use `MaskableEvalCallback` or a custom Callback instead.",
-                DeprecationWarning,
-                # By setting the `stacklevel` we refer to the initial caller of the deprecated feature.
-                # This causes the the `DepricationWarning` to not be ignored and to be shown to the user. See
-                # https://github.com/DLR-RM/stable-baselines3/pull/1082#discussion_r989842855 for more details.
-                stacklevel=4,
-            )
 
         self.start_time = time.time_ns()
         if self.ep_info_buffer is None or reset_num_timesteps:
@@ -297,17 +240,12 @@ class MaskablePPO(OnPolicyAlgorithm):
             if self._vec_normalize_env is not None:
                 self._last_original_obs = self._vec_normalize_env.get_original_obs()
 
-        if eval_env is not None and self.seed is not None:
-            eval_env.seed(self.seed)
-
-        eval_env = self._get_eval_env(eval_env)
-
         # Configure logger's outputs if no logger was passed
         if not self._custom_logger:
             self._logger = utils.configure_logger(self.verbose, self.tensorboard_log, tb_log_name, reset_num_timesteps)
 
         # Create eval callback if needed
-        callback = self._init_callback(callback, eval_env, eval_freq, n_eval_episodes, log_path, use_masking, progress_bar)
+        callback = self._init_callback(callback, use_masking, progress_bar)
 
         return total_timesteps, callback
 
@@ -564,11 +502,7 @@ class MaskablePPO(OnPolicyAlgorithm):
         total_timesteps: int,
         callback: MaybeCallback = None,
         log_interval: int = 1,
-        eval_env: Optional[GymEnv] = None,
-        eval_freq: int = -1,
-        n_eval_episodes: int = 5,
         tb_log_name: str = "PPO",
-        eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
         use_masking: bool = True,
         progress_bar: bool = False,
@@ -577,11 +511,7 @@ class MaskablePPO(OnPolicyAlgorithm):
 
         total_timesteps, callback = self._setup_learn(
             total_timesteps,
-            eval_env,
             callback,
-            eval_freq,
-            n_eval_episodes,
-            eval_log_path,
             reset_num_timesteps,
             tb_log_name,
             use_masking,
