@@ -87,8 +87,7 @@ def test_trpo_params():
 @pytest.mark.parametrize("policy_str", ["LinearPolicy", "MlpPolicy"])
 def test_ars(policy_str, env_id):
     model = ARS(policy_str, env_id, n_delta=1, verbose=1, seed=0)
-    with pytest.warns(DeprecationWarning):  # `create_eval_env` and `eval_freq` are deprecated
-        model.learn(total_timesteps=500, log_interval=1, eval_freq=250)
+    model.learn(total_timesteps=500, log_interval=1)
 
 
 def test_ars_multi_env():

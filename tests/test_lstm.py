@@ -140,18 +140,17 @@ def test_run(env):
 
 
 def test_run_sde():
-    with pytest.warns(DeprecationWarning):  # `create_eval_env` and `eval_freq` are deprecated
-        model = RecurrentPPO(
-            "MlpLstmPolicy",
-            "Pendulum-v1",
-            n_steps=16,
-            seed=0,
-            sde_sample_freq=4,
-            use_sde=True,
-            clip_range_vf=0.1,
-        )
+    model = RecurrentPPO(
+        "MlpLstmPolicy",
+        "Pendulum-v1",
+        n_steps=16,
+        seed=0,
+        sde_sample_freq=4,
+        use_sde=True,
+        clip_range_vf=0.1,
+    )
 
-        model.learn(total_timesteps=200)
+    model.learn(total_timesteps=200)
 
 
 @pytest.mark.parametrize(
