@@ -11,6 +11,7 @@ Breaking Changes:
 - Removed deprecated ``create_eval_env``, ``eval_env``, ``eval_log_path``, ``n_eval_episodes`` and ``eval_freq`` parameters,
   please use an ``EvalCallback`` instead
 - Removed deprecated ``sde_net_arch`` parameter
+- Changed default policy architecture for ARS/CEM to ``[32]`` instead of ``[64, 64]``
 
 New Features:
 ^^^^^^^^^^^^^
@@ -62,6 +63,7 @@ Breaking Changes:
 
 New Features:
 ^^^^^^^^^^^^^
+- Added noisy Cross Entropy Method (CEM)
 
 Bug Fixes:
 ^^^^^^^^^^
@@ -107,6 +109,9 @@ Bug Fixes:
 
 Deprecations:
 ^^^^^^^^^^^^^
+
+Others:
+^^^^^^^
 
 Release 1.5.0 (2022-03-25)
 -------------------------------
