@@ -1,7 +1,7 @@
 import sys
 import time
 from copy import deepcopy
-from typing import Any, Dict, Optional, Tuple, Type, Union
+from typing import Any, Dict, Optional, Type, TypeVar, Union
 
 import gym
 import numpy as np
@@ -19,6 +19,8 @@ from sb3_contrib.common.recurrent.buffers import RecurrentDictRolloutBuffer, Rec
 from sb3_contrib.common.recurrent.policies import RecurrentActorCriticPolicy
 from sb3_contrib.common.recurrent.type_aliases import RNNStates
 from sb3_contrib.ppo_recurrent.policies import CnnLstmPolicy, MlpLstmPolicy, MultiInputLstmPolicy
+
+RecurrentPPOSelf = TypeVar("RecurrentPPOSelf", bound="RecurrentPPO")
 
 
 class RecurrentPPO(OnPolicyAlgorithm):
@@ -56,8 +58,6 @@ class RecurrentPPO(OnPolicyAlgorithm):
         see issue #213 (cf https://github.com/hill-a/stable-baselines/issues/213)
         By default, there is no limit on the kl div.
     :param tensorboard_log: the log location for tensorboard (if None, no logging)
-    :param create_eval_env: Whether to create a second environment that will be
-        used for evaluating the agent periodically. (Only available when passing string for the environment)
     :param policy_kwargs: additional arguments to be passed to the policy on creation
     :param verbose: the verbosity level: 0 no output, 1 info, 2 debug
     :param seed: Seed for the pseudo random generators
@@ -92,7 +92,6 @@ class RecurrentPPO(OnPolicyAlgorithm):
         sde_sample_freq: int = -1,
         target_kl: Optional[float] = None,
         tensorboard_log: Optional[str] = None,
-        create_eval_env: bool = False,
         policy_kwargs: Optional[Dict[str, Any]] = None,
         verbose: int = 0,
         seed: Optional[int] = None,
@@ -112,7 +111,6 @@ class RecurrentPPO(OnPolicyAlgorithm):
             use_sde=use_sde,
             sde_sample_freq=sde_sample_freq,
             tensorboard_log=tensorboard_log,
-            create_eval_env=create_eval_env,
             policy_kwargs=policy_kwargs,
             verbose=verbose,
             seed=seed,
@@ -194,43 +192,6 @@ class RecurrentPPO(OnPolicyAlgorithm):
                 assert self.clip_range_vf > 0, "`clip_range_vf` must be positive, pass `None` to deactivate vf clipping"
 
             self.clip_range_vf = get_schedule_fn(self.clip_range_vf)
-
-    def _setup_learn(
-        self,
-        total_timesteps: int,
-        eval_env: Optional[GymEnv],
-        callback: MaybeCallback = None,
-        eval_freq: int = 10000,
-        n_eval_episodes: int = 5,
-        log_path: Optional[str] = None,
-        reset_num_timesteps: bool = True,
-        tb_log_name: str = "RecurrentPPO",
-    ) -> Tuple[int, BaseCallback]:
-        """
-        Initialize different variables needed for training.
-
-        :param total_timesteps: The total number of samples (env steps) to train on
-        :param eval_env: Environment to use for evaluation.
-        :param callback: Callback(s) called at every step with state of the algorithm.
-        :param eval_freq: How many steps between evaluations
-        :param n_eval_episodes: How many episodes to play per evaluation
-        :param log_path: Path to a folder where the evaluations will be saved
-        :param reset_num_timesteps: Whether to reset or not the ``num_timesteps`` attribute
-        :param tb_log_name: the name of the run for tensorboard log
-        :return:
-        """
-
-        total_timesteps, callback = super()._setup_learn(
-            total_timesteps,
-            eval_env,
-            callback,
-            eval_freq,
-            n_eval_episodes,
-            log_path,
-            reset_num_timesteps,
-            tb_log_name,
-        )
-        return total_timesteps, callback
 
     def collect_rollouts(
         self,
@@ -483,21 +444,22 @@ class RecurrentPPO(OnPolicyAlgorithm):
             self.logger.record("train/clip_range_vf", clip_range_vf)
 
     def learn(
-        self,
+        self: RecurrentPPOSelf,
         total_timesteps: int,
         callback: MaybeCallback = None,
         log_interval: int = 1,
-        eval_env: Optional[GymEnv] = None,
-        eval_freq: int = -1,
-        n_eval_episodes: int = 5,
         tb_log_name: str = "RecurrentPPO",
-        eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
-    ) -> "RecurrentPPO":
+        progress_bar: bool = False,
+    ) -> RecurrentPPOSelf:
         iteration = 0
 
         total_timesteps, callback = self._setup_learn(
-            total_timesteps, eval_env, callback, eval_freq, n_eval_episodes, eval_log_path, reset_num_timesteps, tb_log_name
+            total_timesteps,
+            callback,
+            reset_num_timesteps,
+            tb_log_name,
+            progress_bar,
         )
 
         callback.on_training_start(locals(), globals())

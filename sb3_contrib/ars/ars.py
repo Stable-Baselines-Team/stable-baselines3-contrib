@@ -1,5 +1,5 @@
 import warnings
-from typing import Any, Dict, Optional, Type, Union
+from typing import Any, Dict, Optional, Type, TypeVar, Union
 
 import gym
 import torch as th
@@ -11,6 +11,8 @@ from stable_baselines3.common.utils import get_schedule_fn
 from sb3_contrib.common.policies import ESPolicy
 from sb3_contrib.common.population_based_algorithm import PopulationBasedAlgorithm
 from sb3_contrib.common.vec_env.async_eval import AsyncEval
+
+ARSSelf = TypeVar("ARSSelf", bound="ARS")
 
 
 class ARS(PopulationBasedAlgorithm):
@@ -153,18 +155,15 @@ class ARS(PopulationBasedAlgorithm):
         self._n_updates += 1
 
     def learn(
-        self,
+        self: ARSSelf,
         total_timesteps: int,
         callback: MaybeCallback = None,
         log_interval: int = 1,
         tb_log_name: str = "ARS",
-        eval_env: Optional[GymEnv] = None,
-        eval_freq: int = -1,
-        n_eval_episodes: int = 5,
-        eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
         async_eval: Optional[AsyncEval] = None,
-    ) -> "ARS":
+        progress_bar: bool = False,
+    ) -> ARSSelf:
         """
         Return a trained model.
 
@@ -172,12 +171,9 @@ class ARS(PopulationBasedAlgorithm):
         :param callback: callback(s) called at every step with state of the algorithm.
         :param log_interval: The number of timesteps before logging.
         :param tb_log_name: the name of the run for TensorBoard logging
-        :param eval_env: Environment that will be used to evaluate the agent
-        :param eval_freq: Evaluate the agent every ``eval_freq`` timesteps (this may vary a little)
-        :param n_eval_episodes: Number of episode to evaluate the agent
-        :param eval_log_path: Path to a folder where the evaluations will be saved
         :param reset_num_timesteps: whether or not to reset the current timestep number (used in logging)
         :param async_eval: The object for asynchronous evaluation of candidates.
+        :param progress_bar: Display a progress bar using tqdm and rich.
         :return: the trained model
         """
 
@@ -185,11 +181,8 @@ class ARS(PopulationBasedAlgorithm):
             total_timesteps=total_timesteps,
             callback=callback,
             log_interval=log_interval,
-            eval_env=eval_env,
-            eval_freq=eval_freq,
-            n_eval_episodes=n_eval_episodes,
             tb_log_name=tb_log_name,
-            eval_log_path=eval_log_path,
             reset_num_timesteps=reset_num_timesteps,
             async_eval=async_eval,
+            progress_bar=progress_bar,
         )
