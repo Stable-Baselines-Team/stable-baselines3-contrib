@@ -1,4 +1,5 @@
 import copy
+import sys
 import time
 from functools import partial
 from typing import Any, Dict, Optional, Tuple, Type, TypeVar, Union
@@ -204,7 +205,7 @@ class PopulationBasedAlgorithm(BaseAlgorithm):
         """
         Dump information to the logger.
         """
-        time_elapsed = time.time() - self.start_time
+        time_elapsed = max((time.time_ns() - self.start_time) / 1e9, sys.float_info.epsilon)
         fps = int((self.num_timesteps - self._num_timesteps_at_start) / (time_elapsed + 1e-8))
         if len(self.ep_info_buffer) > 0 and len(self.ep_info_buffer[0]) > 0:
             self.logger.record("rollout/ep_rew_mean", safe_mean([ep_info["r"] for ep_info in self.ep_info_buffer]))

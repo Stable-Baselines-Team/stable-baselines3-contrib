@@ -181,7 +181,7 @@ class CEM(PopulationBasedAlgorithm):
         self._n_updates += 1
 
     def learn(
-        self,
+        self: CEMSelf,
         total_timesteps: int,
         callback: MaybeCallback = None,
         log_interval: int = 1,
