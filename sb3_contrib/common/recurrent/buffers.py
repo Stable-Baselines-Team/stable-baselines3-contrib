@@ -206,7 +206,6 @@ class RecurrentRolloutBuffer(RolloutBuffer):
             self.episode_starts[batch_inds], env_change[batch_inds], self.device
         )
 
-        n_layers = self.hidden_states_pi.shape[1]
         # Number of sequences
         n_seq = len(self.seq_start_indices)
         max_length = self.pad(self.actions[batch_inds]).shape[1]
@@ -351,7 +350,6 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
             self.episode_starts[batch_inds], env_change[batch_inds], self.device
         )
 
-        n_layers = self.hidden_states_pi.shape[1]
         n_seq = len(self.seq_start_indices)
         max_length = self.pad(self.actions[batch_inds]).shape[1]
         padded_batch_size = n_seq * max_length
