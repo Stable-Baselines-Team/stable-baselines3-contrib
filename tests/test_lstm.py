@@ -66,11 +66,13 @@ class CartPoleNoVelEnv(CartPoleEnv):
             enable_critic_lstm=True,
             lstm_hidden_size=4,
             lstm_kwargs=dict(dropout=0.5),
+            n_lstm_layers=2,
         ),
         dict(
             enable_critic_lstm=False,
             lstm_hidden_size=4,
             lstm_kwargs=dict(dropout=0.5),
+            n_lstm_layers=2,
         ),
     ],
 )
@@ -95,11 +97,13 @@ def test_cnn(policy_kwargs):
             enable_critic_lstm=True,
             lstm_hidden_size=4,
             lstm_kwargs=dict(dropout=0.5),
+            n_lstm_layers=2,
         ),
         dict(
             enable_critic_lstm=False,
             lstm_hidden_size=4,
             lstm_kwargs=dict(dropout=0.5),
+            n_lstm_layers=2,
         ),
     ],
 )
@@ -162,11 +166,13 @@ def test_run_sde():
             enable_critic_lstm=True,
             lstm_hidden_size=4,
             lstm_kwargs=dict(dropout=0.5),
+            n_lstm_layers=2,
         ),
         dict(
             enable_critic_lstm=False,
             lstm_hidden_size=4,
             lstm_kwargs=dict(dropout=0.5),
+            n_lstm_layers=2,
         ),
     ],
 )
