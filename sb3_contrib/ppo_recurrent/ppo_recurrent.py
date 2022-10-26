@@ -277,8 +277,8 @@ class RecurrentPPO(OnPolicyAlgorithm):
                     terminal_obs = self.policy.obs_to_tensor(infos[idx]["terminal_observation"])[0]
                     with th.no_grad():
                         terminal_lstm_state = (
-                            lstm_states.vf[0][:, idx : idx + 1, :],
-                            lstm_states.vf[1][:, idx : idx + 1, :],
+                            lstm_states.vf[0][:, idx : idx + 1, :].contiguous(),
+                            lstm_states.vf[1][:, idx : idx + 1, :].contiguous(),
                         )
                         # terminal_lstm_state = None
                         episode_starts = th.tensor([False]).float().to(self.device)

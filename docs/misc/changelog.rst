@@ -18,6 +18,7 @@ New Features:
 Bug Fixes:
 ^^^^^^^^^^
 - Fixed a bug in ``RecurrentPPO`` where the lstm states where incorrectly reshaped for ``n_lstm_layers > 1`` (thanks @kolbytn)
+- Fixed ``RuntimeError: rnn: hx is not contiguous`` while predicting terminal values for ``RecurrentPPO`` when ``n_lstm_layers > 1``
 
 Deprecations:
 ^^^^^^^^^^^^^
