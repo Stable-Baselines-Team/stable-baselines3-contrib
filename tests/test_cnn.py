@@ -36,7 +36,7 @@ def test_cnn(tmp_path, model_class):
         )
     model = model_class("CnnPolicy", env, **kwargs).learn(250)
 
-    obs = env.reset()
+    obs, _ = env.reset()
 
     # FakeImageEnv is channel last by default and should be wrapped
     assert is_vecenv_wrapped(model.get_env(), VecTransposeImage)

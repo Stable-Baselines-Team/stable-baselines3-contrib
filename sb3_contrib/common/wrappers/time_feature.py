@@ -2,7 +2,7 @@ from typing import Dict, Optional, Union
 
 import gym
 import numpy as np
-from stable_baselines3.common.type_aliases import GymObs, GymStepReturn
+from stable_baselines3.common.type_aliases import Gym26ResetReturn, Gym26StepReturn
 
 
 class TimeFeatureWrapper(gym.Wrapper):
@@ -65,15 +65,16 @@ class TimeFeatureWrapper(gym.Wrapper):
         self._current_step = 0
         self._test_mode = test_mode
 
-    def reset(self, seed: Optional[int] = None) -> GymObs:
+    def reset(self, seed: Optional[int] = None) -> Gym26ResetReturn:
         self._current_step = 0
         kwargs = {} if seed is None else {"seed": seed}
-        return self._get_obs(self.env.reset(**kwargs))
+        obs, info = self.env.reset(**kwargs)
+        return self._get_obs(obs), info
 
-    def step(self, action: Union[int, np.ndarray]) -> GymStepReturn:
+    def step(self, action: Union[int, np.ndarray]) -> Gym26StepReturn:
         self._current_step += 1
-        obs, reward, done, info = self.env.step(action)
-        return self._get_obs(obs), reward, done, info
+        obs, reward, done, truncated, info = self.env.step(action)
+        return self._get_obs(obs), reward, done, truncated, info
 
     def _get_obs(self, obs: Union[np.ndarray, Dict[str, np.ndarray]]) -> Union[np.ndarray, Dict[str, np.ndarray]]:
         """

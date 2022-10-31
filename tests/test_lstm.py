@@ -23,11 +23,11 @@ class ToDictWrapper(gym.Wrapper):
         self.observation_space = gym.spaces.Dict({"obs": self.env.observation_space})
 
     def reset(self):
-        return {"obs": self.env.reset()}
+        return {"obs": self.env.reset()[0]}, {}
 
     def step(self, action):
-        obs, reward, done, infos = self.env.step(action)
-        return {"obs": obs}, reward, done, infos
+        obs, reward, done, truncated, infos = self.env.step(action)
+        return {"obs": obs}, reward, done, truncated, infos
 
 
 class CartPoleNoVelEnv(CartPoleEnv):
@@ -50,11 +50,11 @@ class CartPoleNoVelEnv(CartPoleEnv):
 
     def reset(self):
         full_obs = super().reset()
-        return CartPoleNoVelEnv._pos_obs(full_obs)
+        return CartPoleNoVelEnv._pos_obs(full_obs), {}
 
     def step(self, action):
-        full_obs, rew, done, info = super().step(action)
-        return CartPoleNoVelEnv._pos_obs(full_obs), rew, done, info
+        full_obs, rew, terminated, truncated, info = super().step(action)
+        return CartPoleNoVelEnv._pos_obs(full_obs), rew, terminated, truncated, info
 
 
 @pytest.mark.parametrize(

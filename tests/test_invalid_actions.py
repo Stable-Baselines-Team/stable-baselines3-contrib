@@ -32,11 +32,11 @@ class ToDictWrapper(gym.Wrapper):
         self.observation_space = gym.spaces.Dict({"obs": self.env.observation_space})
 
     def reset(self, seed: Optional[int] = None):
-        return {"obs": self.env.reset(seed=seed)}
+        return {"obs": self.env.reset(seed=seed)[0]}, {}
 
     def step(self, action):
-        obs, reward, done, infos = self.env.step(action)
-        return {"obs": obs}, reward, done, infos
+        obs, reward, terminated, truncated, infos = self.env.step(action)
+        return {"obs": obs}, reward, terminated, truncated, infos
 
 
 def test_identity():

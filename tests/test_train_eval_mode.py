@@ -111,7 +111,7 @@ def test_ppo_mask_train_eval_mode():
 
     batch_norm_stats_before = clone_on_policy_batch_norm(model)
 
-    observation = env.reset()
+    observation, _ = env.reset()
     action_masks = get_action_masks(env)
     first_prediction, _ = model.predict(observation, action_masks=action_masks, deterministic=True)
     for _ in range(5):
