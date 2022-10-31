@@ -3,15 +3,92 @@
 Changelog
 ==========
 
-Release 1.5.1a9 (WIP)
+Release 1.7.0a1 (WIP)
+--------------------------
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Removed deprecated ``create_eval_env``, ``eval_env``, ``eval_log_path``, ``n_eval_episodes`` and ``eval_freq`` parameters,
+  please use an ``EvalCallback`` instead
+- Removed deprecated ``sde_net_arch`` parameter
+
+New Features:
+^^^^^^^^^^^^^
+
+Bug Fixes:
+^^^^^^^^^^
+- Fixed a bug in ``RecurrentPPO`` where the lstm states where incorrectly reshaped for ``n_lstm_layers > 1`` (thanks @kolbytn)
+- Fixed ``RuntimeError: rnn: hx is not contiguous`` while predicting terminal values for ``RecurrentPPO`` when ``n_lstm_layers > 1``
+
+Deprecations:
+^^^^^^^^^^^^^
+
+Others:
+^^^^^^^
+
+
+Release 1.6.2 (2022-10-10)
+--------------------------
+
+**Progress bar and upgrade to latest SB3 version**
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Upgraded to Stable-Baselines3 >= 1.6.2
+
+New Features:
+^^^^^^^^^^^^^
+- Added ``progress_bar`` argument in the ``learn()`` method, displayed using TQDM and rich packages
+
+Bug Fixes:
+^^^^^^^^^^
+
+Deprecations:
+^^^^^^^^^^^^^
+- Deprecate parameters ``eval_env``, ``eval_freq`` and ``create_eval_env``
+
+Others:
+^^^^^^^
+- Fixed the return type of ``.load()`` methods so that they now use ``TypeVar``
+
+
+Release 1.6.1 (2022-09-29)
 -------------------------------
+
+**Bug fix release**
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Fixed the issue that ``predict`` does not always return action as ``np.ndarray`` (@qgallouedec)
+- Upgraded to Stable-Baselines3 >= 1.6.1
+
+New Features:
+^^^^^^^^^^^^^
+
+Bug Fixes:
+^^^^^^^^^^
+- Fixed the issue of wrongly passing policy arguments when using CnnLstmPolicy or MultiInputLstmPolicy with ``RecurrentPPO`` (@mlodel)
+- Fixed division by zero error when computing FPS when a small number of time has elapsed in operating systems with low-precision timers.
+- Fixed calling child callbacks in MaskableEvalCallback (@CppMaster)
+- Fixed missing verbose parameter passing in the ``MaskableEvalCallback`` constructor (@burakdmb)
+- Fixed the issue that when updating the target network in QRDQN, TQC, the ``running_mean`` and ``running_var`` properties of batch norm layers are not updated (@honglu2875)
+
+Deprecations:
+^^^^^^^^^^^^^
+
+Others:
+^^^^^^^
+- Changed the default buffer device from ``"cpu"`` to ``"auto"``
+
+
+Release 1.6.0 (2022-07-11)
+--------------------------
 
 **Add RecurrentPPO (aka PPO LSTM)**
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
-- Switched minimum Gym version to 0.24
-- Upgraded to Stable-Baselines3 >= 1.5.1a7
+- Upgraded to Stable-Baselines3 >= 1.6.0
 - Changed the way policy "aliases" are handled ("MlpPolicy", "CnnPolicy", ...), removing the former
   ``register_policy`` helper, ``policy_base`` parameter and using ``policy_aliases`` static attributes instead (@Gregwar)
 - Renamed ``rollout/exploration rate`` key to ``rollout/exploration_rate`` for QRDQN (to be consistent with SB3 DQN)
@@ -26,8 +103,9 @@ New Features:
 - Added ``RecurrentPPO`` (aka PPO LSTM)
 
 Bug Fixes:
-- Fixed a bug in ``RecurrentPPO`` when calculating the masked loss functions (@rnederstigt)
 ^^^^^^^^^^
+- Fixed a bug in ``RecurrentPPO`` when calculating the masked loss functions (@rnederstigt)
+- Fixed a bug in ``TRPO`` where kl divergence was not implemented for ``MultiDiscrete`` space
 
 Deprecations:
 ^^^^^^^^^^^^^
@@ -276,4 +354,5 @@ Stable-Baselines3 is currently maintained by `Antonin Raffin`_ (aka `@araffin`_)
 Contributors:
 -------------
 
-@ku2482 @guyk1971 @minhlong94 @ayeright @kronion @glmcdona @cyprienc @sgillen @Gregwar @rnederstigt
+@ku2482 @guyk1971 @minhlong94 @ayeright @kronion @glmcdona @cyprienc @sgillen @Gregwar @rnederstigt @qgallouedec
+@mlodel @CppMaster @burakdmb @honglu2875

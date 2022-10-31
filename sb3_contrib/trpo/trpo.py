@@ -1,21 +1,23 @@
 import copy
 import warnings
 from functools import partial
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 import numpy as np
 import torch as th
 from gym import spaces
+from stable_baselines3.common.distributions import kl_divergence
 from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
 from stable_baselines3.common.policies import ActorCriticPolicy, BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, RolloutBufferSamples, Schedule
 from stable_baselines3.common.utils import explained_variance
 from torch import nn
-from torch.distributions import kl_divergence
 from torch.nn import functional as F
 
 from sb3_contrib.common.utils import conjugate_gradient_solver, flat_grad
 from sb3_contrib.trpo.policies import CnnPolicy, MlpPolicy, MultiInputPolicy
+
+TRPOSelf = TypeVar("TRPOSelf", bound="TRPO")
 
 
 class TRPO(OnPolicyAlgorithm):
@@ -57,8 +59,6 @@ class TRPO(OnPolicyAlgorithm):
     :param sub_sampling_factor: Sub-sample the batch to make computation faster
         see p40-42 of John Schulman thesis http://joschu.net/docs/thesis.pdf
     :param tensorboard_log: the log location for tensorboard (if None, no logging)
-    :param create_eval_env: Whether to create a second environment that will be
-        used for evaluating the agent periodically. (Only available when passing string for the environment)
     :param policy_kwargs: additional arguments to be passed to the policy on creation
     :param verbose: the verbosity level: 0 no output, 1 info, 2 debug
     :param seed: Seed for the pseudo random generators
@@ -93,7 +93,6 @@ class TRPO(OnPolicyAlgorithm):
         target_kl: float = 0.01,
         sub_sampling_factor: int = 1,
         tensorboard_log: Optional[str] = None,
-        create_eval_env: bool = False,
         policy_kwargs: Optional[Dict[str, Any]] = None,
         verbose: int = 0,
         seed: Optional[int] = None,
@@ -117,7 +116,6 @@ class TRPO(OnPolicyAlgorithm):
             policy_kwargs=policy_kwargs,
             verbose=verbose,
             device=device,
-            create_eval_env=create_eval_env,
             seed=seed,
             _init_setup_model=False,
             supported_action_spaces=(
@@ -279,7 +277,7 @@ class TRPO(OnPolicyAlgorithm):
             policy_objective = (advantages * ratio).mean()
 
             # KL divergence
-            kl_div = kl_divergence(distribution.distribution, old_distribution.distribution).mean()
+            kl_div = kl_divergence(distribution, old_distribution).mean()
 
             # Surrogate & KL gradient
             self.policy.optimizer.zero_grad()
@@ -332,7 +330,7 @@ class TRPO(OnPolicyAlgorithm):
                     new_policy_objective = (advantages * ratio).mean()
 
                     # New KL-divergence
-                    kl_div = kl_divergence(distribution.distribution, old_distribution.distribution).mean()
+                    kl_div = kl_divergence(distribution, old_distribution).mean()
 
                     # Constraint criteria:
                     # we need to improve the surrogate policy objective
@@ -402,26 +400,20 @@ class TRPO(OnPolicyAlgorithm):
         return flat_grad(jacobian_vector_product, params, retain_graph=retain_graph) + self.cg_damping * vector
 
     def learn(
-        self,
+        self: TRPOSelf,
         total_timesteps: int,
         callback: MaybeCallback = None,
         log_interval: int = 1,
-        eval_env: Optional[GymEnv] = None,
-        eval_freq: int = -1,
-        n_eval_episodes: int = 5,
         tb_log_name: str = "TRPO",
-        eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
-    ) -> OnPolicyAlgorithm:
+        progress_bar: bool = False,
+    ) -> TRPOSelf:
 
         return super().learn(
             total_timesteps=total_timesteps,
             callback=callback,
             log_interval=log_interval,
-            eval_env=eval_env,
-            eval_freq=eval_freq,
-            n_eval_episodes=n_eval_episodes,
             tb_log_name=tb_log_name,
-            eval_log_path=eval_log_path,
             reset_num_timesteps=reset_num_timesteps,
+            progress_bar=progress_bar,
         )

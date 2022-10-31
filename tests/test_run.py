@@ -16,10 +16,9 @@ def test_tqc(ent_coef):
         policy_kwargs=dict(net_arch=[64, 64]),
         learning_starts=100,
         verbose=1,
-        create_eval_env=True,
         ent_coef=ent_coef,
     )
-    model.learn(total_timesteps=300, eval_freq=250)
+    model.learn(total_timesteps=300, progress_bar=True)
 
 
 @pytest.mark.parametrize("n_critics", [1, 3])
@@ -58,9 +57,8 @@ def test_qrdqn():
         buffer_size=500,
         learning_rate=3e-4,
         verbose=1,
-        create_eval_env=True,
     )
-    model.learn(total_timesteps=500, eval_freq=250)
+    model.learn(total_timesteps=500)
 
 
 @pytest.mark.parametrize("env_id", ["CartPole-v1", "Pendulum-v1"])
@@ -89,7 +87,7 @@ def test_trpo_params():
 @pytest.mark.parametrize("policy_str", ["LinearPolicy", "MlpPolicy"])
 def test_ars(policy_str, env_id):
     model = ARS(policy_str, env_id, n_delta=1, verbose=1, seed=0)
-    model.learn(total_timesteps=500, log_interval=1, eval_freq=250)
+    model.learn(total_timesteps=500, log_interval=1)
 
 
 def test_ars_multi_env():

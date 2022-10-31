@@ -57,13 +57,32 @@ class CartPoleNoVelEnv(CartPoleEnv):
         return CartPoleNoVelEnv._pos_obs(full_obs), rew, done, info
 
 
-def test_cnn():
+@pytest.mark.parametrize(
+    "policy_kwargs",
+    [
+        {},
+        dict(shared_lstm=True, enable_critic_lstm=False),
+        dict(
+            enable_critic_lstm=True,
+            lstm_hidden_size=4,
+            lstm_kwargs=dict(dropout=0.5),
+            n_lstm_layers=2,
+        ),
+        dict(
+            enable_critic_lstm=False,
+            lstm_hidden_size=4,
+            lstm_kwargs=dict(dropout=0.5),
+            n_lstm_layers=2,
+        ),
+    ],
+)
+def test_cnn(policy_kwargs):
     model = RecurrentPPO(
         "CnnLstmPolicy",
         FakeImageEnv(screen_height=40, screen_width=40, n_channels=3),
         n_steps=16,
         seed=0,
-        policy_kwargs=dict(features_extractor_kwargs=dict(features_dim=32)),
+        policy_kwargs=dict(**policy_kwargs, features_extractor_kwargs=dict(features_dim=32)),
     )
 
     model.learn(total_timesteps=32)
@@ -78,11 +97,13 @@ def test_cnn():
             enable_critic_lstm=True,
             lstm_hidden_size=4,
             lstm_kwargs=dict(dropout=0.5),
+            n_lstm_layers=2,
         ),
         dict(
             enable_critic_lstm=False,
             lstm_hidden_size=4,
             lstm_kwargs=dict(dropout=0.5),
+            n_lstm_layers=2,
         ),
     ],
 )
@@ -117,10 +138,9 @@ def test_run(env):
         env,
         n_steps=16,
         seed=0,
-        create_eval_env=True,
     )
 
-    model.learn(total_timesteps=32, eval_freq=16)
+    model.learn(total_timesteps=32)
 
 
 def test_run_sde():
@@ -129,18 +149,36 @@ def test_run_sde():
         "Pendulum-v1",
         n_steps=16,
         seed=0,
-        create_eval_env=True,
         sde_sample_freq=4,
         use_sde=True,
         clip_range_vf=0.1,
     )
 
-    model.learn(total_timesteps=200, eval_freq=150)
+    model.learn(total_timesteps=200)
 
 
-def test_dict_obs():
+@pytest.mark.parametrize(
+    "policy_kwargs",
+    [
+        {},
+        dict(shared_lstm=True, enable_critic_lstm=False),
+        dict(
+            enable_critic_lstm=True,
+            lstm_hidden_size=4,
+            lstm_kwargs=dict(dropout=0.5),
+            n_lstm_layers=2,
+        ),
+        dict(
+            enable_critic_lstm=False,
+            lstm_hidden_size=4,
+            lstm_kwargs=dict(dropout=0.5),
+            n_lstm_layers=2,
+        ),
+    ],
+)
+def test_dict_obs(policy_kwargs):
     env = make_vec_env("CartPole-v1", n_envs=1, wrapper_class=ToDictWrapper)
-    model = RecurrentPPO("MultiInputLstmPolicy", env, n_steps=32).learn(64)
+    model = RecurrentPPO("MultiInputLstmPolicy", env, n_steps=32, policy_kwargs=policy_kwargs).learn(64)
     evaluate_policy(model, env, warn=False)
 
 

@@ -36,9 +36,6 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
     :param log_std_init: Initial value for the log standard deviation
     :param full_std: Whether to use (n_features x n_actions) parameters
         for the std instead of only (n_features,) when using gSDE
-    :param sde_net_arch: Network architecture for extracting features
-        when using gSDE. If None, the latent features from the policy will be used.
-        Pass an empty list to use the states as features.
     :param use_expln: Use ``expln()`` function instead of ``exp()`` to ensure
         a positive standard deviation (cf paper). It allows to keep variance
         above zero and prevent it from growing too fast. In practice, ``exp()`` is usually enough.
@@ -74,7 +71,6 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         use_sde: bool = False,
         log_std_init: float = 0.0,
         full_std: bool = True,
-        sde_net_arch: Optional[List[int]] = None,
         use_expln: bool = False,
         squash_output: bool = False,
         features_extractor_class: Type[BaseFeaturesExtractor] = FlattenExtractor,
@@ -99,7 +95,6 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             use_sde,
             log_std_init,
             full_std,
-            sde_net_arch,
             use_expln,
             squash_output,
             features_extractor_class,
@@ -416,7 +411,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
 
         # Remove batch dimension if needed
         if not vectorized_env:
-            actions = actions[0]
+            actions = actions.squeeze(axis=0)
 
         return actions, states
 
@@ -436,9 +431,6 @@ class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
     :param log_std_init: Initial value for the log standard deviation
     :param full_std: Whether to use (n_features x n_actions) parameters
         for the std instead of only (n_features,) when using gSDE
-    :param sde_net_arch: Network architecture for extracting features
-        when using gSDE. If None, the latent features from the policy will be used.
-        Pass an empty list to use the states as features.
     :param use_expln: Use ``expln()`` function instead of ``exp()`` to ensure
         a positive standard deviation (cf paper). It allows to keep variance
         above zero and prevent it from growing too fast. In practice, ``exp()`` is usually enough.
@@ -473,7 +465,6 @@ class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
         use_sde: bool = False,
         log_std_init: float = 0.0,
         full_std: bool = True,
-        sde_net_arch: Optional[List[int]] = None,
         use_expln: bool = False,
         squash_output: bool = False,
         features_extractor_class: Type[BaseFeaturesExtractor] = NatureCNN,
@@ -483,6 +474,7 @@ class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
         lstm_hidden_size: int = 256,
         n_lstm_layers: int = 1,
+        shared_lstm: bool = False,
         enable_critic_lstm: bool = True,
         lstm_kwargs: Optional[Dict[str, Any]] = None,
     ):
@@ -496,7 +488,6 @@ class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
             use_sde,
             log_std_init,
             full_std,
-            sde_net_arch,
             use_expln,
             squash_output,
             features_extractor_class,
@@ -506,6 +497,7 @@ class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
             optimizer_kwargs,
             lstm_hidden_size,
             n_lstm_layers,
+            shared_lstm,
             enable_critic_lstm,
             lstm_kwargs,
         )
@@ -526,9 +518,6 @@ class RecurrentMultiInputActorCriticPolicy(RecurrentActorCriticPolicy):
     :param log_std_init: Initial value for the log standard deviation
     :param full_std: Whether to use (n_features x n_actions) parameters
         for the std instead of only (n_features,) when using gSDE
-    :param sde_net_arch: Network architecture for extracting features
-        when using gSDE. If None, the latent features from the policy will be used.
-        Pass an empty list to use the states as features.
     :param use_expln: Use ``expln()`` function instead of ``exp()`` to ensure
         a positive standard deviation (cf paper). It allows to keep variance
         above zero and prevent it from growing too fast. In practice, ``exp()`` is usually enough.
@@ -563,7 +552,6 @@ class RecurrentMultiInputActorCriticPolicy(RecurrentActorCriticPolicy):
         use_sde: bool = False,
         log_std_init: float = 0.0,
         full_std: bool = True,
-        sde_net_arch: Optional[List[int]] = None,
         use_expln: bool = False,
         squash_output: bool = False,
         features_extractor_class: Type[BaseFeaturesExtractor] = CombinedExtractor,
@@ -573,6 +561,7 @@ class RecurrentMultiInputActorCriticPolicy(RecurrentActorCriticPolicy):
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
         lstm_hidden_size: int = 256,
         n_lstm_layers: int = 1,
+        shared_lstm: bool = False,
         enable_critic_lstm: bool = True,
         lstm_kwargs: Optional[Dict[str, Any]] = None,
     ):
@@ -586,7 +575,6 @@ class RecurrentMultiInputActorCriticPolicy(RecurrentActorCriticPolicy):
             use_sde,
             log_std_init,
             full_std,
-            sde_net_arch,
             use_expln,
             squash_output,
             features_extractor_class,
@@ -596,6 +584,7 @@ class RecurrentMultiInputActorCriticPolicy(RecurrentActorCriticPolicy):
             optimizer_kwargs,
             lstm_hidden_size,
             n_lstm_layers,
+            shared_lstm,
             enable_critic_lstm,
             lstm_kwargs,
         )

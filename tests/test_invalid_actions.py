@@ -3,6 +3,7 @@ from typing import Optional
 
 import gym
 import pytest
+from stable_baselines3.common.callbacks import EventCallback, StopTrainingOnNoModelImprovement
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.envs import FakeImageEnv, IdentityEnv, IdentityEnvBox
 from stable_baselines3.common.monitor import Monitor
@@ -63,14 +64,6 @@ def test_bootstraping():
     env = gym.wrappers.TimeLimit(env, 30)
     model = MaskablePPO("MlpPolicy", env, n_steps=64, seed=8)
     model.learn(128)
-
-
-def test_eval_env():
-    env = InvalidActionEnvDiscrete(dim=20, n_invalid_actions=10)
-    eval_env = InvalidActionEnvDiscrete(dim=20, n_invalid_actions=10)
-    model = MaskablePPO("MlpPolicy", env, clip_range_vf=0.2, n_steps=32, seed=8)
-    model.learn(32, eval_env=DummyVecEnv([lambda: Monitor(eval_env)]), eval_freq=16)
-    model.learn(32, reset_num_timesteps=False)
 
 
 def test_supports_discrete_action_space():
@@ -190,7 +183,29 @@ def test_callback(tmp_path):
     model = MaskablePPO("MlpPolicy", env, n_steps=64, gamma=0.4, seed=32, verbose=1)
     model.learn(100, callback=MaskableEvalCallback(eval_env, eval_freq=100, warn=False, log_path=tmp_path))
 
-    model.learn(100, callback=MaskableEvalCallback(Monitor(eval_env), eval_freq=100, warn=False))
+    model.learn(100, callback=MaskableEvalCallback(Monitor(eval_env), eval_freq=100, warn=False), progress_bar=True)
+
+
+def test_child_callback():
+    """
+    Stop callback and callback on new best rewards
+    """
+
+    env = make_env()
+    eval_env = make_env()
+    model = MaskablePPO("MlpPolicy", env, n_steps=64, n_epochs=1)
+    stop_callback = StopTrainingOnNoModelImprovement(1, 2)
+    new_best_mean_callback = EventCallback()
+    eval_callback = MaskableEvalCallback(
+        Monitor(eval_env),
+        eval_freq=64,
+        callback_after_eval=stop_callback,
+        callback_on_new_best=new_best_mean_callback,
+    )
+    model.learn(128, callback=eval_callback)
+    assert new_best_mean_callback.n_calls > 0
+    assert stop_callback.n_calls > 0
+    assert stop_callback.n_calls >= new_best_mean_callback.n_calls
 
 
 def test_maskable_policy_required():

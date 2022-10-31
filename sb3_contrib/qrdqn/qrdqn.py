@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 import gym
 import numpy as np
@@ -8,10 +8,12 @@ from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.preprocessing import maybe_transpose
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
-from stable_baselines3.common.utils import get_linear_fn, is_vectorized_observation, polyak_update
+from stable_baselines3.common.utils import get_linear_fn, get_parameters_by_name, is_vectorized_observation, polyak_update
 
 from sb3_contrib.common.utils import quantile_huber_loss
 from sb3_contrib.qrdqn.policies import CnnPolicy, MlpPolicy, MultiInputPolicy, QRDQNPolicy
+
+QRDQNSelf = TypeVar("QRDQNSelf", bound="QRDQN")
 
 
 class QRDQN(OffPolicyAlgorithm):
@@ -48,8 +50,6 @@ class QRDQN(OffPolicyAlgorithm):
     :param exploration_final_eps: final value of random action probability
     :param max_grad_norm: The maximum value for the gradient clipping (if None, no clipping)
     :param tensorboard_log: the log location for tensorboard (if None, no logging)
-    :param create_eval_env: Whether to create a second environment that will be
-        used for evaluating the agent periodically. (Only available when passing string for the environment)
     :param policy_kwargs: additional arguments to be passed to the policy on creation
     :param verbose: the verbosity level: 0 no output, 1 info, 2 debug
     :param seed: Seed for the pseudo random generators
@@ -85,7 +85,6 @@ class QRDQN(OffPolicyAlgorithm):
         exploration_final_eps: float = 0.01,
         max_grad_norm: Optional[float] = None,
         tensorboard_log: Optional[str] = None,
-        create_eval_env: bool = False,
         policy_kwargs: Optional[Dict[str, Any]] = None,
         verbose: int = 0,
         seed: Optional[int] = None,
@@ -111,7 +110,6 @@ class QRDQN(OffPolicyAlgorithm):
             tensorboard_log=tensorboard_log,
             verbose=verbose,
             device=device,
-            create_eval_env=create_eval_env,
             seed=seed,
             sde_support=False,
             optimize_memory_usage=optimize_memory_usage,
@@ -141,6 +139,9 @@ class QRDQN(OffPolicyAlgorithm):
     def _setup_model(self) -> None:
         super()._setup_model()
         self._create_aliases()
+        # Copy running stats, see https://github.com/DLR-RM/stable-baselines3/issues/996
+        self.batch_norm_stats = get_parameters_by_name(self.quantile_net, ["running_"])
+        self.batch_norm_stats_target = get_parameters_by_name(self.quantile_net_target, ["running_"])
         self.exploration_schedule = get_linear_fn(
             self.exploration_initial_eps, self.exploration_final_eps, self.exploration_fraction
         )
@@ -157,6 +158,8 @@ class QRDQN(OffPolicyAlgorithm):
         """
         if self.num_timesteps % self.target_update_interval == 0:
             polyak_update(self.quantile_net.parameters(), self.quantile_net_target.parameters(), self.tau)
+            # Copy running stats, see https://github.com/DLR-RM/stable-baselines3/issues/996
+            polyak_update(self.batch_norm_stats, self.batch_norm_stats_target, 1.0)
 
         self.exploration_rate = self.exploration_schedule(self._current_progress_remaining)
         self.logger.record("rollout/exploration_rate", self.exploration_rate)
@@ -244,28 +247,22 @@ class QRDQN(OffPolicyAlgorithm):
         return action, state
 
     def learn(
-        self,
+        self: QRDQNSelf,
         total_timesteps: int,
         callback: MaybeCallback = None,
         log_interval: int = 4,
-        eval_env: Optional[GymEnv] = None,
-        eval_freq: int = -1,
-        n_eval_episodes: int = 5,
         tb_log_name: str = "QRDQN",
-        eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
-    ) -> OffPolicyAlgorithm:
+        progress_bar: bool = False,
+    ) -> QRDQNSelf:
 
         return super().learn(
             total_timesteps=total_timesteps,
             callback=callback,
             log_interval=log_interval,
-            eval_env=eval_env,
-            eval_freq=eval_freq,
-            n_eval_episodes=n_eval_episodes,
             tb_log_name=tb_log_name,
-            eval_log_path=eval_log_path,
             reset_num_timesteps=reset_num_timesteps,
+            progress_bar=progress_bar,
         )
 
     def _excluded_save_params(self) -> List[str]:
