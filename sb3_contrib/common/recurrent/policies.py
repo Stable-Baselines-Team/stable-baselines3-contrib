@@ -336,6 +336,43 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         values = self.value_net(latent_vf)
         return values, log_prob, distribution.entropy()
 
+    def evaluate_actions_whole_sequence(
+        self,
+        obs: th.Tensor,
+        actions: th.Tensor,
+    ) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
+        """
+        Evaluate actions of batches of whole sequences according to the current policy,
+        given the observations.
+
+        :param obs: Observation.
+        :param actions:
+        :param lstm_states: The last hidden and memory states for the LSTM.
+        :param episode_starts: Whether the observations correspond to new episodes
+            or not (we reset the lstm states in that case).
+        :return: estimated value, log likelihood of taking those actions
+            and entropy of the action distribution.
+        """
+        # Preprocess the observation if needed
+        features = self.extract_features(obs)
+        latent_pi, _ = self.lstm_actor(features)
+
+        if self.lstm_critic is not None:
+            latent_vf, _ = self.lstm_critic(features)
+        elif self.shared_lstm:
+            latent_vf = latent_pi.detach()
+        else:
+            latent_vf = self.critic(features)
+
+        latent_pi = self.mlp_extractor.forward_actor(latent_pi)
+        latent_vf = self.mlp_extractor.forward_critic(latent_vf)
+
+        distribution = self._get_action_dist_from_latent(latent_pi)
+        log_prob = distribution.distribution.log_prob(actions).sum(dim=-1)
+        log_prob = log_prob.reshape(log_prob.shape + (1,))
+        values = self.value_net(latent_vf)
+        return values, log_prob, distribution.entropy()
+
     def _predict(
         self,
         observation: th.Tensor,
