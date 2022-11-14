@@ -454,19 +454,21 @@ class RecurrentSequenceDictRolloutBuffer(RecurrentDictRolloutBuffer):
         for indices in batch_sampler:
             obs_batch = {}
             for key in self.observations:
-                obs_batch[key] = pad_sequence([th.Tensor(self.observations[key][self.episode_start_indices[i]:self.episode_start_indices[i+1]]) for i in indices], batch_first=True)
+                obs_batch[key] = pad_sequence([th.tensor(self.observations[key][self.episode_start_indices[i]:self.episode_start_indices[i+1]], device=self.device) for i in indices], batch_first=True)
 
-            actions_batch = pad_sequence([th.Tensor(self.actions[self.episode_start_indices[i]:self.episode_start_indices[i+1]]) for i in indices], batch_first=True)
-            old_values_batch = pad_sequence([th.Tensor(self.values[self.episode_start_indices[i]:self.episode_start_indices[i+1]]) for i in indices], batch_first=True)
-            old_log_probs_batch = pad_sequence([th.Tensor(self.log_probs[self.episode_start_indices[i]:self.episode_start_indices[i+1]]) for i in indices], batch_first=True)
-            advantages_batch = pad_sequence([th.Tensor(self.advantages[self.episode_start_indices[i]:self.episode_start_indices[i+1]]) for i in indices], batch_first=True)
-            returns_batch = pad_sequence([th.Tensor(self.returns[self.episode_start_indices[i]:self.episode_start_indices[i+1]]) for i in indices], batch_first=True)
+            actions_batch = pad_sequence([th.tensor(self.actions[self.episode_start_indices[i]:self.episode_start_indices[i+1]], device=self.device) for i in indices], batch_first=True)
+            old_values_batch = pad_sequence([th.tensor(self.values[self.episode_start_indices[i]:self.episode_start_indices[i+1]], device=self.device) for i in indices], batch_first=True)
+            old_log_probs_batch = pad_sequence([th.tensor(self.log_probs[self.episode_start_indices[i]:self.episode_start_indices[i+1]], device=self.device) for i in indices], batch_first=True)
+            advantages_batch = pad_sequence([th.tensor(self.advantages[self.episode_start_indices[i]:self.episode_start_indices[i+1]], device=self.device) for i in indices], batch_first=True)
+            returns_batch = pad_sequence([th.tensor(self.returns[self.episode_start_indices[i]:self.episode_start_indices[i+1]], device=self.device) for i in indices], batch_first=True)
+            masks_batch = pad_sequence([th.ones_like(r) for r in returns_batch], batch_first=True)
 
             yield RecurrentDictRolloutBufferSequenceSamples(
-                observations=obs_batch,
-                actions=actions_batch,
-                old_values=old_values_batch,
-                old_log_prob=old_log_probs_batch,
-                advantages=advantages_batch,
-                returns=returns_batch
+                observations={key:th.swapaxes(obs_batch[key], 0, 1) for key in obs_batch},
+                actions=th.swapaxes(actions_batch, 0, 1),
+                old_values=th.swapaxes(old_values_batch, 0, 1),
+                old_log_prob=th.swapaxes(old_log_probs_batch, 0, 1),
+                advantages=th.swapaxes(advantages_batch, 0, 1),
+                returns=th.swapaxes(returns_batch, 0, 1),
+                masks=th.swapaxes(masks_batch, 0, 1)
             )
