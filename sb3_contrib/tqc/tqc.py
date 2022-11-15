@@ -13,7 +13,7 @@ from stable_baselines3.common.utils import get_parameters_by_name, polyak_update
 from sb3_contrib.common.utils import quantile_huber_loss
 from sb3_contrib.tqc.policies import CnnPolicy, MlpPolicy, MultiInputPolicy, TQCPolicy
 
-TQCSelf = TypeVar("TQCSelf", bound="TQC")
+SelfTQC = TypeVar("SelfTQC", bound="TQC")
 
 
 class TQC(OffPolicyAlgorithm):
@@ -284,14 +284,14 @@ class TQC(OffPolicyAlgorithm):
             self.logger.record("train/ent_coef_loss", np.mean(ent_coef_losses))
 
     def learn(
-        self: TQCSelf,
+        self: SelfTQC,
         total_timesteps: int,
         callback: MaybeCallback = None,
         log_interval: int = 4,
         tb_log_name: str = "TQC",
         reset_num_timesteps: bool = True,
         progress_bar: bool = False,
-    ) -> TQCSelf:
+    ) -> SelfTQC:
 
         return super().learn(
             total_timesteps=total_timesteps,
