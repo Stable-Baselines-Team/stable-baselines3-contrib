@@ -19,7 +19,7 @@ from stable_baselines3.common.utils import get_schedule_fn, safe_mean
 from sb3_contrib.ars.policies import ARSPolicy, LinearPolicy, MlpPolicy
 from sb3_contrib.common.vec_env.async_eval import AsyncEval
 
-ARSSelf = TypeVar("ARSSelf", bound="ARS")
+SelfARS = TypeVar("SelfARS", bound="ARS")
 
 
 class ARS(BaseAlgorithm):
@@ -304,7 +304,7 @@ class ARS(BaseAlgorithm):
         self._n_updates += 1
 
     def learn(
-        self: ARSSelf,
+        self: SelfARS,
         total_timesteps: int,
         callback: MaybeCallback = None,
         log_interval: int = 1,
@@ -312,7 +312,7 @@ class ARS(BaseAlgorithm):
         reset_num_timesteps: bool = True,
         async_eval: Optional[AsyncEval] = None,
         progress_bar: bool = False,
-    ) -> ARSSelf:
+    ) -> SelfARS:
         """
         Return a trained model.
 
