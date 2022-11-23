@@ -354,7 +354,10 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             and entropy of the action distribution.
         """
         # Preprocess the observation if needed
-        features = self.extract_features(obs)
+        if self.features_extractor_class == FlattenExtractor: # temporary fix to disable the flattening that stable_baselines3 feature extractors do by default
+            features = obs
+        else:
+            features = self.extract_features(obs)
         latent_pi, _ = self.lstm_actor(features)
 
         if self.lstm_critic is not None:

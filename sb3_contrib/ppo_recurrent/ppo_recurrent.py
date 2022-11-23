@@ -15,7 +15,7 @@ from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedul
 from stable_baselines3.common.utils import explained_variance, get_schedule_fn, obs_as_tensor, safe_mean
 from stable_baselines3.common.vec_env import VecEnv
 
-from sb3_contrib.common.recurrent.buffers import RecurrentDictRolloutBuffer, RecurrentRolloutBuffer, RecurrentSequenceDictRolloutBuffer
+from sb3_contrib.common.recurrent.buffers import RecurrentDictRolloutBuffer, RecurrentRolloutBuffer, RecurrentSequenceDictRolloutBuffer, RecurrentSequenceRolloutBuffer
 from sb3_contrib.common.recurrent.policies import RecurrentActorCriticPolicy
 from sb3_contrib.common.recurrent.type_aliases import RNNStates
 from sb3_contrib.ppo_recurrent.policies import CnnLstmPolicy, MlpLstmPolicy, MultiInputLstmPolicy
@@ -146,9 +146,10 @@ class RecurrentPPO(OnPolicyAlgorithm):
         self._setup_lr_schedule()
         self.set_random_seed(self.seed)
 
-        if self.whole_sequences: # TODO
+        # 3d batches of whole sequences or 2d batches of constant size
+        if self.whole_sequences:
             buffer_cls = (
-                RecurrentSequenceDictRolloutBuffer if isinstance(self.observation_space, gym.spaces.Dict) else RecurrentRolloutBuffer
+                RecurrentSequenceDictRolloutBuffer if isinstance(self.observation_space, gym.spaces.Dict) else RecurrentSequenceRolloutBuffer
             )
         else:
             buffer_cls = (
@@ -226,7 +227,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
             collected, False if callback terminated rollout prematurely.
         """
         assert isinstance(
-            rollout_buffer, (RecurrentRolloutBuffer, RecurrentDictRolloutBuffer, RecurrentSequenceDictRolloutBuffer)
+            rollout_buffer, (RecurrentRolloutBuffer, RecurrentDictRolloutBuffer, RecurrentSequenceRolloutBuffer, RecurrentSequenceDictRolloutBuffer)
         ), f"{rollout_buffer} doesn't support recurrent policy"
 
         assert self._last_obs is not None, "No previous observation was provided"
@@ -324,7 +325,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
 
     def train_whole_sequences(self) -> None:
         """
-        Update policy using the currently gathered rollout buffer.
+        Update policy using the currently gathered rollout buffer but do it on 3d batches of whole sequences.
         """
         # Switch to train mode (this affects batch norm / dropout)
         self.policy.set_training_mode(True)
@@ -350,7 +351,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
                 actions = rollout_data.actions
                 if isinstance(self.action_space, spaces.Discrete):
                     # Convert discrete action from float to long
-                    actions = rollout_data.actions.long().flatten()
+                    actions = rollout_data.actions.long()
 
                 # Convert mask from float to bool
                 mask = rollout_data.masks > 1e-8
@@ -364,7 +365,6 @@ class RecurrentPPO(OnPolicyAlgorithm):
                     actions,
                 )
 
-                # values = values.flatten() # ??
                 # Normalize advantage
                 advantages = rollout_data.advantages
                 if self.normalize_advantage:

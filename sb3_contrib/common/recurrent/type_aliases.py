@@ -33,6 +33,16 @@ class RecurrentDictRolloutBufferSamples(RecurrentRolloutBufferSamples):
     mask: th.Tensor
 
 
+class RecurrentRolloutBufferSequenceSamples(NamedTuple):
+    observations: th.Tensor
+    actions: th.Tensor
+    old_values: th.Tensor
+    old_log_prob: th.Tensor
+    advantages: th.Tensor
+    returns: th.Tensor
+    masks: th.Tensor
+
+
 class RecurrentDictRolloutBufferSequenceSamples(NamedTuple):
     observations: TensorDict
     actions: th.Tensor
