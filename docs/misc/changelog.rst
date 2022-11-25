@@ -25,7 +25,7 @@ Deprecations:
 
 Others:
 ^^^^^^^
-
+- Fixed flake8 config
 
 Release 1.6.2 (2022-10-10)
 --------------------------
