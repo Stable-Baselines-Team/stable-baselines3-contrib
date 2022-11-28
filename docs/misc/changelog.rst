@@ -27,6 +27,7 @@ Deprecations:
 Others:
 ^^^^^^^
 - Fixed flake8 config
+- Fixed ``sb3_contrib/common/recurrent/type_aliases.py`` type hint
 
 Release 1.6.2 (2022-10-10)
 --------------------------
