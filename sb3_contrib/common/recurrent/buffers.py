@@ -423,6 +423,7 @@ class RecurrentSequenceRolloutBuffer(RecurrentRolloutBuffer):
         assert self.full, "Rollout buffer must be full before sampling from it"
         # Prepare the data
         if not self.generator_ready:
+            self.episode_starts[0, :] = 1
             for tensor in [
                 "observations",
                 "actions",
@@ -500,6 +501,7 @@ class RecurrentSequenceDictRolloutBuffer(RecurrentDictRolloutBuffer):
         assert self.full, "Rollout buffer must be full before sampling from it"
         # Prepare the data
         if not self.generator_ready:
+            self.episode_starts[0, :] = 1
             for key, obs in self.observations.items():
                 self.observations[key] = self.swap_and_flatten(obs)
 
