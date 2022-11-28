@@ -14,6 +14,7 @@ Breaking Changes:
 
 New Features:
 ^^^^^^^^^^^^^
+- Introduced mypy type checking
 
 Bug Fixes:
 ^^^^^^^^^^
