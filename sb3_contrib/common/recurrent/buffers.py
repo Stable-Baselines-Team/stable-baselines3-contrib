@@ -443,7 +443,7 @@ class RecurrentSequenceRolloutBuffer(RecurrentRolloutBuffer):
             self.generator_ready = True
         
         random_indices = SubsetRandomSampler(range(len(self.episode_start_indices)-1)) # dropping the last one to make indexing the np arrays much simpler
-        batch_sampler = BatchSampler(random_indices, batch_size, drop_last=False)
+        batch_sampler = BatchSampler(random_indices, batch_size, drop_last=True) # drop last batch to prevent extremely small batches causing spurious updates
 
         # yields batches of whole sequences, shape: (sequence_length, batch_size, data_length))
         for indices in batch_sampler:
@@ -523,7 +523,7 @@ class RecurrentSequenceDictRolloutBuffer(RecurrentDictRolloutBuffer):
             self.generator_ready = True
         
         random_indices = SubsetRandomSampler(range(len(self.episode_start_indices)-1)) # dropping the last one to make indexing the np arrays much simpler
-        batch_sampler = BatchSampler(random_indices, batch_size, drop_last=False)
+        batch_sampler = BatchSampler(random_indices, batch_size, drop_last=True) # drop last batch to prevent extremely small batches causing spurious updates
 
         # yields batches of whole sequences, shape: (sequence_length, batch_size, data_length)
         for indices in batch_sampler:
