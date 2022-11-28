@@ -19,7 +19,7 @@ from stable_baselines3.common.utils import get_schedule_fn, safe_mean
 from sb3_contrib.ars.policies import ARSPolicy, LinearPolicy, MlpPolicy
 from sb3_contrib.common.vec_env.async_eval import AsyncEval
 
-ARSSelf = TypeVar("ARSSelf", bound="ARS")
+SelfARS = TypeVar("SelfARS", bound="ARS")
 
 
 class ARS(BaseAlgorithm):
@@ -304,19 +304,15 @@ class ARS(BaseAlgorithm):
         self._n_updates += 1
 
     def learn(
-        self: ARSSelf,
+        self: SelfARS,
         total_timesteps: int,
         callback: MaybeCallback = None,
         log_interval: int = 1,
         tb_log_name: str = "ARS",
-        eval_env: Optional[GymEnv] = None,
-        eval_freq: int = -1,
-        n_eval_episodes: int = 5,
-        eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
         async_eval: Optional[AsyncEval] = None,
         progress_bar: bool = False,
-    ) -> ARSSelf:
+    ) -> SelfARS:
         """
         Return a trained model.
 
@@ -324,14 +320,6 @@ class ARS(BaseAlgorithm):
         :param callback: callback(s) called at every step with state of the algorithm.
         :param log_interval: The number of timesteps before logging.
         :param tb_log_name: the name of the run for TensorBoard logging
-        :param eval_env: Environment to use for evaluation.
-            Caution, this parameter is deprecated and will be removed in the future.
-            Please use `EvalCallback` or a custom Callback instead.
-        :param eval_freq: Evaluate the agent every ``eval_freq`` timesteps (this may vary a little).
-            Caution, this parameter is deprecated and will be removed in the future.
-            Please use `EvalCallback` or a custom Callback instead.
-        :param n_eval_episodes: Number of episode to evaluate the agent
-        :param eval_log_path: Path to a folder where the evaluations will be saved
         :param reset_num_timesteps: whether or not to reset the current timestep number (used in logging)
         :param async_eval: The object for asynchronous evaluation of candidates.
         :param progress_bar: Display a progress bar using tqdm and rich.
@@ -340,11 +328,7 @@ class ARS(BaseAlgorithm):
 
         total_steps, callback = self._setup_learn(
             total_timesteps,
-            eval_env,
             callback,
-            eval_freq,
-            n_eval_episodes,
-            eval_log_path,
             reset_num_timesteps,
             tb_log_name,
             progress_bar,

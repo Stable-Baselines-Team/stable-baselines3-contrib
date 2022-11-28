@@ -20,7 +20,7 @@ from sb3_contrib.common.recurrent.policies import RecurrentActorCriticPolicy
 from sb3_contrib.common.recurrent.type_aliases import RNNStates
 from sb3_contrib.ppo_recurrent.policies import CnnLstmPolicy, MlpLstmPolicy, MultiInputLstmPolicy
 
-RecurrentPPOSelf = TypeVar("RecurrentPPOSelf", bound="RecurrentPPO")
+SelfRecurrentPPO = TypeVar("SelfRecurrentPPO", bound="RecurrentPPO")
 
 
 class RecurrentPPO(OnPolicyAlgorithm):
@@ -58,9 +58,6 @@ class RecurrentPPO(OnPolicyAlgorithm):
         see issue #213 (cf https://github.com/hill-a/stable-baselines/issues/213)
         By default, there is no limit on the kl div.
     :param tensorboard_log: the log location for tensorboard (if None, no logging)
-    :param create_eval_env: Whether to create a second environment that will be
-        used for evaluating the agent periodically (Only available when passing string for the environment).
-        Caution, this parameter is deprecated and will be removed in the future.
     :param policy_kwargs: additional arguments to be passed to the policy on creation
     :param verbose: the verbosity level: 0 no output, 1 info, 2 debug
     :param seed: Seed for the pseudo random generators
@@ -96,7 +93,6 @@ class RecurrentPPO(OnPolicyAlgorithm):
         sde_sample_freq: int = -1,
         target_kl: Optional[float] = None,
         tensorboard_log: Optional[str] = None,
-        create_eval_env: bool = False,
         policy_kwargs: Optional[Dict[str, Any]] = None,
         verbose: int = 0,
         seed: Optional[int] = None,
@@ -116,7 +112,6 @@ class RecurrentPPO(OnPolicyAlgorithm):
             use_sde=use_sde,
             sde_sample_freq=sde_sample_freq,
             tensorboard_log=tensorboard_log,
-            create_eval_env=create_eval_env,
             policy_kwargs=policy_kwargs,
             verbose=verbose,
             seed=seed,
@@ -290,8 +285,8 @@ class RecurrentPPO(OnPolicyAlgorithm):
                     terminal_obs = self.policy.obs_to_tensor(infos[idx]["terminal_observation"])[0]
                     with th.no_grad():
                         terminal_lstm_state = (
-                            lstm_states.vf[0][:, idx : idx + 1, :],
-                            lstm_states.vf[1][:, idx : idx + 1, :],
+                            lstm_states.vf[0][:, idx : idx + 1, :].contiguous(),
+                            lstm_states.vf[1][:, idx : idx + 1, :].contiguous(),
                         )
                         # terminal_lstm_state = None
                         episode_starts = th.tensor([False]).float().to(self.device)
@@ -591,27 +586,19 @@ class RecurrentPPO(OnPolicyAlgorithm):
             self.logger.record("train/clip_range_vf", clip_range_vf)
 
     def learn(
-        self: RecurrentPPOSelf,
+        self: SelfRecurrentPPO,
         total_timesteps: int,
         callback: MaybeCallback = None,
         log_interval: int = 1,
-        eval_env: Optional[GymEnv] = None,
-        eval_freq: int = -1,
-        n_eval_episodes: int = 5,
         tb_log_name: str = "RecurrentPPO",
-        eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
         progress_bar: bool = False,
-    ) -> RecurrentPPOSelf:
+    ) -> SelfRecurrentPPO:
         iteration = 0
 
         total_timesteps, callback = self._setup_learn(
             total_timesteps,
-            eval_env,
             callback,
-            eval_freq,
-            n_eval_episodes,
-            eval_log_path,
             reset_num_timesteps,
             tb_log_name,
             progress_bar,

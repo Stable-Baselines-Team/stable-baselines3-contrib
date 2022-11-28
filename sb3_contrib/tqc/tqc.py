@@ -13,7 +13,7 @@ from stable_baselines3.common.utils import get_parameters_by_name, polyak_update
 from sb3_contrib.common.utils import quantile_huber_loss
 from sb3_contrib.tqc.policies import CnnPolicy, MlpPolicy, MultiInputPolicy, TQCPolicy
 
-TQCSelf = TypeVar("TQCSelf", bound="TQC")
+SelfTQC = TypeVar("SelfTQC", bound="TQC")
 
 
 class TQC(OffPolicyAlgorithm):
@@ -57,9 +57,6 @@ class TQC(OffPolicyAlgorithm):
         Default: -1 (only sample at the beginning of the rollout)
     :param use_sde_at_warmup: Whether to use gSDE instead of uniform sampling
         during the warm up phase (before learning starts)
-    :param create_eval_env: Whether to create a second environment that will be
-        used for evaluating the agent periodically (Only available when passing string for the environment).
-        Caution, this parameter is deprecated and will be removed in the future.
     :param policy_kwargs: additional arguments to be passed to the policy on creation
     :param verbose: the verbosity level: 0 no output, 1 info, 2 debug
     :param seed: Seed for the pseudo random generators
@@ -98,7 +95,6 @@ class TQC(OffPolicyAlgorithm):
         sde_sample_freq: int = -1,
         use_sde_at_warmup: bool = False,
         tensorboard_log: Optional[str] = None,
-        create_eval_env: bool = False,
         policy_kwargs: Optional[Dict[str, Any]] = None,
         verbose: int = 0,
         seed: Optional[int] = None,
@@ -124,7 +120,6 @@ class TQC(OffPolicyAlgorithm):
             tensorboard_log=tensorboard_log,
             verbose=verbose,
             device=device,
-            create_eval_env=create_eval_env,
             seed=seed,
             use_sde=use_sde,
             sde_sample_freq=sde_sample_freq,
@@ -289,28 +284,20 @@ class TQC(OffPolicyAlgorithm):
             self.logger.record("train/ent_coef_loss", np.mean(ent_coef_losses))
 
     def learn(
-        self: TQCSelf,
+        self: SelfTQC,
         total_timesteps: int,
         callback: MaybeCallback = None,
         log_interval: int = 4,
-        eval_env: Optional[GymEnv] = None,
-        eval_freq: int = -1,
-        n_eval_episodes: int = 5,
         tb_log_name: str = "TQC",
-        eval_log_path: Optional[str] = None,
         reset_num_timesteps: bool = True,
         progress_bar: bool = False,
-    ) -> TQCSelf:
+    ) -> SelfTQC:
 
         return super().learn(
             total_timesteps=total_timesteps,
             callback=callback,
             log_interval=log_interval,
-            eval_env=eval_env,
-            eval_freq=eval_freq,
-            n_eval_episodes=n_eval_episodes,
             tb_log_name=tb_log_name,
-            eval_log_path=eval_log_path,
             reset_num_timesteps=reset_num_timesteps,
             progress_bar=progress_bar,
         )
