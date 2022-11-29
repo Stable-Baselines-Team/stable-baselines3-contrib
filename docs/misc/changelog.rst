@@ -29,6 +29,7 @@ Others:
 ^^^^^^^
 - Fixed flake8 config
 - Fixed ``sb3_contrib/common/utils.py`` type hint
+- Fixed ``sb3_contrib/common/recurrent/type_aliases.py`` type hint
 - Fixed ``sb3_contrib/ars/policies.py`` type hint
 
 Release 1.6.2 (2022-10-10)
