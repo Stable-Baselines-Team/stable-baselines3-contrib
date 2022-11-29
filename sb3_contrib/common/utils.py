@@ -114,12 +114,16 @@ def conjugate_gradient_solver(
 
     p = residual.clone()
 
-    # A @ p (matrix vector multiplication)
-    A_dot_p = matrix_vector_dot_fn(p)
-    alpha = residual_squared_norm / p.dot(A_dot_p)
-    x += alpha * p
+    for i in range(max_iter):
+        # A @ p (matrix vector multiplication)
+        A_dot_p = matrix_vector_dot_fn(p)
 
-    for _ in range(max_iter - 1):
+        alpha = residual_squared_norm / p.dot(A_dot_p)
+        x += alpha * p
+
+        if i == max_iter - 1:
+            return x
+
         residual -= alpha * A_dot_p
         new_residual_squared_norm = th.matmul(residual, residual)
 
@@ -129,9 +133,7 @@ def conjugate_gradient_solver(
         beta = new_residual_squared_norm / residual_squared_norm
         residual_squared_norm = new_residual_squared_norm
         p = residual + beta * p
-        A_dot_p = matrix_vector_dot_fn(p)
-        alpha = residual_squared_norm / p.dot(A_dot_p)
-        x += alpha * p
+    # Note: this return statement is only used when max_iter=0
     return x
 
 
