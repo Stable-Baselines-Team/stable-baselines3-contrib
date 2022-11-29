@@ -45,7 +45,7 @@ class ARSPolicy(BasePolicy):
 
         if isinstance(action_space, gym.spaces.Box):
             action_dim = get_action_dim(action_space)
-            actor_net = create_mlp(self.features_dim, action_dim, net_arch, activation_fn, squash_output=True)
+            actor_net = create_mlp(self.features_dim, action_dim, net_arch, activation_fn, squash_output=squash_output)
         elif isinstance(action_space, gym.spaces.Discrete):
             actor_net = create_mlp(self.features_dim, action_space.n, net_arch, activation_fn)
         else:
