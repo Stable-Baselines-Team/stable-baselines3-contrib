@@ -102,17 +102,7 @@ class ARSLinearPolicy(ARSPolicy):
         squash_output: bool = False,
     ):
 
-        super().__init__(observation_space, action_space, squash_output=squash_output)
-
-        if isinstance(action_space, gym.spaces.Box):
-            action_dim = get_action_dim(action_space)
-            self.action_net = nn.Linear(self.features_dim, action_dim, bias=with_bias)
-            if squash_output:
-                self.action_net = nn.Sequential(self.action_net, nn.Tanh())
-        elif isinstance(action_space, gym.spaces.Discrete):
-            self.action_net = nn.Linear(self.features_dim, action_space.n, bias=with_bias)
-        else:
-            raise NotImplementedError(f"Error: ARS policy not implemented for action space of type {type(action_space)}.")
+        super().__init__(observation_space, action_space, net_arch=[], with_bias=with_bias, squash_output=squash_output)
 
 
 MlpPolicy = ARSPolicy
