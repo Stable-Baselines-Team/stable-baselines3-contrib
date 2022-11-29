@@ -280,7 +280,12 @@ class MaskableActorCriticPolicy(BasePolicy):
             distribution.apply_masking(action_masks)
         log_prob = distribution.log_prob(actions)
         values = self.value_net(latent_vf)
-        return values, log_prob, distribution.entropy()
+        try:
+            entropy = distribution.entropy()
+        except NotImplementedError:
+            # When no analytical form, entropy needs to be estimated using -log_prob.mean()
+            entropy = -log_prob.mean(dim=1)
+        return values, log_prob, entropy
 
     def get_distribution(self, obs: th.Tensor, action_masks: Optional[np.ndarray] = None) -> MaskableDistribution:
         """
