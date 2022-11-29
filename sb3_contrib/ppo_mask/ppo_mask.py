@@ -22,7 +22,7 @@ from sb3_contrib.common.maskable.policies import MaskableActorCriticPolicy
 from sb3_contrib.common.maskable.utils import get_action_masks, is_masking_supported
 from sb3_contrib.ppo_mask.policies import CnnPolicy, MlpPolicy, MultiInputPolicy
 
-MaskablePPOSelf = TypeVar("MaskablePPOSelf", bound="MaskablePPO")
+SelfMaskablePPO = TypeVar("SelfMaskablePPO", bound="MaskablePPO")
 
 
 class MaskablePPO(OnPolicyAlgorithm):
@@ -499,7 +499,7 @@ class MaskablePPO(OnPolicyAlgorithm):
             self.logger.record("train/clip_range_vf", clip_range_vf)
 
     def learn(
-        self: MaskablePPOSelf,
+        self: SelfMaskablePPO,
         total_timesteps: int,
         callback: MaybeCallback = None,
         log_interval: int = 1,
@@ -507,7 +507,7 @@ class MaskablePPO(OnPolicyAlgorithm):
         reset_num_timesteps: bool = True,
         use_masking: bool = True,
         progress_bar: bool = False,
-    ) -> MaskablePPOSelf:
+    ) -> SelfMaskablePPO:
         iteration = 0
 
         total_timesteps, callback = self._setup_learn(

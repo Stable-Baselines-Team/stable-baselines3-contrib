@@ -17,7 +17,7 @@ from torch.nn import functional as F
 from sb3_contrib.common.utils import conjugate_gradient_solver, flat_grad
 from sb3_contrib.trpo.policies import CnnPolicy, MlpPolicy, MultiInputPolicy
 
-TRPOSelf = TypeVar("TRPOSelf", bound="TRPO")
+SelfTRPO = TypeVar("SelfTRPO", bound="TRPO")
 
 
 class TRPO(OnPolicyAlgorithm):
@@ -400,14 +400,14 @@ class TRPO(OnPolicyAlgorithm):
         return flat_grad(jacobian_vector_product, params, retain_graph=retain_graph) + self.cg_damping * vector
 
     def learn(
-        self: TRPOSelf,
+        self: SelfTRPO,
         total_timesteps: int,
         callback: MaybeCallback = None,
         log_interval: int = 1,
         tb_log_name: str = "TRPO",
         reset_num_timesteps: bool = True,
         progress_bar: bool = False,
-    ) -> TRPOSelf:
+    ) -> SelfTRPO:
 
         return super().learn(
             total_timesteps=total_timesteps,
