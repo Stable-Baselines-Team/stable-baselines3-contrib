@@ -3,7 +3,7 @@
 Changelog
 ==========
 
-Release 1.7.0a1 (WIP)
+Release 1.7.0a2 (WIP)
 --------------------------
 
 Breaking Changes:
@@ -29,6 +29,8 @@ Others:
 - Fixed flake8 config
 - Fixed ``sb3_contrib/common/utils.py`` type hint
 - Fixed ``sb3_contrib/common/recurrent/type_aliases.py`` type hint
+- Exposed modules in `__init__.py` with `__all__` attribute (@ZikangXiong)
+- Removed ignores on Flake8 F401 (@ZikangXiong)
 
 Release 1.6.2 (2022-10-10)
 --------------------------
@@ -358,4 +360,4 @@ Contributors:
 -------------
 
 @ku2482 @guyk1971 @minhlong94 @ayeright @kronion @glmcdona @cyprienc @sgillen @Gregwar @rnederstigt @qgallouedec
-@mlodel @CppMaster @burakdmb @honglu2875
+@mlodel @CppMaster @burakdmb @honglu2875 @ZikangXiong
