@@ -13,6 +13,7 @@ from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.policies import BasePolicy
+from stable_baselines3.common.save_util import load_from_zip_file
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import get_schedule_fn, safe_mean
 
@@ -348,3 +349,26 @@ class ARS(BaseAlgorithm):
         callback.on_training_end()
 
         return self
+
+    def set_parameters(
+        self,
+        load_path_or_dict: Union[str, Dict[str, Dict]],
+        exact_match: bool = True,
+        device: Union[th.device, str] = "auto",
+    ) -> None:
+        """
+        Patched set_parameters() to handle ARS linear policy saved with sb3-contrib < 1.7.0
+        """
+        params = None
+        if isinstance(load_path_or_dict, dict):
+            params = load_path_or_dict
+        else:
+            _, params, _ = load_from_zip_file(load_path_or_dict, device=device)
+
+        # Patch to load LinearPolicy saved using sb3-contrib < 1.7.0
+        for name in {"weight", "bias"}:
+            if f"action_net.{name}" in params["policy"]:
+                params["policy"][f"action_net.0.{name}"] = params["policy"][f"action_net.{name}"]
+                del params["policy"][f"action_net.{name}"]
+
+        super().set_parameters(params, exact_match=exact_match)
