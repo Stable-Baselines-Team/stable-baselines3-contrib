@@ -34,6 +34,7 @@ Others:
 - Fixed ``sb3_contrib/ars/policies.py`` type hint
 - Exposed modules in `__init__.py` with `__all__` attribute (@ZikangXiong)
 - Removed ignores on Flake8 F401 (@ZikangXiong)
+- Upgraded GitHub CI/setup-python to v4 and checkout to v3
 
 Release 1.6.2 (2022-10-10)
 --------------------------
