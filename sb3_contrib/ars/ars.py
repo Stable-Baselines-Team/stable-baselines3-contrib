@@ -367,7 +367,7 @@ class ARS(BaseAlgorithm):
 
         # Patch to load LinearPolicy saved using sb3-contrib < 1.7.0
         for name in {"weight", "bias"}:
-            if f"action_net.{name}" in params["policy"]:
+            if f"action_net.{name}" in params.get("policy", {}):
                 params["policy"][f"action_net.0.{name}"] = params["policy"][f"action_net.{name}"]
                 del params["policy"][f"action_net.{name}"]
 
