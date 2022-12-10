@@ -8,6 +8,25 @@ from stable_baselines3.dqn.policies import DQNPolicy, QNetwork
 from torch import nn
 
 
+class Dueling(nn.Module):
+    """
+    Dueling submodule.
+
+    :param value_stream: Value stream
+    :param advantage_stream: Advantage stream
+    """
+
+    def __init__(self, value_stream: nn.Module, advantage_stream: nn.Module) -> None:
+        super().__init__()
+        self.value_stream = value_stream
+        self.advantage_stream = advantage_stream
+
+    def forward(self, features: th.Tensor) -> th.Tensor:
+        values = self.value_stream(features)
+        advantages = self.advantage_stream(features)
+        return values + (advantages - advantages.mean())  # TODO: check if dim is needed in mean()
+
+
 class DuelingQNetwork(QNetwork):
     """
     Dueling Q-Network.
@@ -45,22 +64,8 @@ class DuelingQNetwork(QNetwork):
 
         action_dim = self.action_space.n  # number of actions
         value_stream = create_mlp(self.features_dim, 1, self.net_arch, self.activation_fn)
-        self.value_stream = nn.Sequential(*value_stream)
         advantage_stream = create_mlp(self.features_dim, action_dim, self.net_arch, self.activation_fn)
-        self.advantage_stream = nn.Sequential(*advantage_stream)
-
-    def forward(self, obs: th.Tensor) -> th.Tensor:
-        """
-        Predict the q-values.
-
-        :param obs: Observation
-        :return: The estimated Q-Value for each action.
-        """
-        features = self.extract_features(obs)
-        values = self.value_stream(features)
-        advantages = self.advantage_stream(features)
-        qvals = values + (advantages - advantages.mean())
-        return qvals
+        self.q_net = Dueling(nn.Sequential(*value_stream), nn.Sequential(*advantage_stream))
 
 
 class DuelingDQNPolicy(DQNPolicy):
