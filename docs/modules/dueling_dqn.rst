@@ -56,8 +56,7 @@ Example
 
   env = gym.make("CartPole-v1")
 
-  policy_kwargs = dict(n_quantiles=50)
-  model = DuelingDQN("MlpPolicy", env, policy_kwargs=policy_kwargs, verbose=1)
+  model = DuelingDQN("MlpPolicy", env, verbose=1)
   model.learn(total_timesteps=10000, log_interval=4)
   model.save("dueling_dqn_cartpole")
 
@@ -71,7 +70,7 @@ Example
       obs, reward, done, info = env.step(action)
       env.render()
       if done:
-        obs = env.reset()
+          obs = env.reset()
 
 
 Results
