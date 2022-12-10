@@ -15,6 +15,7 @@ Breaking Changes:
 New Features:
 ^^^^^^^^^^^^^
 - Introduced mypy type checking
+- Added ``DuelingDQN``
 
 Bug Fixes:
 ^^^^^^^^^^
