@@ -2,10 +2,11 @@ from typing import Any, Dict, Optional, Tuple, Type, TypeVar, Union
 
 import torch as th
 from stable_baselines3.common.buffers import ReplayBuffer
+from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.dqn.dqn import DQN
 
-from sb3_contrib.dueling_dqn.policies import DuelingDQNPolicy
+from sb3_contrib.dueling_dqn.policies import CnnPolicy, DuelingDQNPolicy, MlpPolicy, MultiInputPolicy
 
 SelfDuelingDQN = TypeVar("SelfDuelingDQN", bound="DuelingDQN")
 
@@ -51,6 +52,12 @@ class DuelingDQN(DQN):
         Setting it to auto, the code will be run on the GPU if possible.
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
+
+    policy_aliases: Dict[str, Type[BasePolicy]] = {
+        "MlpPolicy": MlpPolicy,
+        "CnnPolicy": CnnPolicy,
+        "MultiInputPolicy": MultiInputPolicy,
+    }
 
     def __init__(
         self,
