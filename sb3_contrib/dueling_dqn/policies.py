@@ -65,7 +65,10 @@ class DuelingQNetwork(QNetwork):
         action_dim = self.action_space.n  # number of actions
         value_stream = create_mlp(self.features_dim, 1, self.net_arch, self.activation_fn)
         advantage_stream = create_mlp(self.features_dim, action_dim, self.net_arch, self.activation_fn)
-        self.q_net = Dueling(nn.Sequential(*value_stream), nn.Sequential(*advantage_stream))
+        # self.q_net is a Sequential in DQN, and is a Dueling here, and thus raises a mypy error.
+        # Since it would take a lot of effort to make it mypy compliant, and this implementation
+        # is temporary (will be special case of Rainbow in the future) we ignore the error.
+        self.q_net = Dueling(nn.Sequential(*value_stream), nn.Sequential(*advantage_stream))  # type: ignore[assignment]
 
 
 class DuelingDQNPolicy(DQNPolicy):
