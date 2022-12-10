@@ -15,7 +15,8 @@ with open(version_file) as file_handler:
 
 __all__ = [
     "ARS",
-    "DuelingDQN" "MaskablePPO",
+    "DuelingDQN",
+    "MaskablePPO",
     "RecurrentPPO",
     "QRDQN",
     "TQC",
