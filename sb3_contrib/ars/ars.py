@@ -356,9 +356,7 @@ class ARS(BaseAlgorithm):
         exact_match: bool = True,
         device: Union[th.device, str] = "auto",
     ) -> None:
-        """
-        Patched set_parameters() to handle ARS linear policy saved with sb3-contrib < 1.7.0
-        """
+        # Patched set_parameters() to handle ARS linear policy saved with sb3-contrib < 1.7.0
         params = None
         if isinstance(load_path_or_dict, dict):
             params = load_path_or_dict
@@ -366,6 +364,7 @@ class ARS(BaseAlgorithm):
             _, params, _ = load_from_zip_file(load_path_or_dict, device=device)
 
         # Patch to load LinearPolicy saved using sb3-contrib < 1.7.0
+        # See https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/pull/122#issuecomment-1331981230
         for name in {"weight", "bias"}:
             if f"action_net.{name}" in params.get("policy", {}):
                 params["policy"][f"action_net.0.{name}"] = params["policy"][f"action_net.{name}"]
