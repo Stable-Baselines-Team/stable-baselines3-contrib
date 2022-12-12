@@ -17,6 +17,7 @@ New Features:
 ^^^^^^^^^^^^^
 - Introduced mypy type checking
 - Added ``with_bias`` parameter to ``ARSPolicy``
+- Added ``DuelingDQN``
 
 Bug Fixes:
 ^^^^^^^^^^
