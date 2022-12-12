@@ -16,6 +16,7 @@ class ARSPolicy(BasePolicy):
     :param action_space: The action space of the environment
     :param net_arch: Network architecture, defaults to a 2 layers MLP with 64 hidden nodes.
     :param activation_fn: Activation function
+    :param with_bias: If set to False, the layers will not learn an additive bias
     :param squash_output: For continuous actions, whether the output is squashed
         or not using a ``tanh()`` function. If not squashed with tanh the output will instead be clipped.
     """
@@ -26,6 +27,7 @@ class ARSPolicy(BasePolicy):
         action_space: gym.spaces.Space,
         net_arch: Optional[List[int]] = None,
         activation_fn: Type[nn.Module] = nn.ReLU,
+        with_bias: bool = True,
         squash_output: bool = True,
     ):
 
@@ -45,9 +47,11 @@ class ARSPolicy(BasePolicy):
 
         if isinstance(action_space, gym.spaces.Box):
             action_dim = get_action_dim(action_space)
-            actor_net = create_mlp(self.features_dim, action_dim, net_arch, activation_fn, squash_output=True)
+            actor_net = create_mlp(
+                self.features_dim, action_dim, net_arch, activation_fn, with_bias=with_bias, squash_output=squash_output
+            )
         elif isinstance(action_space, gym.spaces.Discrete):
-            actor_net = create_mlp(self.features_dim, action_space.n, net_arch, activation_fn)
+            actor_net = create_mlp(self.features_dim, action_space.n, net_arch, activation_fn, with_bias=with_bias)
         else:
             raise NotImplementedError(f"Error: ARS policy not implemented for action space of type {type(action_space)}.")
 
@@ -98,17 +102,7 @@ class ARSLinearPolicy(ARSPolicy):
         squash_output: bool = False,
     ):
 
-        super().__init__(observation_space, action_space, squash_output=squash_output)
-
-        if isinstance(action_space, gym.spaces.Box):
-            action_dim = get_action_dim(action_space)
-            self.action_net = nn.Linear(self.features_dim, action_dim, bias=with_bias)
-            if squash_output:
-                self.action_net = nn.Sequential(self.action_net, nn.Tanh())
-        elif isinstance(action_space, gym.spaces.Discrete):
-            self.action_net = nn.Linear(self.features_dim, action_space.n, bias=with_bias)
-        else:
-            raise NotImplementedError(f"Error: ARS policy not implemented for action space of type {type(action_space)}.")
+        super().__init__(observation_space, action_space, net_arch=[], with_bias=with_bias, squash_output=squash_output)
 
 
 MlpPolicy = ARSPolicy
