@@ -133,6 +133,8 @@ def conjugate_gradient_solver(
         beta = new_residual_squared_norm / residual_squared_norm
         residual_squared_norm = new_residual_squared_norm
         p = residual + beta * p
+    # Note: this return statement is only used when max_iter=0
+    return x
 
 
 def flat_grad(

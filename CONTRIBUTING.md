@@ -152,7 +152,7 @@ To run tests with `pytest`:
 make pytest
 ```
 
-Type checking with `pytype`:
+Type checking with `pytype` and `mypy`:
 
 ```
 make type
@@ -165,7 +165,7 @@ make check-codestyle
 make lint
 ```
 
-To run `pytype`, `format` and `lint` in one command:
+To run `type`, `format` and `lint` in one command:
 ```
 make commit-checks
 ```
