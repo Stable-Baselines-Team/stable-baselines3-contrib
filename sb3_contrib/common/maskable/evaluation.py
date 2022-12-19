@@ -101,7 +101,7 @@ def evaluate_policy(  # noqa: C901
             )
         else:
             actions, states = model.predict(
-                observations, # type: ignore[arg-type]
+                observations,  # type: ignore[arg-type]
                 state=states,
                 episode_start=episode_starts,
                 deterministic=deterministic,
