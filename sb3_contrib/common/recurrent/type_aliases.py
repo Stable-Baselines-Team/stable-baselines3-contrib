@@ -21,7 +21,7 @@ class RecurrentRolloutBufferSamples(NamedTuple):
     mask: th.Tensor
 
 
-class RecurrentDictRolloutBufferSamples(RecurrentRolloutBufferSamples):
+class RecurrentDictRolloutBufferSamples(NamedTuple):
     observations: TensorDict
     actions: th.Tensor
     old_values: th.Tensor
