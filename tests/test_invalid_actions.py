@@ -1,7 +1,8 @@
 import random
-from typing import Optional
+from typing import Dict, Tuple
 
 import gym
+import numpy as np
 import pytest
 from stable_baselines3.common.callbacks import EventCallback, StopTrainingOnNoModelImprovement
 from stable_baselines3.common.env_util import make_vec_env
@@ -30,8 +31,8 @@ class ToDictWrapper(gym.Wrapper):
         super().__init__(env)
         self.observation_space = gym.spaces.Dict({"obs": self.env.observation_space})
 
-    def reset(self, seed: Optional[int] = None):
-        return {"obs": self.env.reset(seed=seed)[0]}, {}
+    def reset(self, **kwargs) -> Tuple[Dict[str, np.ndarray], Dict]:
+        return {"obs": self.env.reset(seed=kwargs.get("seed", 0))[0]}, {}
 
     def step(self, action):
         obs, reward, terminated, truncated, infos = self.env.step(action)

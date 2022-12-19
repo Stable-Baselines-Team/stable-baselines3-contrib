@@ -20,10 +20,12 @@ class IdentityEnvDiscrete(IdentityEnv):
         super().__init__(ep_length=ep_length, space=space)
 
     def _action_masks(self) -> List[int]:
+        assert isinstance(self.action_space, Discrete)
         return [i == self.state for i in range(self.action_space.n)]
 
 
 def action_mask_fn(env: IdentityEnvDiscrete) -> List[int]:
+    assert isinstance(env.action_space, Discrete)
     return [i == env.state for i in range(env.action_space.n)]
 
 
