@@ -15,6 +15,7 @@ Breaking Changes:
 New Features:
 ^^^^^^^^^^^^^
 - Introduced mypy type checking
+- Added support for Python 3.10
 
 Bug Fixes:
 ^^^^^^^^^^
