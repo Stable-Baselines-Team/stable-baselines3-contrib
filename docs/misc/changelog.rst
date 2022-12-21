@@ -3,7 +3,7 @@
 Changelog
 ==========
 
-Release 1.7.0a2 (WIP)
+Release 1.7.0a4 (WIP)
 --------------------------
 
 Breaking Changes:
@@ -11,11 +11,13 @@ Breaking Changes:
 - Removed deprecated ``create_eval_env``, ``eval_env``, ``eval_log_path``, ``n_eval_episodes`` and ``eval_freq`` parameters,
   please use an ``EvalCallback`` instead
 - Removed deprecated ``sde_net_arch`` parameter
+- Upgraded to Stable-Baselines3 >= 1.7.0a4
 
 New Features:
 ^^^^^^^^^^^^^
 - Introduced mypy type checking
 - Added support for Python 3.10
+- Added ``with_bias`` parameter to ``ARSPolicy``
 
 Bug Fixes:
 ^^^^^^^^^^
@@ -30,6 +32,7 @@ Others:
 - Fixed flake8 config
 - Fixed ``sb3_contrib/common/utils.py`` type hint
 - Fixed ``sb3_contrib/common/recurrent/type_aliases.py`` type hint
+- Fixed ``sb3_contrib/ars/policies.py`` type hint
 - Exposed modules in `__init__.py` with `__all__` attribute (@ZikangXiong)
 - Removed ignores on Flake8 F401 (@ZikangXiong)
 - Upgraded GitHub CI/setup-python to v4 and checkout to v3
