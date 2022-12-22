@@ -106,7 +106,10 @@ class MaskableActorCriticPolicy(BasePolicy):
         self._build(lr_schedule)
 
     def forward(
-        self, obs: th.Tensor, deterministic: bool = False, action_masks: Optional[np.ndarray] = None
+        self,
+        obs: th.Tensor,
+        deterministic: bool = False,
+        action_masks: Optional[np.ndarray] = None,
     ) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
         """
         Forward pass in all the networks (actor and critic)
@@ -316,7 +319,7 @@ class MaskableActorCriticPolicy(BasePolicy):
             pi_features, vf_features = features
             latent_pi = self.mlp_extractor.forward_actor(pi_features)
             latent_vf = self.mlp_extractor.forward_critic(vf_features)
-        latent_pi, latent_vf = self.mlp_extractor(features)
+
         distribution = self._get_action_dist_from_latent(latent_pi)
         if action_masks is not None:
             distribution.apply_masking(action_masks)

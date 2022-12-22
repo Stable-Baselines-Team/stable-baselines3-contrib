@@ -26,20 +26,21 @@ def test_cnn(tmp_path, model_class, share_features_extractor):
         n_channels=1,
         discrete=model_class not in {TQC},
     )
-    kwargs = {}
+    kwargs = dict(policy_kwargs=dict(share_features_extractor=share_features_extractor))
     if model_class in {TQC, QRDQN}:
+        # share_features_extractor is checked later for offpolicy algorithms
+        if share_features_extractor:
+            return
         # Avoid memory error when using replay buffer
         # Reduce the size of the features and the number of quantiles
         kwargs = dict(
             buffer_size=250,
             policy_kwargs=dict(
                 n_quantiles=25,
-                features_extractor_kwargs=dict(
-                    features_dim=32,
-                    share_features_extractor=share_features_extractor,
-                ),
+                features_extractor_kwargs=dict(features_dim=32),
             ),
         )
+
     model = model_class("CnnPolicy", env, **kwargs).learn(250)
 
     obs = env.reset()

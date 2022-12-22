@@ -123,7 +123,11 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         self.lstm_critic = None
         assert not (
             self.shared_lstm and self.enable_critic_lstm
-        ), "You must choose between shared LSTM, seperate or no LSTM for the critic"
+        ), "You must choose between shared LSTM, seperate or no LSTM for the critic."
+
+        assert not (
+            self.shared_lstm and not self.share_features_extractor
+        ), "If the features extractor is not shared, the LSTM cannot be shared."
 
         # No LSTM for the critic, we still need to convert
         # output of features extractor to the correct size
@@ -149,7 +153,10 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         Part of the layers can be shared.
         """
         self.mlp_extractor = MlpExtractor(
-            self.lstm_output_dim, net_arch=self.net_arch, activation_fn=self.activation_fn, device=self.device
+            self.lstm_output_dim,
+            net_arch=self.net_arch,
+            activation_fn=self.activation_fn,
+            device=self.device,
         )
 
     @staticmethod
@@ -250,7 +257,10 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         return actions, values, log_prob, RNNStates(lstm_states_pi, lstm_states_vf)
 
     def get_distribution(
-        self, obs: th.Tensor, lstm_states: Tuple[th.Tensor, th.Tensor], episode_starts: th.Tensor
+        self,
+        obs: th.Tensor,
+        lstm_states: Tuple[th.Tensor, th.Tensor],
+        episode_starts: th.Tensor,
     ) -> Tuple[Distribution, Tuple[th.Tensor, ...]]:
         """
         Get the current policy distribution given the observations.
@@ -284,15 +294,12 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         """
         # Call the method from the parent of the parent class
         features = super(ActorCriticPolicy, self).extract_features(obs, self.vf_features_extractor)
-        if self.share_features_extractor:
-            pi_features = vf_features = features  # alis
-        else:
-            pi_features, vf_features = features
+
         if self.lstm_critic is not None:
-            latent_vf, lstm_states_vf = self._process_sequence(vf_features, lstm_states, episode_starts, self.lstm_critic)
+            latent_vf, lstm_states_vf = self._process_sequence(features, lstm_states, episode_starts, self.lstm_critic)
         elif self.shared_lstm:
             # Use LSTM from the actor
-            latent_pi, _ = self._process_sequence(pi_features, lstm_states, episode_starts, self.lstm_actor)
+            latent_pi, _ = self._process_sequence(features, lstm_states, episode_starts, self.lstm_actor)
             latent_vf = latent_pi.detach()
         else:
             latent_vf = self.critic(features)
@@ -318,7 +325,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         # Preprocess the observation if needed
         features = self.extract_features(obs)
         if self.share_features_extractor:
-            pi_features = vf_features = features  # alis
+            pi_features = vf_features = features  # alias
         else:
             pi_features, vf_features = features
         latent_pi, _ = self._process_sequence(pi_features, lstm_states.pi, episode_starts, self.lstm_actor)
