@@ -293,6 +293,7 @@ class TQCPolicy(BasePolicy):
             features_extractor_kwargs,
             optimizer_class=optimizer_class,
             optimizer_kwargs=optimizer_kwargs,
+            normalize_images=normalize_images,
             squash_output=True,
         )
 

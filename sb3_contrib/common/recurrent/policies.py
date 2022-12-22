@@ -261,7 +261,8 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             or not (we reset the lstm states in that case).
         :return: the action distribution and new hidden states.
         """
-        features = super().extract_features(obs, self.pi_features_extractor)
+        # Call the method from the parent of the parent class
+        features = super(ActorCriticPolicy, self).extract_features(obs, self.pi_features_extractor)
         latent_pi, lstm_states = self._process_sequence(features, lstm_states, episode_starts, self.lstm_actor)
         latent_pi = self.mlp_extractor.forward_actor(latent_pi)
         return self._get_action_dist_from_latent(latent_pi), lstm_states
@@ -281,7 +282,8 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             or not (we reset the lstm states in that case).
         :return: the estimated values.
         """
-        features = super().extract_features(obs, self.vf_features_extractor)
+        # Call the method from the parent of the parent class
+        features = super(ActorCriticPolicy, self).extract_features(obs, self.vf_features_extractor)
         if self.share_features_extractor:
             pi_features = vf_features = features  # alis
         else:

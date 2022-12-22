@@ -18,7 +18,9 @@ New Features:
 - Introduced mypy type checking
 - Added ``with_bias`` parameter to ``ARSPolicy``
 - Added option to have non-shared features extractor between actor and critic in on-policy algorithms (@AlexPasqua)
-
+- Features extractors now properly support unnormalized image-like observations (3D tensor)
+  when passing ``normalize_images=False``
+  
 Bug Fixes:
 ^^^^^^^^^^
 - Fixed a bug in ``RecurrentPPO`` where the lstm states where incorrectly reshaped for ``n_lstm_layers > 1`` (thanks @kolbytn)
