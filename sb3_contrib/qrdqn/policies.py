@@ -53,7 +53,6 @@ class QuantileNetwork(BasePolicy):
         self.features_extractor = features_extractor
         self.features_dim = features_dim
         self.n_quantiles = n_quantiles
-        self.normalize_images = normalize_images
         action_dim = self.action_space.n  # number of actions
         quantile_net = create_mlp(self.features_dim, action_dim * self.n_quantiles, self.net_arch, self.activation_fn)
         self.quantile_net = nn.Sequential(*quantile_net)
@@ -132,6 +131,7 @@ class QRDQNPolicy(BasePolicy):
             features_extractor_kwargs,
             optimizer_class=optimizer_class,
             optimizer_kwargs=optimizer_kwargs,
+            normalize_images=normalize_images,
         )
 
         if net_arch is None:
@@ -143,7 +143,6 @@ class QRDQNPolicy(BasePolicy):
         self.n_quantiles = n_quantiles
         self.net_arch = net_arch
         self.activation_fn = activation_fn
-        self.normalize_images = normalize_images
 
         self.net_args = {
             "observation_space": self.observation_space,

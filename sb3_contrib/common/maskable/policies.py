@@ -70,6 +70,7 @@ class MaskableActorCriticPolicy(BasePolicy):
             features_extractor_kwargs,
             optimizer_class=optimizer_class,
             optimizer_kwargs=optimizer_kwargs,
+            normalize_images=normalize_images,
             squash_output=False,
         )
 
@@ -99,7 +100,6 @@ class MaskableActorCriticPolicy(BasePolicy):
                     "Error: if the features extractor is not shared, there cannot be shared layers in the mlp_extractor"
                 )
 
-        self.normalize_images = normalize_images
         # Action distribution
         self.action_dist = make_masked_proba_distribution(action_space)
 
