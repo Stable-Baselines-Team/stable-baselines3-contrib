@@ -39,6 +39,7 @@ Others:
 - Exposed modules in `__init__.py` with `__all__` attribute (@ZikangXiong)
 - Removed ignores on Flake8 F401 (@ZikangXiong)
 - Upgraded GitHub CI/setup-python to v4 and checkout to v3
+- Set tensors construction directly on the device
 
 Release 1.6.2 (2022-10-10)
 --------------------------
