@@ -3,7 +3,7 @@
 Changelog
 ==========
 
-Release 1.7.0a4 (WIP)
+Release 1.7.0a10 (WIP)
 --------------------------
 
 Breaking Changes:
@@ -11,13 +11,16 @@ Breaking Changes:
 - Removed deprecated ``create_eval_env``, ``eval_env``, ``eval_log_path``, ``n_eval_episodes`` and ``eval_freq`` parameters,
   please use an ``EvalCallback`` instead
 - Removed deprecated ``sde_net_arch`` parameter
-- Upgraded to Stable-Baselines3 >= 1.7.0a4
+- Upgraded to Stable-Baselines3 >= 1.7.0a10
 
 New Features:
 ^^^^^^^^^^^^^
 - Introduced mypy type checking
 - Added support for Python 3.10
 - Added ``with_bias`` parameter to ``ARSPolicy``
+- Added option to have non-shared features extractor between actor and critic in on-policy algorithms (@AlexPasqua)
+- Features extractors now properly support unnormalized image-like observations (3D tensor)
+  when passing ``normalize_images=False``
 
 Bug Fixes:
 ^^^^^^^^^^
@@ -26,6 +29,7 @@ Bug Fixes:
 
 Deprecations:
 ^^^^^^^^^^^^^
+- You should now explicitely pass a ``features_extractor`` parameter when calling ``extract_features()``
 
 Others:
 ^^^^^^^
@@ -36,6 +40,7 @@ Others:
 - Exposed modules in `__init__.py` with `__all__` attribute (@ZikangXiong)
 - Removed ignores on Flake8 F401 (@ZikangXiong)
 - Upgraded GitHub CI/setup-python to v4 and checkout to v3
+- Set tensors construction directly on the device
 
 Release 1.6.2 (2022-10-10)
 --------------------------
@@ -365,4 +370,4 @@ Contributors:
 -------------
 
 @ku2482 @guyk1971 @minhlong94 @ayeright @kronion @glmcdona @cyprienc @sgillen @Gregwar @rnederstigt @qgallouedec
-@mlodel @CppMaster @burakdmb @honglu2875 @ZikangXiong
+@mlodel @CppMaster @burakdmb @honglu2875 @ZikangXiong @AlexPasqua
