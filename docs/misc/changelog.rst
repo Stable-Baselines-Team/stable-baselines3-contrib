@@ -17,6 +17,7 @@ New Features:
 ^^^^^^^^^^^^^
 - Introduced mypy type checking
 - Added ``with_bias`` parameter to ``ARSPolicy``
+- Added option to have non-shared features extractor between actor and critic in on-policy algorithms (@AlexPasqua)
 
 Bug Fixes:
 ^^^^^^^^^^
@@ -25,6 +26,7 @@ Bug Fixes:
 
 Deprecations:
 ^^^^^^^^^^^^^
+- You should now explicitely pass a ``features_extractor`` parameter when calling ``extract_features()``
 
 Others:
 ^^^^^^^
@@ -364,4 +366,4 @@ Contributors:
 -------------
 
 @ku2482 @guyk1971 @minhlong94 @ayeright @kronion @glmcdona @cyprienc @sgillen @Gregwar @rnederstigt @qgallouedec
-@mlodel @CppMaster @burakdmb @honglu2875 @ZikangXiong
+@mlodel @CppMaster @burakdmb @honglu2875 @ZikangXiong @AlexPasqua
