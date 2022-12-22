@@ -39,10 +39,7 @@ class QuantileNetwork(BasePolicy):
         normalize_images: bool = True,
     ):
         super().__init__(
-            observation_space,
-            action_space,
-            features_extractor=features_extractor,
-            normalize_images=normalize_images,
+            observation_space, action_space, features_extractor=features_extractor, normalize_images=normalize_images
         )
 
         if net_arch is None:
@@ -65,7 +62,7 @@ class QuantileNetwork(BasePolicy):
         :param obs: Observation
         :return: The estimated quantiles for each action.
         """
-        quantiles = self.quantile_net(self.extract_features(obs))
+        quantiles = self.quantile_net(self.extract_features(obs, self.features_extractor))
         return quantiles.view(-1, self.n_quantiles, self.action_space.n)
 
     def _predict(self, observation: th.Tensor, deterministic: bool = True) -> th.Tensor:

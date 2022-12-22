@@ -149,7 +149,7 @@ class Actor(BasePolicy):
         :return:
             Mean, standard deviation and optional keyword arguments.
         """
-        features = self.extract_features(obs)
+        features = self.extract_features(obs, self.features_extractor)
         latent_pi = self.latent_pi(features)
         mean_actions = self.mu(latent_pi)
 
@@ -206,10 +206,7 @@ class Critic(BaseModel):
         share_features_extractor: bool = False,
     ):
         super().__init__(
-            observation_space,
-            action_space,
-            features_extractor=features_extractor,
-            normalize_images=normalize_images,
+            observation_space, action_space, features_extractor=features_extractor, normalize_images=normalize_images
         )
 
         action_dim = get_action_dim(self.action_space)
@@ -230,7 +227,7 @@ class Critic(BaseModel):
         # Learn the features extractor using the policy loss only
         # when the features_extractor is shared with the actor
         with th.set_grad_enabled(not self.share_features_extractor):
-            features = self.extract_features(obs)
+            features = self.extract_features(obs, self.features_extractor)
         qvalue_input = th.cat([features, action], dim=1)
         quantiles = th.stack(tuple(qf(qvalue_input) for qf in self.q_networks), dim=1)
         return quantiles
@@ -312,12 +309,7 @@ class TQCPolicy(BasePolicy):
         }
         self.actor_kwargs = self.net_args.copy()
 
-        sde_kwargs = {
-            "use_sde": use_sde,
-            "log_std_init": log_std_init,
-            "use_expln": use_expln,
-            "clip_mean": clip_mean,
-        }
+        sde_kwargs = {"use_sde": use_sde, "log_std_init": log_std_init, "use_expln": use_expln, "clip_mean": clip_mean}
         self.actor_kwargs.update(sde_kwargs)
         self.critic_kwargs = self.net_args.copy()
         tqc_kwargs = {
