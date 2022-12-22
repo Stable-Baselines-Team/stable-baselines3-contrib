@@ -228,7 +228,8 @@ def test_discrete_action_space_required():
         MaskablePPO("MlpPolicy", env)
 
 
-def test_cnn():
+@pytest.mark.parametrize("share_features_extractor", [True, False])
+def test_cnn(share_features_extractor):
     def action_mask_fn(env):
         random_invalid_action = random.randrange(env.action_space.n)
         return [i != random_invalid_action for i in range(env.action_space.n)]
@@ -244,6 +245,7 @@ def test_cnn():
         verbose=1,
         policy_kwargs=dict(
             features_extractor_kwargs=dict(features_dim=32),
+            share_features_extractor=share_features_extractor,
         ),
     )
     model.learn(100)

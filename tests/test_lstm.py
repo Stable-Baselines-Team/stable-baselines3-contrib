@@ -61,6 +61,7 @@ class CartPoleNoVelEnv(CartPoleEnv):
     "policy_kwargs",
     [
         {},
+        {"share_features_extractor": False},
         dict(shared_lstm=True, enable_critic_lstm=False),
         dict(
             enable_critic_lstm=True,
@@ -74,6 +75,11 @@ class CartPoleNoVelEnv(CartPoleEnv):
             lstm_kwargs=dict(dropout=0.5),
             n_lstm_layers=2,
         ),
+        dict(
+            enable_critic_lstm=False,
+            lstm_hidden_size=4,
+            share_features_extractor=False,
+        ),
     ],
 )
 def test_cnn(policy_kwargs):
@@ -83,6 +89,7 @@ def test_cnn(policy_kwargs):
         n_steps=16,
         seed=0,
         policy_kwargs=dict(**policy_kwargs, features_extractor_kwargs=dict(features_dim=32)),
+        n_epochs=2,
     )
 
     model.learn(total_timesteps=32)
@@ -121,6 +128,16 @@ def test_policy_kwargs(policy_kwargs):
 
 def test_check():
     policy_kwargs = dict(shared_lstm=True, enable_critic_lstm=True)
+    with pytest.raises(AssertionError):
+        RecurrentPPO(
+            "MlpLstmPolicy",
+            "CartPole-v1",
+            n_steps=16,
+            seed=0,
+            policy_kwargs=policy_kwargs,
+        )
+
+    policy_kwargs = dict(shared_lstm=True, enable_critic_lstm=False, share_features_extractor=False)
     with pytest.raises(AssertionError):
         RecurrentPPO(
             "MlpLstmPolicy",
