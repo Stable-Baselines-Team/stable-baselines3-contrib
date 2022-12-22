@@ -16,6 +16,7 @@ Breaking Changes:
 New Features:
 ^^^^^^^^^^^^^
 - Introduced mypy type checking
+- Added support for Python 3.10
 - Added ``with_bias`` parameter to ``ARSPolicy``
 - Added option to have non-shared features extractor between actor and critic in on-policy algorithms (@AlexPasqua)
 - Features extractors now properly support unnormalized image-like observations (3D tensor)
