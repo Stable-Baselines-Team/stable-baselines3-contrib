@@ -44,6 +44,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
     :param features_extractor_class: Features extractor to use.
     :param features_extractor_kwargs: Keyword arguments
         to pass to the features extractor.
+    :param share_features_extractor: If True, the features extractor is shared between the policy and value networks.
     :param normalize_images: Whether to normalize images or not,
          dividing by 255.0 (True by default)
     :param optimizer_class: The optimizer to use,
@@ -75,6 +76,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         squash_output: bool = False,
         features_extractor_class: Type[BaseFeaturesExtractor] = FlattenExtractor,
         features_extractor_kwargs: Optional[Dict[str, Any]] = None,
+        share_features_extractor: bool = True,
         normalize_images: bool = True,
         optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
@@ -99,6 +101,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             squash_output,
             features_extractor_class,
             features_extractor_kwargs,
+            share_features_extractor,
             normalize_images,
             optimizer_class,
             optimizer_kwargs,
@@ -107,12 +110,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         self.lstm_kwargs = lstm_kwargs or {}
         self.shared_lstm = shared_lstm
         self.enable_critic_lstm = enable_critic_lstm
-        self.lstm_actor = nn.LSTM(
-            self.features_dim,
-            lstm_hidden_size,
-            num_layers=n_lstm_layers,
-            **self.lstm_kwargs,
-        )
+        self.lstm_actor = nn.LSTM(self.features_dim, lstm_hidden_size, num_layers=n_lstm_layers, **self.lstm_kwargs)
         # For the predict() method, to initialize hidden states
         # (n_lstm_layers, batch_size, lstm_hidden_size)
         self.lstm_hidden_state_shape = (n_lstm_layers, 1, lstm_hidden_size)
@@ -130,12 +128,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
 
         # Use a separate LSTM for the critic
         if self.enable_critic_lstm:
-            self.lstm_critic = nn.LSTM(
-                self.features_dim,
-                lstm_hidden_size,
-                num_layers=n_lstm_layers,
-                **self.lstm_kwargs,
-            )
+            self.lstm_critic = nn.LSTM(self.features_dim, lstm_hidden_size, num_layers=n_lstm_layers, **self.lstm_kwargs)
 
         # Setup optimizer with initial learning rate
         self.optimizer = self.optimizer_class(self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
@@ -146,18 +139,12 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         Part of the layers can be shared.
         """
         self.mlp_extractor = MlpExtractor(
-            self.lstm_output_dim,
-            net_arch=self.net_arch,
-            activation_fn=self.activation_fn,
-            device=self.device,
+            self.lstm_output_dim, net_arch=self.net_arch, activation_fn=self.activation_fn, device=self.device
         )
 
     @staticmethod
     def _process_sequence(
-        features: th.Tensor,
-        lstm_states: Tuple[th.Tensor, th.Tensor],
-        episode_starts: th.Tensor,
-        lstm: nn.LSTM,
+        features: th.Tensor, lstm_states: Tuple[th.Tensor, th.Tensor], episode_starts: th.Tensor, lstm: nn.LSTM
     ) -> Tuple[th.Tensor, th.Tensor]:
         """
         Do a forward pass in the LSTM network.
@@ -204,11 +191,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         return lstm_output, lstm_states
 
     def forward(
-        self,
-        obs: th.Tensor,
-        lstm_states: RNNStates,
-        episode_starts: th.Tensor,
-        deterministic: bool = False,
+        self, obs: th.Tensor, lstm_states: RNNStates, episode_starts: th.Tensor, deterministic: bool = False
     ) -> Tuple[th.Tensor, th.Tensor, th.Tensor, RNNStates]:
         """
         Forward pass in all the networks (actor and critic)
@@ -222,17 +205,21 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         """
         # Preprocess the observation if needed
         features = self.extract_features(obs)
+        if self.share_features_extractor:
+            pi_features = vf_features = features  # alis
+        else:
+            pi_features, vf_features = features
         # latent_pi, latent_vf = self.mlp_extractor(features)
-        latent_pi, lstm_states_pi = self._process_sequence(features, lstm_states.pi, episode_starts, self.lstm_actor)
+        latent_pi, lstm_states_pi = self._process_sequence(pi_features, lstm_states.pi, episode_starts, self.lstm_actor)
         if self.lstm_critic is not None:
-            latent_vf, lstm_states_vf = self._process_sequence(features, lstm_states.vf, episode_starts, self.lstm_critic)
+            latent_vf, lstm_states_vf = self._process_sequence(vf_features, lstm_states.vf, episode_starts, self.lstm_critic)
         elif self.shared_lstm:
             # Re-use LSTM features but do not backpropagate
             latent_vf = latent_pi.detach()
             lstm_states_vf = (lstm_states_pi[0].detach(), lstm_states_pi[1].detach())
         else:
             # Critic only has a feedforward network
-            latent_vf = self.critic(features)
+            latent_vf = self.critic(vf_features)
             lstm_states_vf = lstm_states_pi
 
         latent_pi = self.mlp_extractor.forward_actor(latent_pi)
@@ -246,10 +233,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         return actions, values, log_prob, RNNStates(lstm_states_pi, lstm_states_vf)
 
     def get_distribution(
-        self,
-        obs: th.Tensor,
-        lstm_states: Tuple[th.Tensor, th.Tensor],
-        episode_starts: th.Tensor,
+        self, obs: th.Tensor, lstm_states: Tuple[th.Tensor, th.Tensor], episode_starts: th.Tensor
     ) -> Tuple[Distribution, Tuple[th.Tensor, ...]]:
         """
         Get the current policy distribution given the observations.
@@ -260,17 +244,12 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             or not (we reset the lstm states in that case).
         :return: the action distribution and new hidden states.
         """
-        features = self.extract_features(obs)
+        features = super().extract_features(obs, self.pi_features_extractor)
         latent_pi, lstm_states = self._process_sequence(features, lstm_states, episode_starts, self.lstm_actor)
         latent_pi = self.mlp_extractor.forward_actor(latent_pi)
         return self._get_action_dist_from_latent(latent_pi), lstm_states
 
-    def predict_values(
-        self,
-        obs: th.Tensor,
-        lstm_states: Tuple[th.Tensor, th.Tensor],
-        episode_starts: th.Tensor,
-    ) -> th.Tensor:
+    def predict_values(self, obs: th.Tensor, lstm_states: Tuple[th.Tensor, th.Tensor], episode_starts: th.Tensor) -> th.Tensor:
         """
         Get the estimated values according to the current policy given the observations.
 
@@ -280,12 +259,16 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             or not (we reset the lstm states in that case).
         :return: the estimated values.
         """
-        features = self.extract_features(obs)
+        features = super().extract_features(obs, self.vf_features_extractor)
+        if self.share_features_extractor:
+            pi_features = vf_features = features  # alis
+        else:
+            pi_features, vf_features = features
         if self.lstm_critic is not None:
-            latent_vf, lstm_states_vf = self._process_sequence(features, lstm_states, episode_starts, self.lstm_critic)
+            latent_vf, lstm_states_vf = self._process_sequence(vf_features, lstm_states, episode_starts, self.lstm_critic)
         elif self.shared_lstm:
             # Use LSTM from the actor
-            latent_pi, _ = self._process_sequence(features, lstm_states, episode_starts, self.lstm_actor)
+            latent_pi, _ = self._process_sequence(pi_features, lstm_states, episode_starts, self.lstm_actor)
             latent_vf = latent_pi.detach()
         else:
             latent_vf = self.critic(features)
@@ -294,11 +277,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         return self.value_net(latent_vf)
 
     def evaluate_actions(
-        self,
-        obs: th.Tensor,
-        actions: th.Tensor,
-        lstm_states: RNNStates,
-        episode_starts: th.Tensor,
+        self, obs: th.Tensor, actions: th.Tensor, lstm_states: RNNStates, episode_starts: th.Tensor
     ) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
         """
         Evaluate actions according to the current policy,
@@ -314,14 +293,17 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         """
         # Preprocess the observation if needed
         features = self.extract_features(obs)
-        latent_pi, _ = self._process_sequence(features, lstm_states.pi, episode_starts, self.lstm_actor)
-
+        if self.share_features_extractor:
+            pi_features = vf_features = features  # alis
+        else:
+            pi_features, vf_features = features
+        latent_pi, _ = self._process_sequence(pi_features, lstm_states.pi, episode_starts, self.lstm_actor)
         if self.lstm_critic is not None:
-            latent_vf, _ = self._process_sequence(features, lstm_states.vf, episode_starts, self.lstm_critic)
+            latent_vf, _ = self._process_sequence(vf_features, lstm_states.vf, episode_starts, self.lstm_critic)
         elif self.shared_lstm:
             latent_vf = latent_pi.detach()
         else:
-            latent_vf = self.critic(features)
+            latent_vf = self.critic(vf_features)
 
         latent_pi = self.mlp_extractor.forward_actor(latent_pi)
         latent_vf = self.mlp_extractor.forward_critic(latent_vf)
@@ -439,6 +421,7 @@ class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
     :param features_extractor_class: Features extractor to use.
     :param features_extractor_kwargs: Keyword arguments
         to pass to the features extractor.
+    :param share_features_extractor: If True, the features extractor is shared between the policy and value networks.
     :param normalize_images: Whether to normalize images or not,
          dividing by 255.0 (True by default)
     :param optimizer_class: The optimizer to use,
@@ -469,6 +452,7 @@ class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
         squash_output: bool = False,
         features_extractor_class: Type[BaseFeaturesExtractor] = NatureCNN,
         features_extractor_kwargs: Optional[Dict[str, Any]] = None,
+        share_features_extractor: bool = True,
         normalize_images: bool = True,
         optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
@@ -492,6 +476,7 @@ class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
             squash_output,
             features_extractor_class,
             features_extractor_kwargs,
+            share_features_extractor,
             normalize_images,
             optimizer_class,
             optimizer_kwargs,
@@ -526,6 +511,7 @@ class RecurrentMultiInputActorCriticPolicy(RecurrentActorCriticPolicy):
     :param features_extractor_class: Features extractor to use.
     :param features_extractor_kwargs: Keyword arguments
         to pass to the features extractor.
+    :param share_features_extractor: If True, the features extractor is shared between the policy and value networks.
     :param normalize_images: Whether to normalize images or not,
          dividing by 255.0 (True by default)
     :param optimizer_class: The optimizer to use,
@@ -556,6 +542,7 @@ class RecurrentMultiInputActorCriticPolicy(RecurrentActorCriticPolicy):
         squash_output: bool = False,
         features_extractor_class: Type[BaseFeaturesExtractor] = CombinedExtractor,
         features_extractor_kwargs: Optional[Dict[str, Any]] = None,
+        share_features_extractor: bool = True,
         normalize_images: bool = True,
         optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
@@ -579,6 +566,7 @@ class RecurrentMultiInputActorCriticPolicy(RecurrentActorCriticPolicy):
             squash_output,
             features_extractor_class,
             features_extractor_kwargs,
+            share_features_extractor,
             normalize_images,
             optimizer_class,
             optimizer_kwargs,
