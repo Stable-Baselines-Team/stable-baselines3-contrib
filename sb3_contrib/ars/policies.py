@@ -69,7 +69,7 @@ class ARSPolicy(BasePolicy):
 
     def forward(self, obs: th.Tensor) -> th.Tensor:
 
-        features = self.extract_features(obs)
+        features = self.extract_features(obs, self.features_extractor)
         if isinstance(self.action_space, gym.spaces.Box):
             return self.action_net(features)
         elif isinstance(self.action_space, gym.spaces.Discrete):
