@@ -110,7 +110,12 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         self.lstm_kwargs = lstm_kwargs or {}
         self.shared_lstm = shared_lstm
         self.enable_critic_lstm = enable_critic_lstm
-        self.lstm_actor = nn.LSTM(self.features_dim, lstm_hidden_size, num_layers=n_lstm_layers, **self.lstm_kwargs)
+        self.lstm_actor = nn.LSTM(
+            self.features_dim,
+            lstm_hidden_size,
+            num_layers=n_lstm_layers,
+            **self.lstm_kwargs,
+        )
         # For the predict() method, to initialize hidden states
         # (n_lstm_layers, batch_size, lstm_hidden_size)
         self.lstm_hidden_state_shape = (n_lstm_layers, 1, lstm_hidden_size)
@@ -128,7 +133,12 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
 
         # Use a separate LSTM for the critic
         if self.enable_critic_lstm:
-            self.lstm_critic = nn.LSTM(self.features_dim, lstm_hidden_size, num_layers=n_lstm_layers, **self.lstm_kwargs)
+            self.lstm_critic = nn.LSTM(
+                self.features_dim,
+                lstm_hidden_size,
+                num_layers=n_lstm_layers,
+                **self.lstm_kwargs,
+            )
 
         # Setup optimizer with initial learning rate
         self.optimizer = self.optimizer_class(self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
@@ -144,7 +154,10 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
 
     @staticmethod
     def _process_sequence(
-        features: th.Tensor, lstm_states: Tuple[th.Tensor, th.Tensor], episode_starts: th.Tensor, lstm: nn.LSTM
+        features: th.Tensor,
+        lstm_states: Tuple[th.Tensor, th.Tensor],
+        episode_starts: th.Tensor,
+        lstm: nn.LSTM,
     ) -> Tuple[th.Tensor, th.Tensor]:
         """
         Do a forward pass in the LSTM network.
@@ -191,7 +204,11 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         return lstm_output, lstm_states
 
     def forward(
-        self, obs: th.Tensor, lstm_states: RNNStates, episode_starts: th.Tensor, deterministic: bool = False
+        self,
+        obs: th.Tensor,
+        lstm_states: RNNStates,
+        episode_starts: th.Tensor,
+        deterministic: bool = False,
     ) -> Tuple[th.Tensor, th.Tensor, th.Tensor, RNNStates]:
         """
         Forward pass in all the networks (actor and critic)
@@ -249,7 +266,12 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         latent_pi = self.mlp_extractor.forward_actor(latent_pi)
         return self._get_action_dist_from_latent(latent_pi), lstm_states
 
-    def predict_values(self, obs: th.Tensor, lstm_states: Tuple[th.Tensor, th.Tensor], episode_starts: th.Tensor) -> th.Tensor:
+    def predict_values(
+        self,
+        obs: th.Tensor,
+        lstm_states: Tuple[th.Tensor, th.Tensor],
+        episode_starts: th.Tensor,
+    ) -> th.Tensor:
         """
         Get the estimated values according to the current policy given the observations.
 

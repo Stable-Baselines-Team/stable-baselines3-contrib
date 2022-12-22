@@ -206,7 +206,10 @@ class Critic(BaseModel):
         share_features_extractor: bool = False,
     ):
         super().__init__(
-            observation_space, action_space, features_extractor=features_extractor, normalize_images=normalize_images
+            observation_space,
+            action_space,
+            features_extractor=features_extractor,
+            normalize_images=normalize_images,
         )
 
         action_dim = get_action_dim(self.action_space)
@@ -309,7 +312,12 @@ class TQCPolicy(BasePolicy):
         }
         self.actor_kwargs = self.net_args.copy()
 
-        sde_kwargs = {"use_sde": use_sde, "log_std_init": log_std_init, "use_expln": use_expln, "clip_mean": clip_mean}
+        sde_kwargs = {
+            "use_sde": use_sde,
+            "log_std_init": log_std_init,
+            "use_expln": use_expln,
+            "clip_mean": clip_mean,
+        }
         self.actor_kwargs.update(sde_kwargs)
         self.critic_kwargs = self.net_args.copy()
         tqc_kwargs = {

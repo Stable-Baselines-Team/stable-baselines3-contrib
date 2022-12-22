@@ -172,7 +172,10 @@ class MaskableActorCriticPolicy(BasePolicy):
         #       net_arch here is an empty list and mlp_extractor does not
         #       really contain any layers (acts like an identity module).
         self.mlp_extractor = MlpExtractor(
-            self.features_dim, net_arch=self.net_arch, activation_fn=self.activation_fn, device=self.device
+            self.features_dim,
+            net_arch=self.net_arch,
+            activation_fn=self.activation_fn,
+            device=self.device,
         )
 
     def _build(self, lr_schedule: Schedule) -> None:
@@ -224,7 +227,10 @@ class MaskableActorCriticPolicy(BasePolicy):
         return self.action_dist.proba_distribution(action_logits=action_logits)
 
     def _predict(
-        self, observation: th.Tensor, deterministic: bool = False, action_masks: Optional[np.ndarray] = None
+        self,
+        observation: th.Tensor,
+        deterministic: bool = False,
+        action_masks: Optional[np.ndarray] = None,
     ) -> th.Tensor:
         """
         Get the action according to the policy for a given observation.
@@ -289,7 +295,10 @@ class MaskableActorCriticPolicy(BasePolicy):
         return actions, None
 
     def evaluate_actions(
-        self, obs: th.Tensor, actions: th.Tensor, action_masks: Optional[np.ndarray] = None
+        self,
+        obs: th.Tensor,
+        actions: th.Tensor,
+        action_masks: Optional[np.ndarray] = None,
     ) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
         """
         Evaluate actions according to the current policy,

@@ -18,7 +18,12 @@ def test_cnn(tmp_path, model_class, share_features_extractor):
     # Fake grayscale with frameskip
     # Atari after preprocessing: 84x84x1, here we are using lower resolution
     # to check that the network handle it automatically
-    env = FakeImageEnv(screen_height=40, screen_width=40, n_channels=1, discrete=model_class not in {TQC})
+    env = FakeImageEnv(
+        screen_height=40,
+        screen_width=40,
+        n_channels=1,
+        discrete=model_class not in {TQC},
+    )
     kwargs = {}
     if model_class in {TQC, QRDQN}:
         # Avoid memory error when using replay buffer
@@ -27,7 +32,10 @@ def test_cnn(tmp_path, model_class, share_features_extractor):
             buffer_size=250,
             policy_kwargs=dict(
                 n_quantiles=25,
-                features_extractor_kwargs=dict(features_dim=32, share_features_extractor=share_features_extractor),
+                features_extractor_kwargs=dict(
+                    features_dim=32,
+                    share_features_extractor=share_features_extractor,
+                ),
             ),
         )
     model = model_class("CnnPolicy", env, **kwargs).learn(250)
