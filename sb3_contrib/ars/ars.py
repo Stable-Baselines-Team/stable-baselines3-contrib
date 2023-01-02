@@ -5,10 +5,10 @@ import warnings
 from functools import partial
 from typing import Any, Dict, Optional, Type, TypeVar, Union
 
-import gym
 import numpy as np
 import torch as th
 import torch.nn.utils
+from gym import spaces
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.evaluation import evaluate_policy
@@ -80,7 +80,7 @@ class ARS(BaseAlgorithm):
             policy_kwargs=policy_kwargs,
             verbose=verbose,
             device=device,
-            supported_action_spaces=(gym.spaces.Box, gym.spaces.Discrete),
+            supported_action_spaces=(spaces.Box, spaces.Discrete),
             support_multi_env=True,
             seed=seed,
         )

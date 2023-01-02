@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Optional, Type
 
-import gym
 import torch as th
+from gym import spaces
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.torch_layers import (
     BaseFeaturesExtractor,
@@ -29,8 +29,8 @@ class QuantileNetwork(BasePolicy):
 
     def __init__(
         self,
-        observation_space: gym.spaces.Space,
-        action_space: gym.spaces.Space,
+        observation_space: spaces.Space,
+        action_space: spaces.Space,
         features_extractor: nn.Module,
         features_dim: int,
         n_quantiles: int = 200,
@@ -112,8 +112,8 @@ class QRDQNPolicy(BasePolicy):
 
     def __init__(
         self,
-        observation_space: gym.spaces.Space,
-        action_space: gym.spaces.Space,
+        observation_space: spaces.Space,
+        action_space: spaces.Space,
         lr_schedule: Schedule,
         n_quantiles: int = 200,
         net_arch: Optional[List[int]] = None,
@@ -234,8 +234,8 @@ class CnnPolicy(QRDQNPolicy):
 
     def __init__(
         self,
-        observation_space: gym.spaces.Space,
-        action_space: gym.spaces.Space,
+        observation_space: spaces.Space,
+        action_space: spaces.Space,
         lr_schedule: Schedule,
         n_quantiles: int = 200,
         net_arch: Optional[List[int]] = None,
@@ -282,8 +282,8 @@ class MultiInputPolicy(QRDQNPolicy):
 
     def __init__(
         self,
-        observation_space: gym.spaces.Space,
-        action_space: gym.spaces.Space,
+        observation_space: spaces.Space,
+        action_space: spaces.Space,
         lr_schedule: Schedule,
         n_quantiles: int = 200,
         net_arch: Optional[List[int]] = None,

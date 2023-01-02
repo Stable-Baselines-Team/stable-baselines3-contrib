@@ -1,7 +1,7 @@
 from typing import List
 
 import pytest
-from gym.spaces import Discrete
+from gym import spaces
 from stable_baselines3.common.envs import IdentityEnv
 
 from sb3_contrib.common.wrappers import ActionMasker
@@ -15,7 +15,7 @@ class IdentityEnvDiscrete(IdentityEnv):
         :param dim: the size of the dimensions you want to learn
         :param ep_length: the length of each episode in timesteps
         """
-        space = Discrete(dim)
+        space = spaces.Discrete(dim)
         self.useless_property = 1
         super().__init__(ep_length=ep_length, space=space)
 
