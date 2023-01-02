@@ -149,7 +149,7 @@ class Actor(BasePolicy):
         :return:
             Mean, standard deviation and optional keyword arguments.
         """
-        features = self.extract_features(obs)
+        features = self.extract_features(obs, self.features_extractor)
         latent_pi = self.latent_pi(features)
         mean_actions = self.mu(latent_pi)
 
@@ -230,7 +230,7 @@ class Critic(BaseModel):
         # Learn the features extractor using the policy loss only
         # when the features_extractor is shared with the actor
         with th.set_grad_enabled(not self.share_features_extractor):
-            features = self.extract_features(obs)
+            features = self.extract_features(obs, self.features_extractor)
         qvalue_input = th.cat([features, action], dim=1)
         quantiles = th.stack(tuple(qf(qvalue_input) for qf in self.q_networks), dim=1)
         return quantiles
@@ -293,6 +293,7 @@ class TQCPolicy(BasePolicy):
             features_extractor_kwargs,
             optimizer_class=optimizer_class,
             optimizer_kwargs=optimizer_kwargs,
+            normalize_images=normalize_images,
             squash_output=True,
         )
 

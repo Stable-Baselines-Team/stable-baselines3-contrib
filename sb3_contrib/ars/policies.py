@@ -4,7 +4,7 @@ import torch as th
 from gym import spaces
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.preprocessing import get_action_dim
-from stable_baselines3.common.torch_layers import create_mlp
+from stable_baselines3.common.torch_layers import BaseFeaturesExtractor, create_mlp
 from torch import nn
 
 
@@ -68,8 +68,10 @@ class ARSPolicy(BasePolicy):
         return data
 
     def forward(self, obs: th.Tensor) -> th.Tensor:
+        # Make mypy happy:
+        assert isinstance(self.features_extractor, BaseFeaturesExtractor)
 
-        features = self.extract_features(obs)
+        features = self.extract_features(obs, self.features_extractor)
         if isinstance(self.action_space, spaces.Box):
             return self.action_net(features)
         elif isinstance(self.action_space, spaces.Discrete):
