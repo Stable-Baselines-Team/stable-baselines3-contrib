@@ -4,6 +4,7 @@ from typing import Dict, Tuple
 import gym
 import numpy as np
 import pytest
+from gym import spaces
 from stable_baselines3.common.callbacks import EventCallback, StopTrainingOnNoModelImprovement
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.envs import FakeImageEnv, IdentityEnv, IdentityEnvBox
@@ -29,7 +30,7 @@ class ToDictWrapper(gym.Wrapper):
 
     def __init__(self, env):
         super().__init__(env)
-        self.observation_space = gym.spaces.Dict({"obs": self.env.observation_space})
+        self.observation_space = spaces.Dict({"obs": self.env.observation_space})
 
     def reset(self, **kwargs) -> Tuple[Dict[str, np.ndarray], Dict]:
         return {"obs": self.env.reset(seed=kwargs.get("seed", 0))[0]}, {}

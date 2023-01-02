@@ -3,7 +3,6 @@ import time
 from copy import deepcopy
 from typing import Any, Dict, Optional, Type, TypeVar, Union
 
-import gym
 import numpy as np
 import torch as th
 from gym import spaces
@@ -139,9 +138,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
         self._setup_lr_schedule()
         self.set_random_seed(self.seed)
 
-        buffer_cls = (
-            RecurrentDictRolloutBuffer if isinstance(self.observation_space, gym.spaces.Dict) else RecurrentRolloutBuffer
-        )
+        buffer_cls = RecurrentDictRolloutBuffer if isinstance(self.observation_space, spaces.Dict) else RecurrentRolloutBuffer
 
         self.policy = self.policy_class(
             self.observation_space,
@@ -247,7 +244,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
             # Rescale and perform action
             clipped_actions = actions
             # Clip the actions to avoid out of bound error
-            if isinstance(self.action_space, gym.spaces.Box):
+            if isinstance(self.action_space, spaces.Box):
                 clipped_actions = np.clip(actions, self.action_space.low, self.action_space.high)
 
             new_obs, rewards, dones, infos = env.step(clipped_actions)
@@ -262,7 +259,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
             self._update_info_buffer(infos)
             n_steps += 1
 
-            if isinstance(self.action_space, gym.spaces.Discrete):
+            if isinstance(self.action_space, spaces.Discrete):
                 # Reshape in case of discrete action
                 actions = actions.reshape(-1, 1)
 

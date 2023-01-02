@@ -2,6 +2,7 @@ from typing import Dict, Union
 
 import gym
 import numpy as np
+from gym import spaces
 from stable_baselines3.common.type_aliases import Gym26ResetReturn, Gym26StepReturn
 
 
@@ -25,11 +26,11 @@ class TimeFeatureWrapper(gym.Wrapper):
 
     def __init__(self, env: gym.Env, max_steps: int = 1000, test_mode: bool = False):
         assert isinstance(
-            env.observation_space, (gym.spaces.Box, gym.spaces.Dict)
-        ), "`TimeFeatureWrapper` only supports `gym.spaces.Box` and `gym.spaces.Dict` (`gym.GoalEnv`) observation spaces."
+            env.observation_space, (spaces.Box, spaces.Dict)
+        ), "`TimeFeatureWrapper` only supports `gym.spaces.Box` and `spaces.Dict` (`gym.GoalEnv`) observation spaces."
 
         # Add a time feature to the observation
-        if isinstance(env.observation_space, gym.spaces.Dict):
+        if isinstance(env.observation_space, spaces.Dict):
             assert "observation" in env.observation_space.spaces, "No `observation` key in the observation space"
             obs_space = env.observation_space.spaces["observation"]
         else:
@@ -42,14 +43,14 @@ class TimeFeatureWrapper(gym.Wrapper):
         low, high = np.concatenate((low, [0.0])), np.concatenate((high, [1.0]))  # type: ignore[arg-type]
         self.dtype = obs_space.dtype
 
-        if isinstance(env.observation_space, gym.spaces.Dict):
-            env.observation_space.spaces["observation"] = gym.spaces.Box(
+        if isinstance(env.observation_space, spaces.Dict):
+            env.observation_space.spaces["observation"] = spaces.Box(
                 low=low,
                 high=high,
                 dtype=self.dtype,  # type: ignore[arg-type]
             )
         else:
-            env.observation_space = gym.spaces.Box(low=low, high=high, dtype=self.dtype)  # type: ignore[arg-type]
+            env.observation_space = spaces.Box(low=low, high=high, dtype=self.dtype)  # type: ignore[arg-type]
 
         super().__init__(env)
 

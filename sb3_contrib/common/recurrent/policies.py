@@ -1,8 +1,8 @@
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
-import gym
 import numpy as np
 import torch as th
+from gym import spaces
 from stable_baselines3.common.distributions import Distribution
 from stable_baselines3.common.policies import ActorCriticPolicy
 from stable_baselines3.common.torch_layers import (
@@ -63,8 +63,8 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
 
     def __init__(
         self,
-        observation_space: gym.spaces.Space,
-        action_space: gym.spaces.Space,
+        observation_space: spaces.Space,
+        action_space: spaces.Space,
         lr_schedule: Schedule,
         net_arch: Optional[List[Union[int, Dict[str, List[int]]]]] = None,
         activation_fn: Type[nn.Module] = nn.Tanh,
@@ -415,7 +415,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         # Convert to numpy
         actions = actions.cpu().numpy()
 
-        if isinstance(self.action_space, gym.spaces.Box):
+        if isinstance(self.action_space, spaces.Box):
             if self.squash_output:
                 # Rescale to proper domain when using squashing
                 actions = self.unscale_action(actions)
@@ -472,8 +472,8 @@ class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
 
     def __init__(
         self,
-        observation_space: gym.spaces.Space,
-        action_space: gym.spaces.Space,
+        observation_space: spaces.Space,
+        action_space: spaces.Space,
         lr_schedule: Schedule,
         net_arch: Optional[List[Union[int, Dict[str, List[int]]]]] = None,
         activation_fn: Type[nn.Module] = nn.Tanh,
@@ -562,8 +562,8 @@ class RecurrentMultiInputActorCriticPolicy(RecurrentActorCriticPolicy):
 
     def __init__(
         self,
-        observation_space: gym.spaces.Space,
-        action_space: gym.spaces.Space,
+        observation_space: spaces.Space,
+        action_space: spaces.Space,
         lr_schedule: Schedule,
         net_arch: Optional[List[Union[int, Dict[str, List[int]]]]] = None,
         activation_fn: Type[nn.Module] = nn.Tanh,
