@@ -20,7 +20,7 @@ class ToDictWrapper(gym.Wrapper):
 
     def __init__(self, env):
         super().__init__(env)
-        self.observation_space = gym.spaces.Dict({"obs": self.env.observation_space})
+        self.observation_space = spaces.Dict({"obs": self.env.observation_space})
 
     def reset(self):
         return {"obs": self.env.reset()}
