@@ -3,8 +3,15 @@
 Changelog
 ==========
 
-Release 1.7.0a11 (WIP)
+Release 1.7.0a12 (WIP)
 --------------------------
+
+.. warning::
+
+  Shared layers in MLP policy (``mlp_extractor``) are now deprecated for PPO, A2C and TRPO.
+  This feature will be removed in SB3 v1.8.0 and the behavior of ``net_arch=[64, 64]``
+  will create **separate** networks with the same architecture, to be consistent with the off-policy algorithms.
+
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
@@ -30,6 +37,7 @@ Bug Fixes:
 Deprecations:
 ^^^^^^^^^^^^^
 - You should now explicitely pass a ``features_extractor`` parameter when calling ``extract_features()``
+- Deprecated shared layers in ``MlpExtractor`` (@AlexPasqua)
 
 Others:
 ^^^^^^^

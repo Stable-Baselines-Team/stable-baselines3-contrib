@@ -1,4 +1,5 @@
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
+import warnings
 
 import numpy as np
 import torch as th
@@ -66,7 +67,8 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         observation_space: spaces.Space,
         action_space: spaces.Space,
         lr_schedule: Schedule,
-        net_arch: Optional[List[Union[int, Dict[str, List[int]]]]] = None,
+        # TODO(antonin): update type annotation when we remove shared network support
+        net_arch: Union[List[int], Dict[str, List[int]], List[Dict[str, List[int]]], None] = None,
         activation_fn: Type[nn.Module] = nn.Tanh,
         ortho_init: bool = True,
         use_sde: bool = False,
@@ -475,7 +477,8 @@ class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
         observation_space: spaces.Space,
         action_space: spaces.Space,
         lr_schedule: Schedule,
-        net_arch: Optional[List[Union[int, Dict[str, List[int]]]]] = None,
+        # TODO(antonin): update type annotation when we remove shared network support
+        net_arch: Union[List[int], Dict[str, List[int]], List[Dict[str, List[int]]], None] = None,
         activation_fn: Type[nn.Module] = nn.Tanh,
         ortho_init: bool = True,
         use_sde: bool = False,
@@ -565,7 +568,8 @@ class RecurrentMultiInputActorCriticPolicy(RecurrentActorCriticPolicy):
         observation_space: spaces.Space,
         action_space: spaces.Space,
         lr_schedule: Schedule,
-        net_arch: Optional[List[Union[int, Dict[str, List[int]]]]] = None,
+        # TODO(antonin): update type annotation when we remove shared network support
+        net_arch: Union[List[int], Dict[str, List[int]], List[Dict[str, List[int]]], None] = None,
         activation_fn: Type[nn.Module] = nn.Tanh,
         ortho_init: bool = True,
         use_sde: bool = False,
