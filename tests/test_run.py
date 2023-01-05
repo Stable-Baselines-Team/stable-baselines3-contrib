@@ -77,7 +77,7 @@ def test_trpo_params():
         use_sde=True,
         sub_sampling_factor=4,
         seed=0,
-        policy_kwargs=dict(net_arch=[dict(pi=[32], vf=[32])]),
+        policy_kwargs=dict(net_arch=dict(pi=[32], vf=[32])),
         verbose=1,
     )
     model.learn(total_timesteps=500)

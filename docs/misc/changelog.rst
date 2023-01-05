@@ -3,15 +3,22 @@
 Changelog
 ==========
 
-Release 1.7.0a11 (WIP)
+Release 1.7.0a12 (WIP)
 --------------------------
+
+.. warning::
+
+  Shared layers in MLP policy (``mlp_extractor``) are now deprecated for PPO, A2C and TRPO.
+  This feature will be removed in SB3 v1.8.0 and the behavior of ``net_arch=[64, 64]``
+  will create **separate** networks with the same architecture, to be consistent with the off-policy algorithms.
+
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
 - Removed deprecated ``create_eval_env``, ``eval_env``, ``eval_log_path``, ``n_eval_episodes`` and ``eval_freq`` parameters,
   please use an ``EvalCallback`` instead
 - Removed deprecated ``sde_net_arch`` parameter
-- Upgraded to Stable-Baselines3 >= 1.7.0a11
+- Upgraded to Stable-Baselines3 >= 1.7.0a12
 
 New Features:
 ^^^^^^^^^^^^^
@@ -30,6 +37,7 @@ Bug Fixes:
 Deprecations:
 ^^^^^^^^^^^^^
 - You should now explicitely pass a ``features_extractor`` parameter when calling ``extract_features()``
+- Deprecated shared layers in ``MlpExtractor`` (@AlexPasqua)
 
 Others:
 ^^^^^^^
