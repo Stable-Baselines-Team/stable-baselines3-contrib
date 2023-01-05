@@ -1,5 +1,4 @@
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
-import warnings
 
 import numpy as np
 import torch as th
