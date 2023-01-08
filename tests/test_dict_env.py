@@ -142,7 +142,7 @@ def test_dict_spaces(model_class, channel_last):
         kwargs = dict(
             n_steps=128,
             policy_kwargs=dict(
-                net_arch=[dict(pi=[32], vf=[32])],
+                net_arch=dict(pi=[32], vf=[32]),
                 features_extractor_kwargs=dict(cnn_output_dim=32),
             ),
         )
@@ -191,7 +191,7 @@ def test_dict_vec_framestack(model_class, channel_last):
         kwargs = dict(
             n_steps=128,
             policy_kwargs=dict(
-                net_arch=[dict(pi=[32], vf=[32])],
+                net_arch=dict(pi=[32], vf=[32]),
                 features_extractor_kwargs=dict(cnn_output_dim=32),
             ),
         )
@@ -234,7 +234,7 @@ def test_vec_normalize(model_class):
         kwargs = dict(
             n_steps=128,
             policy_kwargs=dict(
-                net_arch=[dict(pi=[32], vf=[32])],
+                net_arch=dict(pi=[32], vf=[32]),
             ),
         )
     else:

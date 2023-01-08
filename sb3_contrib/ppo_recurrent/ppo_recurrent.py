@@ -3,7 +3,6 @@ import time
 from copy import deepcopy
 from typing import Any, Dict, Optional, Type, TypeVar, Union
 
-import gym
 import numpy as np
 import torch as th
 from gym import spaces
@@ -144,11 +143,11 @@ class RecurrentPPO(OnPolicyAlgorithm):
         # 3d batches of whole sequences or 2d batches of constant size
         if self.whole_sequences:
             buffer_cls = (
-                RecurrentSequenceDictRolloutBuffer if isinstance(self.observation_space, gym.spaces.Dict) else RecurrentSequenceRolloutBuffer
+                RecurrentSequenceDictRolloutBuffer if isinstance(self.observation_space, spaces.Dict) else RecurrentSequenceRolloutBuffer
             )
         else:
             buffer_cls = (
-                RecurrentDictRolloutBuffer if isinstance(self.observation_space, gym.spaces.Dict) else RecurrentRolloutBuffer
+                RecurrentDictRolloutBuffer if isinstance(self.observation_space, spaces.Dict) else RecurrentRolloutBuffer
             )
 
         self.policy = self.policy_class(
@@ -171,12 +170,12 @@ class RecurrentPPO(OnPolicyAlgorithm):
         # hidden and cell states for actor and critic
         self._last_lstm_states = RNNStates(
             (
-                th.zeros(single_hidden_state_shape).to(self.device),
-                th.zeros(single_hidden_state_shape).to(self.device),
+                th.zeros(single_hidden_state_shape, device=self.device),
+                th.zeros(single_hidden_state_shape, device=self.device),
             ),
             (
-                th.zeros(single_hidden_state_shape).to(self.device),
-                th.zeros(single_hidden_state_shape).to(self.device),
+                th.zeros(single_hidden_state_shape, device=self.device),
+                th.zeros(single_hidden_state_shape, device=self.device),
             ),
         )
 
@@ -247,7 +246,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
             with th.no_grad():
                 # Convert to pytorch tensor or to TensorDict
                 obs_tensor = obs_as_tensor(self._last_obs, self.device)
-                episode_starts = th.tensor(self._last_episode_starts).float().to(self.device)
+                episode_starts = th.tensor(self._last_episode_starts, dtype=th.float32, device=self.device)
                 actions, values, log_probs, lstm_states = self.policy.forward(obs_tensor, lstm_states, episode_starts)
 
             actions = actions.cpu().numpy()
@@ -255,7 +254,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
             # Rescale and perform action
             clipped_actions = actions
             # Clip the actions to avoid out of bound error
-            if isinstance(self.action_space, gym.spaces.Box):
+            if isinstance(self.action_space, spaces.Box):
                 clipped_actions = np.clip(actions, self.action_space.low, self.action_space.high)
 
             new_obs, rewards, dones, infos = env.step(clipped_actions)
@@ -270,7 +269,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
             self._update_info_buffer(infos)
             n_steps += 1
 
-            if isinstance(self.action_space, gym.spaces.Discrete):
+            if isinstance(self.action_space, spaces.Discrete):
                 # Reshape in case of discrete action
                 actions = actions.reshape(-1, 1)
 
@@ -289,7 +288,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
                             lstm_states.vf[1][:, idx : idx + 1, :].contiguous(),
                         )
                         # terminal_lstm_state = None
-                        episode_starts = th.tensor([False]).float().to(self.device)
+                        episode_starts = th.tensor([False], dtype=th.float32, device=self.device)
                         terminal_value = self.policy.predict_values(terminal_obs, terminal_lstm_state, episode_starts)[0]
                     rewards[idx] += self.gamma * terminal_value
 
@@ -309,7 +308,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
 
         with th.no_grad():
             # Compute value for the last timestep
-            episode_starts = th.tensor(dones).float().to(self.device)
+            episode_starts = th.tensor(dones, dtype=th.float32, device=self.device)
             values = self.policy.predict_values(obs_as_tensor(new_obs, self.device), lstm_states.vf, episode_starts)
 
         rollout_buffer.compute_returns_and_advantage(last_values=values, dones=dones)
