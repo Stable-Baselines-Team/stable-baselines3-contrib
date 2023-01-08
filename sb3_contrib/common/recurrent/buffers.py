@@ -438,8 +438,9 @@ class RecurrentSequenceRolloutBuffer(RecurrentRolloutBuffer):
             self.episode_start_indices = np.where(self.episode_starts == 1)[0]
             self.generator_ready = True
 
-        random_indices = SubsetRandomSampler(range(len(self.episode_start_indices)-1)) # dropping the last one to make indexing the np arrays much simpler
+        random_indices = SubsetRandomSampler(range(len(self.episode_start_indices)))
         batch_sampler = BatchSampler(random_indices, batch_size, drop_last=True) # drop last batch to prevent extremely small batches causing spurious updates
+        self.episode_start_indices = np.concatenate([self.episode_start_indices, np.array([len(self.episode_start_indices)])]) # add a dummy index to make the code below simpler
 
         # yields batches of whole sequences, shape: (sequence_length, batch_size, data_length))
         for indices in batch_sampler:
@@ -514,8 +515,9 @@ class RecurrentSequenceDictRolloutBuffer(RecurrentDictRolloutBuffer):
             self.episode_start_indices = np.where(self.episode_starts == 1)[0]
             self.generator_ready = True
 
-        random_indices = SubsetRandomSampler(range(len(self.episode_start_indices)-1)) # dropping the last one to make indexing the np arrays much simpler
+        random_indices = SubsetRandomSampler(range(len(self.episode_start_indices)))
         batch_sampler = BatchSampler(random_indices, batch_size, drop_last=True) # drop last batch to prevent extremely small batches causing spurious updates
+        self.episode_start_indices = np.concatenate([self.episode_start_indices, np.array([len(self.episode_start_indices)])]) # add a dummy index to make the code below simpler
 
         # yields batches of whole sequences, shape: (sequence_length, batch_size, data_length)
         for indices in batch_sampler:
