@@ -65,7 +65,7 @@ setup(
     packages=[package for package in find_packages() if package.startswith("sb3_contrib")],
     package_data={"sb3_contrib": ["py.typed", "version.txt"]},
     install_requires=[
-        "stable_baselines3>=1.7.0a4",
+        "stable_baselines3>=1.7.0a12",
     ],
     description="Contrib package of Stable Baselines3, experimental code.",
     author="Antonin Raffin",
@@ -84,6 +84,7 @@ setup(
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
     ],
 )
 

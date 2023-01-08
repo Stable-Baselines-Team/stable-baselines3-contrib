@@ -1,9 +1,10 @@
+import warnings
 from functools import partial
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
-import gym
 import numpy as np
 import torch as th
+from gym import spaces
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.torch_layers import (
     BaseFeaturesExtractor,
@@ -32,6 +33,7 @@ class MaskableActorCriticPolicy(BasePolicy):
     :param features_extractor_class: Features extractor to use.
     :param features_extractor_kwargs: Keyword arguments
         to pass to the features extractor.
+    :param share_features_extractor: If True, the features extractor is shared between the policy and value networks.
     :param normalize_images: Whether to normalize images or not,
          dividing by 255.0 (True by default)
     :param optimizer_class: The optimizer to use,
@@ -42,14 +44,16 @@ class MaskableActorCriticPolicy(BasePolicy):
 
     def __init__(
         self,
-        observation_space: gym.spaces.Space,
-        action_space: gym.spaces.Space,
+        observation_space: spaces.Space,
+        action_space: spaces.Space,
         lr_schedule: Schedule,
-        net_arch: Optional[List[Union[int, Dict[str, List[int]]]]] = None,
+        # TODO(antonin): update type annotation when we remove shared network support
+        net_arch: Union[List[int], Dict[str, List[int]], List[Dict[str, List[int]]], None] = None,
         activation_fn: Type[nn.Module] = nn.Tanh,
         ortho_init: bool = True,
         features_extractor_class: Type[BaseFeaturesExtractor] = FlattenExtractor,
         features_extractor_kwargs: Optional[Dict[str, Any]] = None,
+        share_features_extractor: bool = True,
         normalize_images: bool = True,
         optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
@@ -68,24 +72,53 @@ class MaskableActorCriticPolicy(BasePolicy):
             features_extractor_kwargs,
             optimizer_class=optimizer_class,
             optimizer_kwargs=optimizer_kwargs,
+            normalize_images=normalize_images,
             squash_output=False,
         )
+
+        # Convert [dict()] to dict() as shared network are deprecated
+        if isinstance(net_arch, list) and len(net_arch) > 0:
+            if isinstance(net_arch[0], dict):
+                warnings.warn(
+                    (
+                        "As shared layers in the mlp_extractor are deprecated and will be removed in SB3 v1.8.0, "
+                        "you should now pass directly a dictionary and not a list "
+                        "(net_arch=dict(pi=..., vf=...) instead of net_arch=[dict(pi=..., vf=...)])"
+                    ),
+                )
+                net_arch = net_arch[0]
+            else:
+                # Note: deprecation warning will be emitted
+                # by the MlpExtractor constructor
+                pass
 
         # Default network architecture, from stable-baselines
         if net_arch is None:
             if features_extractor_class == NatureCNN:
                 net_arch = []
             else:
-                net_arch = [dict(pi=[64, 64], vf=[64, 64])]
+                net_arch = dict(pi=[64, 64], vf=[64, 64])
 
         self.net_arch = net_arch
         self.activation_fn = activation_fn
         self.ortho_init = ortho_init
 
-        self.features_extractor = features_extractor_class(self.observation_space, **self.features_extractor_kwargs)
+        self.share_features_extractor = share_features_extractor
+        self.features_extractor = self.make_features_extractor()
         self.features_dim = self.features_extractor.features_dim
+        if self.share_features_extractor:
+            self.pi_features_extractor = self.features_extractor
+            self.vf_features_extractor = self.features_extractor
+        else:
+            self.pi_features_extractor = self.features_extractor
+            self.vf_features_extractor = self.make_features_extractor()
+            # if the features extractor is not shared, there cannot be shared layers in the mlp_extractor
+            # TODO(antonin): update the check once we change net_arch behavior
+            if isinstance(net_arch, list) and len(net_arch) > 0:
+                raise ValueError(
+                    "Error: if the features extractor is not shared, there cannot be shared layers in the mlp_extractor"
+                )
 
-        self.normalize_images = normalize_images
         # Action distribution
         self.action_dist = make_masked_proba_distribution(action_space)
 
@@ -107,7 +140,12 @@ class MaskableActorCriticPolicy(BasePolicy):
         """
         # Preprocess the observation if needed
         features = self.extract_features(obs)
-        latent_pi, latent_vf = self.mlp_extractor(features)
+        if self.share_features_extractor:
+            latent_pi, latent_vf = self.mlp_extractor(features)
+        else:
+            pi_features, vf_features = features
+            latent_pi = self.mlp_extractor.forward_actor(pi_features)
+            latent_vf = self.mlp_extractor.forward_critic(vf_features)
         # Evaluate the values for the given observations
         values = self.value_net(latent_vf)
         distribution = self._get_action_dist_from_latent(latent_pi)
@@ -116,6 +154,19 @@ class MaskableActorCriticPolicy(BasePolicy):
         actions = distribution.get_actions(deterministic=deterministic)
         log_prob = distribution.log_prob(actions)
         return actions, values, log_prob
+
+    def extract_features(self, obs: th.Tensor) -> Union[th.Tensor, Tuple[th.Tensor, th.Tensor]]:
+        """
+        Preprocess the observation if needed and extract features.
+        :param obs: Observation
+        :return: the output of the features extractor(s)
+        """
+        if self.share_features_extractor:
+            return super().extract_features(obs, self.features_extractor)
+        else:
+            pi_features = super().extract_features(obs, self.pi_features_extractor)
+            vf_features = super().extract_features(obs, self.vf_features_extractor)
+            return pi_features, vf_features
 
     def _get_constructor_parameters(self) -> Dict[str, Any]:
         data = super()._get_constructor_parameters()
@@ -174,6 +225,13 @@ class MaskableActorCriticPolicy(BasePolicy):
                 self.action_net: 0.01,
                 self.value_net: 1,
             }
+            if not self.share_features_extractor:
+                # Note(antonin): this is to keep SB3 results
+                # consistent, see GH#1148
+                del module_gains[self.features_extractor]
+                module_gains[self.pi_features_extractor] = np.sqrt(2)
+                module_gains[self.vf_features_extractor] = np.sqrt(2)
+
             for module, gain in module_gains.items():
                 module.apply(partial(self.init_weights, gain=gain))
 
@@ -242,7 +300,7 @@ class MaskableActorCriticPolicy(BasePolicy):
             # Convert to numpy
             actions = actions.cpu().numpy()
 
-        if isinstance(self.action_space, gym.spaces.Box):
+        if isinstance(self.action_space, spaces.Box):
             if self.squash_output:
                 # Rescale to proper domain when using squashing
                 actions = self.unscale_action(actions)
@@ -268,13 +326,19 @@ class MaskableActorCriticPolicy(BasePolicy):
         Evaluate actions according to the current policy,
         given the observations.
 
-        :param obs:
-        :param actions:
+        :param obs: Observation
+        :param actions: Actions
         :return: estimated value, log likelihood of taking those actions
             and entropy of the action distribution.
         """
         features = self.extract_features(obs)
-        latent_pi, latent_vf = self.mlp_extractor(features)
+        if self.share_features_extractor:
+            latent_pi, latent_vf = self.mlp_extractor(features)
+        else:
+            pi_features, vf_features = features
+            latent_pi = self.mlp_extractor.forward_actor(pi_features)
+            latent_vf = self.mlp_extractor.forward_critic(vf_features)
+
         distribution = self._get_action_dist_from_latent(latent_pi)
         if action_masks is not None:
             distribution.apply_masking(action_masks)
@@ -286,11 +350,11 @@ class MaskableActorCriticPolicy(BasePolicy):
         """
         Get the current policy distribution given the observations.
 
-        :param obs:
-        :param action_masks:
+        :param obs: Observation
+        :param action_masks: Actions' mask
         :return: the action distribution.
         """
-        features = self.extract_features(obs)
+        features = super().extract_features(obs, self.pi_features_extractor)
         latent_pi = self.mlp_extractor.forward_actor(features)
         distribution = self._get_action_dist_from_latent(latent_pi)
         if action_masks is not None:
@@ -301,10 +365,10 @@ class MaskableActorCriticPolicy(BasePolicy):
         """
         Get the estimated values according to the current policy given the observations.
 
-        :param obs:
+        :param obs: Observation
         :return: the estimated values.
         """
-        features = self.extract_features(obs)
+        features = super().extract_features(obs, self.vf_features_extractor)
         latent_vf = self.mlp_extractor.forward_critic(features)
         return self.value_net(latent_vf)
 
@@ -323,6 +387,7 @@ class MaskableActorCriticCnnPolicy(MaskableActorCriticPolicy):
     :param features_extractor_class: Features extractor to use.
     :param features_extractor_kwargs: Keyword arguments
         to pass to the features extractor.
+    :param share_features_extractor: If True, the features extractor is shared between the policy and value networks.
     :param normalize_images: Whether to normalize images or not,
          dividing by 255.0 (True by default)
     :param optimizer_class: The optimizer to use,
@@ -333,14 +398,16 @@ class MaskableActorCriticCnnPolicy(MaskableActorCriticPolicy):
 
     def __init__(
         self,
-        observation_space: gym.spaces.Space,
-        action_space: gym.spaces.Space,
+        observation_space: spaces.Space,
+        action_space: spaces.Space,
         lr_schedule: Schedule,
-        net_arch: Optional[List[Union[int, Dict[str, List[int]]]]] = None,
+        # TODO(antonin): update type annotation when we remove shared network support
+        net_arch: Union[List[int], Dict[str, List[int]], List[Dict[str, List[int]]], None] = None,
         activation_fn: Type[nn.Module] = nn.Tanh,
         ortho_init: bool = True,
         features_extractor_class: Type[BaseFeaturesExtractor] = NatureCNN,
         features_extractor_kwargs: Optional[Dict[str, Any]] = None,
+        share_features_extractor: bool = True,
         normalize_images: bool = True,
         optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
@@ -354,6 +421,7 @@ class MaskableActorCriticCnnPolicy(MaskableActorCriticPolicy):
             ortho_init,
             features_extractor_class,
             features_extractor_kwargs,
+            share_features_extractor,
             normalize_images,
             optimizer_class,
             optimizer_kwargs,
@@ -374,6 +442,7 @@ class MaskableMultiInputActorCriticPolicy(MaskableActorCriticPolicy):
     :param features_extractor_class: Uses the CombinedExtractor
     :param features_extractor_kwargs: Keyword arguments
         to pass to the feature extractor.
+    :param share_features_extractor: If True, the features extractor is shared between the policy and value networks.
     :param normalize_images: Whether to normalize images or not,
          dividing by 255.0 (True by default)
     :param optimizer_class: The optimizer to use,
@@ -384,14 +453,16 @@ class MaskableMultiInputActorCriticPolicy(MaskableActorCriticPolicy):
 
     def __init__(
         self,
-        observation_space: gym.spaces.Dict,
-        action_space: gym.spaces.Space,
+        observation_space: spaces.Dict,
+        action_space: spaces.Space,
         lr_schedule: Schedule,
-        net_arch: Optional[List[Union[int, Dict[str, List[int]]]]] = None,
+        # TODO(antonin): update type annotation when we remove shared network support
+        net_arch: Union[List[int], Dict[str, List[int]], List[Dict[str, List[int]]], None] = None,
         activation_fn: Type[nn.Module] = nn.Tanh,
         ortho_init: bool = True,
         features_extractor_class: Type[BaseFeaturesExtractor] = CombinedExtractor,
         features_extractor_kwargs: Optional[Dict[str, Any]] = None,
+        share_features_extractor: bool = True,
         normalize_images: bool = True,
         optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
@@ -405,6 +476,7 @@ class MaskableMultiInputActorCriticPolicy(MaskableActorCriticPolicy):
             ortho_init,
             features_extractor_class,
             features_extractor_kwargs,
+            share_features_extractor,
             normalize_images,
             optimizer_class,
             optimizer_kwargs,

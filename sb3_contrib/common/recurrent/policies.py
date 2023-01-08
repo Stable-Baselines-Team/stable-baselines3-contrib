@@ -1,8 +1,8 @@
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
-import gym
 import numpy as np
 import torch as th
+from gym import spaces
 from stable_baselines3.common.distributions import Distribution
 from stable_baselines3.common.policies import ActorCriticPolicy
 from stable_baselines3.common.torch_layers import (
@@ -44,6 +44,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
     :param features_extractor_class: Features extractor to use.
     :param features_extractor_kwargs: Keyword arguments
         to pass to the features extractor.
+    :param share_features_extractor: If True, the features extractor is shared between the policy and value networks.
     :param normalize_images: Whether to normalize images or not,
          dividing by 255.0 (True by default)
     :param optimizer_class: The optimizer to use,
@@ -62,10 +63,11 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
 
     def __init__(
         self,
-        observation_space: gym.spaces.Space,
-        action_space: gym.spaces.Space,
+        observation_space: spaces.Space,
+        action_space: spaces.Space,
         lr_schedule: Schedule,
-        net_arch: Optional[List[Union[int, Dict[str, List[int]]]]] = None,
+        # TODO(antonin): update type annotation when we remove shared network support
+        net_arch: Union[List[int], Dict[str, List[int]], List[Dict[str, List[int]]], None] = None,
         activation_fn: Type[nn.Module] = nn.Tanh,
         ortho_init: bool = True,
         use_sde: bool = False,
@@ -75,6 +77,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         squash_output: bool = False,
         features_extractor_class: Type[BaseFeaturesExtractor] = FlattenExtractor,
         features_extractor_kwargs: Optional[Dict[str, Any]] = None,
+        share_features_extractor: bool = True,
         normalize_images: bool = True,
         optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
@@ -99,6 +102,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             squash_output,
             features_extractor_class,
             features_extractor_kwargs,
+            share_features_extractor,
             normalize_images,
             optimizer_class,
             optimizer_kwargs,
@@ -120,7 +124,11 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         self.lstm_critic = None
         assert not (
             self.shared_lstm and self.enable_critic_lstm
-        ), "You must choose between shared LSTM, seperate or no LSTM for the critic"
+        ), "You must choose between shared LSTM, seperate or no LSTM for the critic."
+
+        assert not (
+            self.shared_lstm and not self.share_features_extractor
+        ), "If the features extractor is not shared, the LSTM cannot be shared."
 
         # No LSTM for the critic, we still need to convert
         # output of features extractor to the correct size
@@ -222,17 +230,21 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         """
         # Preprocess the observation if needed
         features = self.extract_features(obs)
+        if self.share_features_extractor:
+            pi_features = vf_features = features  # alis
+        else:
+            pi_features, vf_features = features
         # latent_pi, latent_vf = self.mlp_extractor(features)
-        latent_pi, lstm_states_pi = self._process_sequence(features, lstm_states.pi, episode_starts, self.lstm_actor)
+        latent_pi, lstm_states_pi = self._process_sequence(pi_features, lstm_states.pi, episode_starts, self.lstm_actor)
         if self.lstm_critic is not None:
-            latent_vf, lstm_states_vf = self._process_sequence(features, lstm_states.vf, episode_starts, self.lstm_critic)
+            latent_vf, lstm_states_vf = self._process_sequence(vf_features, lstm_states.vf, episode_starts, self.lstm_critic)
         elif self.shared_lstm:
             # Re-use LSTM features but do not backpropagate
             latent_vf = latent_pi.detach()
             lstm_states_vf = (lstm_states_pi[0].detach(), lstm_states_pi[1].detach())
         else:
             # Critic only has a feedforward network
-            latent_vf = self.critic(features)
+            latent_vf = self.critic(vf_features)
             lstm_states_vf = lstm_states_pi
 
         latent_pi = self.mlp_extractor.forward_actor(latent_pi)
@@ -260,7 +272,8 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             or not (we reset the lstm states in that case).
         :return: the action distribution and new hidden states.
         """
-        features = self.extract_features(obs)
+        # Call the method from the parent of the parent class
+        features = super(ActorCriticPolicy, self).extract_features(obs, self.pi_features_extractor)
         latent_pi, lstm_states = self._process_sequence(features, lstm_states, episode_starts, self.lstm_actor)
         latent_pi = self.mlp_extractor.forward_actor(latent_pi)
         return self._get_action_dist_from_latent(latent_pi), lstm_states
@@ -280,7 +293,9 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             or not (we reset the lstm states in that case).
         :return: the estimated values.
         """
-        features = self.extract_features(obs)
+        # Call the method from the parent of the parent class
+        features = super(ActorCriticPolicy, self).extract_features(obs, self.vf_features_extractor)
+
         if self.lstm_critic is not None:
             latent_vf, lstm_states_vf = self._process_sequence(features, lstm_states, episode_starts, self.lstm_critic)
         elif self.shared_lstm:
@@ -294,11 +309,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         return self.value_net(latent_vf)
 
     def evaluate_actions(
-        self,
-        obs: th.Tensor,
-        actions: th.Tensor,
-        lstm_states: RNNStates,
-        episode_starts: th.Tensor,
+        self, obs: th.Tensor, actions: th.Tensor, lstm_states: RNNStates, episode_starts: th.Tensor
     ) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
         """
         Evaluate actions according to the current policy,
@@ -314,14 +325,17 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         """
         # Preprocess the observation if needed
         features = self.extract_features(obs)
-        latent_pi, _ = self._process_sequence(features, lstm_states.pi, episode_starts, self.lstm_actor)
-
+        if self.share_features_extractor:
+            pi_features = vf_features = features  # alias
+        else:
+            pi_features, vf_features = features
+        latent_pi, _ = self._process_sequence(pi_features, lstm_states.pi, episode_starts, self.lstm_actor)
         if self.lstm_critic is not None:
-            latent_vf, _ = self._process_sequence(features, lstm_states.vf, episode_starts, self.lstm_critic)
+            latent_vf, _ = self._process_sequence(vf_features, lstm_states.vf, episode_starts, self.lstm_critic)
         elif self.shared_lstm:
             latent_vf = latent_pi.detach()
         else:
-            latent_vf = self.critic(features)
+            latent_vf = self.critic(vf_features)
 
         latent_pi = self.mlp_extractor.forward_actor(latent_pi)
         latent_vf = self.mlp_extractor.forward_critic(latent_vf)
@@ -435,8 +449,10 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
 
         with th.no_grad():
             # Convert to PyTorch tensors
-            states = th.tensor(state[0]).float().to(self.device), th.tensor(state[1]).float().to(self.device)
-            episode_starts = th.tensor(episode_start).float().to(self.device)
+            states = th.tensor(state[0], dtype=th.float32, device=self.device), th.tensor(
+                state[1], dtype=th.float32, device=self.device
+            )
+            episode_starts = th.tensor(episode_start, dtype=th.float32, device=self.device)
             actions, states = self._predict(
                 observation, lstm_states=states, episode_starts=episode_starts, deterministic=deterministic
             )
@@ -445,7 +461,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         # Convert to numpy
         actions = actions.cpu().numpy()
 
-        if isinstance(self.action_space, gym.spaces.Box):
+        if isinstance(self.action_space, spaces.Box):
             if self.squash_output:
                 # Rescale to proper domain when using squashing
                 actions = self.unscale_action(actions)
@@ -484,6 +500,7 @@ class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
     :param features_extractor_class: Features extractor to use.
     :param features_extractor_kwargs: Keyword arguments
         to pass to the features extractor.
+    :param share_features_extractor: If True, the features extractor is shared between the policy and value networks.
     :param normalize_images: Whether to normalize images or not,
          dividing by 255.0 (True by default)
     :param optimizer_class: The optimizer to use,
@@ -501,10 +518,11 @@ class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
 
     def __init__(
         self,
-        observation_space: gym.spaces.Space,
-        action_space: gym.spaces.Space,
+        observation_space: spaces.Space,
+        action_space: spaces.Space,
         lr_schedule: Schedule,
-        net_arch: Optional[List[Union[int, Dict[str, List[int]]]]] = None,
+        # TODO(antonin): update type annotation when we remove shared network support
+        net_arch: Union[List[int], Dict[str, List[int]], List[Dict[str, List[int]]], None] = None,
         activation_fn: Type[nn.Module] = nn.Tanh,
         ortho_init: bool = True,
         use_sde: bool = False,
@@ -514,6 +532,7 @@ class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
         squash_output: bool = False,
         features_extractor_class: Type[BaseFeaturesExtractor] = NatureCNN,
         features_extractor_kwargs: Optional[Dict[str, Any]] = None,
+        share_features_extractor: bool = True,
         normalize_images: bool = True,
         optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
@@ -537,6 +556,7 @@ class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
             squash_output,
             features_extractor_class,
             features_extractor_kwargs,
+            share_features_extractor,
             normalize_images,
             optimizer_class,
             optimizer_kwargs,
@@ -571,6 +591,7 @@ class RecurrentMultiInputActorCriticPolicy(RecurrentActorCriticPolicy):
     :param features_extractor_class: Features extractor to use.
     :param features_extractor_kwargs: Keyword arguments
         to pass to the features extractor.
+    :param share_features_extractor: If True, the features extractor is shared between the policy and value networks.
     :param normalize_images: Whether to normalize images or not,
          dividing by 255.0 (True by default)
     :param optimizer_class: The optimizer to use,
@@ -588,10 +609,11 @@ class RecurrentMultiInputActorCriticPolicy(RecurrentActorCriticPolicy):
 
     def __init__(
         self,
-        observation_space: gym.spaces.Space,
-        action_space: gym.spaces.Space,
+        observation_space: spaces.Space,
+        action_space: spaces.Space,
         lr_schedule: Schedule,
-        net_arch: Optional[List[Union[int, Dict[str, List[int]]]]] = None,
+        # TODO(antonin): update type annotation when we remove shared network support
+        net_arch: Union[List[int], Dict[str, List[int]], List[Dict[str, List[int]]], None] = None,
         activation_fn: Type[nn.Module] = nn.Tanh,
         ortho_init: bool = True,
         use_sde: bool = False,
@@ -601,6 +623,7 @@ class RecurrentMultiInputActorCriticPolicy(RecurrentActorCriticPolicy):
         squash_output: bool = False,
         features_extractor_class: Type[BaseFeaturesExtractor] = CombinedExtractor,
         features_extractor_kwargs: Optional[Dict[str, Any]] = None,
+        share_features_extractor: bool = True,
         normalize_images: bool = True,
         optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
@@ -624,6 +647,7 @@ class RecurrentMultiInputActorCriticPolicy(RecurrentActorCriticPolicy):
             squash_output,
             features_extractor_class,
             features_extractor_kwargs,
+            share_features_extractor,
             normalize_images,
             optimizer_class,
             optimizer_kwargs,

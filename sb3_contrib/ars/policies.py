@@ -1,10 +1,10 @@
 from typing import Any, Dict, List, Optional, Type
 
-import gym
 import torch as th
+from gym import spaces
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.preprocessing import get_action_dim
-from stable_baselines3.common.torch_layers import create_mlp
+from stable_baselines3.common.torch_layers import BaseFeaturesExtractor, create_mlp
 from torch import nn
 
 
@@ -23,8 +23,8 @@ class ARSPolicy(BasePolicy):
 
     def __init__(
         self,
-        observation_space: gym.spaces.Space,
-        action_space: gym.spaces.Space,
+        observation_space: spaces.Space,
+        action_space: spaces.Space,
         net_arch: Optional[List[int]] = None,
         activation_fn: Type[nn.Module] = nn.ReLU,
         with_bias: bool = True,
@@ -34,7 +34,7 @@ class ARSPolicy(BasePolicy):
         super().__init__(
             observation_space,
             action_space,
-            squash_output=isinstance(action_space, gym.spaces.Box) and squash_output,
+            squash_output=isinstance(action_space, spaces.Box) and squash_output,
         )
 
         if net_arch is None:
@@ -45,12 +45,12 @@ class ARSPolicy(BasePolicy):
         self.features_dim = self.features_extractor.features_dim
         self.activation_fn = activation_fn
 
-        if isinstance(action_space, gym.spaces.Box):
+        if isinstance(action_space, spaces.Box):
             action_dim = get_action_dim(action_space)
             actor_net = create_mlp(
                 self.features_dim, action_dim, net_arch, activation_fn, with_bias=with_bias, squash_output=squash_output
             )
-        elif isinstance(action_space, gym.spaces.Discrete):
+        elif isinstance(action_space, spaces.Discrete):
             actor_net = create_mlp(self.features_dim, action_space.n, net_arch, activation_fn, with_bias=with_bias)
         else:
             raise NotImplementedError(f"Error: ARS policy not implemented for action space of type {type(action_space)}.")
@@ -68,11 +68,13 @@ class ARSPolicy(BasePolicy):
         return data
 
     def forward(self, obs: th.Tensor) -> th.Tensor:
+        # Make mypy happy:
+        assert isinstance(self.features_extractor, BaseFeaturesExtractor)
 
-        features = self.extract_features(obs)
-        if isinstance(self.action_space, gym.spaces.Box):
+        features = self.extract_features(obs, self.features_extractor)
+        if isinstance(self.action_space, spaces.Box):
             return self.action_net(features)
-        elif isinstance(self.action_space, gym.spaces.Discrete):
+        elif isinstance(self.action_space, spaces.Discrete):
             logits = self.action_net(features)
             return th.argmax(logits, dim=1)
         else:
@@ -96,8 +98,8 @@ class ARSLinearPolicy(ARSPolicy):
 
     def __init__(
         self,
-        observation_space: gym.spaces.Space,
-        action_space: gym.spaces.Space,
+        observation_space: spaces.Space,
+        action_space: spaces.Space,
         with_bias: bool = False,
         squash_output: bool = False,
     ):

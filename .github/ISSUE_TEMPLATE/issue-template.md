@@ -52,9 +52,8 @@ Describe the characteristic of your environment:
  * Versions of any other relevant libraries
 
  You can use `sb3.get_system_info()` to print relevant packages info:
- ```python
- import stable_baselines3 as sb3
- sb3.get_system_info()
+ ```sh
+ python -c 'import stable_baselines3 as sb3; sb3.get_system_info()'
  ```
 
 **Additional context**

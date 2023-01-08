@@ -2,6 +2,7 @@ import random
 
 import gym
 import pytest
+from gym import spaces
 from stable_baselines3.common.callbacks import EventCallback, StopTrainingOnNoModelImprovement
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.envs import FakeImageEnv, IdentityEnv, IdentityEnvBox
@@ -27,7 +28,7 @@ class ToDictWrapper(gym.Wrapper):
 
     def __init__(self, env):
         super().__init__(env)
-        self.observation_space = gym.spaces.Dict({"obs": self.env.observation_space})
+        self.observation_space = spaces.Dict({"obs": self.env.observation_space})
 
     def reset(self):
         return {"obs": self.env.reset()}
@@ -226,7 +227,8 @@ def test_discrete_action_space_required():
         MaskablePPO("MlpPolicy", env)
 
 
-def test_cnn():
+@pytest.mark.parametrize("share_features_extractor", [True, False])
+def test_cnn(share_features_extractor):
     def action_mask_fn(env):
         random_invalid_action = random.randrange(env.action_space.n)
         return [i != random_invalid_action for i in range(env.action_space.n)]
@@ -242,6 +244,7 @@ def test_cnn():
         verbose=1,
         policy_kwargs=dict(
             features_extractor_kwargs=dict(features_dim=32),
+            share_features_extractor=share_features_extractor,
         ),
     )
     model.learn(100)
