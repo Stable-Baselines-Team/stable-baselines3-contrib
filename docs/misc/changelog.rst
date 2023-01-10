@@ -3,7 +3,7 @@
 Changelog
 ==========
 
-Release 1.7.0a12 (WIP)
+Release 1.7.0 (2023-01-10)
 --------------------------
 
 .. warning::
@@ -18,7 +18,7 @@ Breaking Changes:
 - Removed deprecated ``create_eval_env``, ``eval_env``, ``eval_log_path``, ``n_eval_episodes`` and ``eval_freq`` parameters,
   please use an ``EvalCallback`` instead
 - Removed deprecated ``sde_net_arch`` parameter
-- Upgraded to Stable-Baselines3 >= 1.7.0a12
+- Upgraded to Stable-Baselines3 >= 1.7.0
 
 New Features:
 ^^^^^^^^^^^^^
