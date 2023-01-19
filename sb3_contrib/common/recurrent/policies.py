@@ -181,22 +181,29 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         # (sequence length, batch size, features dim)
         # (batch size = n_envs for data collection or n_seq when doing gradient update)
         n_seq = lstm_states[0].shape[1]
+        n_steps = features.shape[0]
+        obs_seq_length = features.shape[1]
+        
         # Batch to sequence
         # (padded batch size, features_dim) -> (n_seq, max length, features_dim) -> (max length, n_seq, features_dim)
         # note: max length (max sequence length) is always 1 during data collection
         features_sequence = features.reshape((n_seq, -1, lstm.input_size)).swapaxes(0, 1)
-        episode_starts = episode_starts.reshape((n_seq, -1)).swapaxes(0, 1)
-
+            
         # If we don't have to reset the state in the middle of a sequence
         # we can avoid the for loop, which speeds up things
         if th.all(episode_starts == 0.0):
             lstm_output, lstm_states = lstm(features_sequence, lstm_states)
-            lstm_output = th.flatten(lstm_output.transpose(0, 1), start_dim=0, end_dim=1)
+            lstm_output = lstm_output.reshape(n_steps, obs_seq_length, *lstm_output.shape[2:])
             return lstm_output, lstm_states
 
+        indices = th.arange(0, n_steps * obs_seq_length, obs_seq_length)
+        ep_starts_indices = indices[episode_starts == 1.0]
+        starts_sequence = th.zeros(features_sequence.shape[:2])
+        starts_sequence.view(-1)[ep_starts_indices] = 1
+        
         lstm_output = []
         # Iterate over the sequence
-        for features, episode_start in zip_strict(features_sequence, episode_starts):
+        for features, episode_start in zip_strict(features_sequence, starts_sequence):
             hidden, lstm_states = lstm(
                 features.unsqueeze(dim=0),
                 (
@@ -208,7 +215,8 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             lstm_output += [hidden]
         # Sequence to batch
         # (sequence length, n_seq, lstm_out_dim) -> (batch_size, lstm_out_dim)
-        lstm_output = th.flatten(th.cat(lstm_output).transpose(0, 1), start_dim=0, end_dim=1)
+        lstm_output = th.cat(lstm_output).transpose(0, 1)
+        lstm_output = lstm_output.reshape(n_steps, obs_seq_length, *lstm_output.shape[2:])
         return lstm_output, lstm_states
 
     def forward(
@@ -246,9 +254,8 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             # Critic only has a feedforward network
             latent_vf = self.critic(vf_features)
             lstm_states_vf = lstm_states_pi
-
-        latent_pi = self.mlp_extractor.forward_actor(latent_pi)
-        latent_vf = self.mlp_extractor.forward_critic(latent_vf)
+        latent_pi = self.mlp_extractor.forward_actor(latent_pi[:, -1])
+        latent_vf = self.mlp_extractor.forward_critic(latent_vf[:, -1])
 
         # Evaluate the values for the given observations
         values = self.value_net(latent_vf)
@@ -275,7 +282,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         # Call the method from the parent of the parent class
         features = super(ActorCriticPolicy, self).extract_features(obs, self.pi_features_extractor)
         latent_pi, lstm_states = self._process_sequence(features, lstm_states, episode_starts, self.lstm_actor)
-        latent_pi = self.mlp_extractor.forward_actor(latent_pi)
+        latent_pi = self.mlp_extractor.forward_actor(latent_pi[:, -1])
         return self._get_action_dist_from_latent(latent_pi), lstm_states
 
     def predict_values(
@@ -305,7 +312,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         else:
             latent_vf = self.critic(features)
 
-        latent_vf = self.mlp_extractor.forward_critic(latent_vf)
+        latent_vf = self.mlp_extractor.forward_critic(latent_vf[:, -1])
         return self.value_net(latent_vf)
 
     def evaluate_actions(
@@ -337,8 +344,8 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         else:
             latent_vf = self.critic(vf_features)
 
-        latent_pi = self.mlp_extractor.forward_actor(latent_pi)
-        latent_vf = self.mlp_extractor.forward_critic(latent_vf)
+        latent_pi = self.mlp_extractor.forward_actor(latent_pi[:, -1])
+        latent_vf = self.mlp_extractor.forward_critic(latent_vf[:, -1])
 
         distribution = self._get_action_dist_from_latent(latent_pi)
         log_prob = distribution.log_prob(actions)
