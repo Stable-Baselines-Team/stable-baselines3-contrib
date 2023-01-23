@@ -3,12 +3,13 @@
 Changelog
 ==========
 
-Release 1.8.0 (WIP)
+Release 1.8.0a2 (WIP)
 --------------------------
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
 - Removed shared layers in ``mlp_extractor`` (@AlexPasqua)
+- Upgraded to Stable-Baselines3 >= 1.8.0
 
 New Features:
 ^^^^^^^^^^^^^

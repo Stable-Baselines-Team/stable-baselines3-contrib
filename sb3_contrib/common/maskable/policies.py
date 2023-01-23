@@ -1,3 +1,4 @@
+import warnings
 from functools import partial
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
@@ -73,6 +74,16 @@ class MaskableActorCriticPolicy(BasePolicy):
             normalize_images=normalize_images,
             squash_output=False,
         )
+
+        if isinstance(net_arch, list) and len(net_arch) > 0 and isinstance(net_arch[0], dict):
+            warnings.warn(
+                (
+                    "As shared layers in the mlp_extractor are removed since SB3 v1.8.0, "
+                    "you should now pass directly a dictionary and not a list "
+                    "(net_arch=dict(pi=..., vf=...) instead of net_arch=[dict(pi=..., vf=...)])"
+                ),
+            )
+            net_arch = net_arch[0]
 
         # Default network architecture, from stable-baselines
         if net_arch is None:
