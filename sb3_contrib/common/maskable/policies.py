@@ -1,4 +1,3 @@
-import warnings
 from functools import partial
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
@@ -47,8 +46,7 @@ class MaskableActorCriticPolicy(BasePolicy):
         observation_space: spaces.Space,
         action_space: spaces.Space,
         lr_schedule: Schedule,
-        # TODO(antonin): update type annotation when we remove shared network support
-        net_arch: Union[List[int], Dict[str, List[int]], List[Dict[str, List[int]]], None] = None,
+        net_arch: Optional[Union[List[int], Dict[str, List[int]]]] = None,
         activation_fn: Type[nn.Module] = nn.Tanh,
         ortho_init: bool = True,
         features_extractor_class: Type[BaseFeaturesExtractor] = FlattenExtractor,
@@ -76,22 +74,6 @@ class MaskableActorCriticPolicy(BasePolicy):
             squash_output=False,
         )
 
-        # Convert [dict()] to dict() as shared network are deprecated
-        if isinstance(net_arch, list) and len(net_arch) > 0:
-            if isinstance(net_arch[0], dict):
-                warnings.warn(
-                    (
-                        "As shared layers in the mlp_extractor are deprecated and will be removed in SB3 v1.8.0, "
-                        "you should now pass directly a dictionary and not a list "
-                        "(net_arch=dict(pi=..., vf=...) instead of net_arch=[dict(pi=..., vf=...)])"
-                    ),
-                )
-                net_arch = net_arch[0]
-            else:
-                # Note: deprecation warning will be emitted
-                # by the MlpExtractor constructor
-                pass
-
         # Default network architecture, from stable-baselines
         if net_arch is None:
             if features_extractor_class == NatureCNN:
@@ -112,12 +94,6 @@ class MaskableActorCriticPolicy(BasePolicy):
         else:
             self.pi_features_extractor = self.features_extractor
             self.vf_features_extractor = self.make_features_extractor()
-            # if the features extractor is not shared, there cannot be shared layers in the mlp_extractor
-            # TODO(antonin): update the check once we change net_arch behavior
-            if isinstance(net_arch, list) and len(net_arch) > 0:
-                raise ValueError(
-                    "Error: if the features extractor is not shared, there cannot be shared layers in the mlp_extractor"
-                )
 
         # Action distribution
         self.action_dist = make_masked_proba_distribution(action_space)
@@ -401,8 +377,7 @@ class MaskableActorCriticCnnPolicy(MaskableActorCriticPolicy):
         observation_space: spaces.Space,
         action_space: spaces.Space,
         lr_schedule: Schedule,
-        # TODO(antonin): update type annotation when we remove shared network support
-        net_arch: Union[List[int], Dict[str, List[int]], List[Dict[str, List[int]]], None] = None,
+        net_arch: Optional[Union[List[int], Dict[str, List[int]]]] = None,
         activation_fn: Type[nn.Module] = nn.Tanh,
         ortho_init: bool = True,
         features_extractor_class: Type[BaseFeaturesExtractor] = NatureCNN,
@@ -456,8 +431,7 @@ class MaskableMultiInputActorCriticPolicy(MaskableActorCriticPolicy):
         observation_space: spaces.Dict,
         action_space: spaces.Space,
         lr_schedule: Schedule,
-        # TODO(antonin): update type annotation when we remove shared network support
-        net_arch: Union[List[int], Dict[str, List[int]], List[Dict[str, List[int]]], None] = None,
+        net_arch: Optional[Union[List[int], Dict[str, List[int]]]] = None,
         activation_fn: Type[nn.Module] = nn.Tanh,
         ortho_init: bool = True,
         features_extractor_class: Type[BaseFeaturesExtractor] = CombinedExtractor,
