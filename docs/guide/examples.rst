@@ -30,6 +30,20 @@ Train a Quantile Regression DQN (QR-DQN) agent on the CartPole environment.
   model.learn(total_timesteps=10_000, log_interval=4)
   model.save("qrdqn_cartpole")
 
+IQN
+---
+
+Train a Implicit Quantile Networks (IQN) agent on the CartPole environment.
+
+.. code-block:: python
+
+  from sb3_contrib import IQN
+
+  policy_kwargs = dict(n_quantiles=32)
+  model = IQN("MlpPolicy", "CartPole-v1", policy_kwargs=policy_kwargs, verbose=1)
+  model.learn(total_timesteps=10_000, log_interval=4)
+  model.save("iqn_cartpole")
+
 MaskablePPO
 -----------
 
