@@ -12,16 +12,16 @@ from stable_baselines3.common.envs import FakeImageEnv, IdentityEnv, IdentityEnv
 from stable_baselines3.common.utils import get_device
 from stable_baselines3.common.vec_env import DummyVecEnv
 
-from sb3_contrib import ARS, QRDQN, TQC, TRPO
+from sb3_contrib import ARS, IQN, QRDQN, TQC, TRPO
 
-MODEL_LIST = [ARS, QRDQN, TQC, TRPO]
+MODEL_LIST = [ARS, IQN, QRDQN, TQC, TRPO]
 
 
 def select_env(model_class: BaseAlgorithm) -> gym.Env:
     """
-    Selects an environment with the correct action space as QRDQN only supports discrete action space
+    Selects an environment with the correct action space as IQN and QRDQN only support discrete action space
     """
-    if model_class == QRDQN:
+    if model_class in {IQN, QRDQN}:
         return IdentityEnv(10)
     else:
         return IdentityEnvBox(10)
@@ -42,7 +42,7 @@ def test_save_load(tmp_path, model_class):
 
     policy_kwargs = dict(net_arch=[16])
 
-    if model_class in {QRDQN, TQC}:
+    if model_class in {IQN, QRDQN, TQC}:
         policy_kwargs.update(dict(n_quantiles=20))
 
     # create model
@@ -171,13 +171,13 @@ def test_set_env(model_class):
     :param model_class: (BaseAlgorithm) A RL model
     """
 
-    # use discrete for QRDQN
+    # use discrete for IQN and QRDQN
     env = DummyVecEnv([lambda: select_env(model_class)])
     env2 = DummyVecEnv([lambda: select_env(model_class)])
     env3 = select_env(model_class)
 
     kwargs = dict(policy_kwargs=dict(net_arch=[16]))
-    if model_class in {TQC, QRDQN}:
+    if model_class in {TQC, IQN, QRDQN}:
         kwargs.update(dict(learning_starts=100))
         kwargs["policy_kwargs"].update(dict(n_quantiles=20))
 
@@ -273,7 +273,7 @@ def test_save_load_policy(tmp_path, model_class, policy_str):
     if policy_str == "MlpPolicy":
         env = select_env(model_class)
     else:
-        if model_class in [TQC, QRDQN]:
+        if model_class in [TQC, IQN, QRDQN]:
             # Avoid memory error when using replay buffer
             # Reduce the size of the features
             kwargs = dict(
@@ -286,10 +286,10 @@ def test_save_load_policy(tmp_path, model_class, policy_str):
                 n_steps=128,
                 policy_kwargs=dict(features_extractor_kwargs=dict(features_dim=32)),
             )
-        env = FakeImageEnv(screen_height=40, screen_width=40, n_channels=2, discrete=model_class == QRDQN)
+        env = FakeImageEnv(screen_height=40, screen_width=40, n_channels=2, discrete=model_class in {IQN, QRDQN})
 
     # Reduce number of quantiles for faster tests
-    if model_class in [TQC, QRDQN]:
+    if model_class in [TQC, IQN, QRDQN]:
         kwargs["policy_kwargs"].update(dict(n_quantiles=20))
 
     env = DummyVecEnv([lambda: env])
@@ -366,7 +366,7 @@ def test_save_load_policy(tmp_path, model_class, policy_str):
         os.remove(tmp_path / "actor.pkl")
 
 
-@pytest.mark.parametrize("model_class", [QRDQN])
+@pytest.mark.parametrize("model_class", [IQN, QRDQN])
 @pytest.mark.parametrize("policy_str", ["MlpPolicy", "CnnPolicy"])
 def test_save_load_q_net(tmp_path, model_class, policy_str):
     """
@@ -379,7 +379,7 @@ def test_save_load_q_net(tmp_path, model_class, policy_str):
     if policy_str == "MlpPolicy":
         env = select_env(model_class)
     else:
-        if model_class in [QRDQN]:
+        if model_class in [IQN, QRDQN]:
             # Avoid memory error when using replay buffer
             # Reduce the size of the features
             kwargs = dict(
@@ -387,10 +387,10 @@ def test_save_load_q_net(tmp_path, model_class, policy_str):
                 learning_starts=100,
                 policy_kwargs=dict(features_extractor_kwargs=dict(features_dim=32)),
             )
-        env = FakeImageEnv(screen_height=40, screen_width=40, n_channels=2, discrete=model_class == QRDQN)
+        env = FakeImageEnv(screen_height=40, screen_width=40, n_channels=2, discrete=model_class in [IQN, QRDQN])
 
     # Reduce number of quantiles for faster tests
-    if model_class in [QRDQN]:
+    if model_class in [IQN, QRDQN]:
         kwargs["policy_kwargs"].update(dict(n_quantiles=20))
 
     env = DummyVecEnv([lambda: env])
