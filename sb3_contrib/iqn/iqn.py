@@ -18,8 +18,8 @@ SelfIQN = TypeVar("SelfIQN", bound="IQN")
 
 class IQN(OffPolicyAlgorithm):
     """
-    Inplicit Quantile Network (IQN)
-    Paper: TODO
+    Implicit Quantile Network (IQN)
+    Paper: https://arxiv.org/abs/1806.06923
     Default hyperparameters are taken from the paper and are tuned for Atari games.
 
     :param policy: The policy model to use (MlpPolicy, CnnPolicy, ...)
@@ -31,6 +31,8 @@ class IQN(OffPolicyAlgorithm):
     :param batch_size: Minibatch size for each gradient update
     :param tau: the soft update coefficient ("Polyak update", between 0 and 1) default 1 for hard update
     :param gamma: the discount factor
+    :param num_tau_samples: Number of samples used to estimate the current quantiles
+    :param num_tau_prime_samples: Number of samples used to estimate the next quantiles
     :param train_freq: Update the model every ``train_freq`` steps. Alternatively pass a tuple of frequency and unit
         like ``(5, "step")`` or ``(2, "episode")``.
     :param gradient_steps: How many gradient steps to do after each rollout
