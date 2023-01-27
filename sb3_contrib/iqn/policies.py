@@ -14,7 +14,7 @@ from stable_baselines3.common.type_aliases import Schedule
 from torch import nn
 
 
-def unflatten(input: th.Tensor, dim: int, sizes: Tuple[int]) -> th.Tensor:
+def unflatten(input: th.Tensor, dim: int, sizes: Tuple[int, ...]) -> th.Tensor:
     # The purpose of this function is to remember thatonce the minimum
     # version of torch is above 1.13, we can simply use th.unflatten.
     if th.__version__ >= "1.13":
@@ -52,7 +52,7 @@ class CosineEmbeddingNetwork(nn.Module):
         # Compute embeddings of taus
         cosines = th.flatten(cosines, end_dim=1)  # (batch_size * num_tau_samples, num_cosines)
         tau_embeddings = self.net(cosines)  # (batch_size * num_tau_samples, features_dim)
-        return th.unflatten(tau_embeddings, dim=0, sizes=(-1, taus.shape[1]))  # (batch_size, num_tau_samples, features_dim)
+        return unflatten(tau_embeddings, dim=0, sizes=(-1, taus.shape[1]))  # (batch_size, num_tau_samples, features_dim)
 
 
 class QuantileNetwork(BasePolicy):
@@ -75,7 +75,7 @@ class QuantileNetwork(BasePolicy):
         self,
         observation_space: spaces.Space,
         action_space: spaces.Space,
-        features_extractor: nn.Module,
+        features_extractor: BaseFeaturesExtractor,
         features_dim: int,
         n_quantiles: int = 64,
         num_cosine: int = 64,
@@ -121,7 +121,7 @@ class QuantileNetwork(BasePolicy):
         # Compute the quantile values
         features = th.flatten(features, end_dim=1)  # (batch_size * M, features_dim)
         quantiles = self.quantile_net(features)
-        return th.unflatten(quantiles, dim=0, sizes=(-1, tau_embeddings.shape[1]))  # (batch_size, M, num_actions)
+        return unflatten(quantiles, dim=0, sizes=(-1, tau_embeddings.shape[1]))  # (batch_size, M, num_actions)
 
     def _predict(self, observation: th.Tensor, deterministic: bool = True) -> th.Tensor:
         q_values = self(observation, self.n_quantiles).mean(dim=1)
@@ -215,7 +215,8 @@ class IQNPolicy(BasePolicy):
             "normalize_images": normalize_images,
         }
 
-        self.quantile_net, self.quantile_net_target = None, None
+        self.quantile_net: QuantileNetwork
+        self.quantile_net_target: QuantileNetwork
         self._build(lr_schedule)
 
     def _build(self, lr_schedule: Schedule) -> None:
@@ -231,7 +232,9 @@ class IQNPolicy(BasePolicy):
         self.quantile_net_target.set_training_mode(False)
 
         # Setup optimizer with initial learning rate
-        self.optimizer = self.optimizer_class(self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
+        self.optimizer = self.optimizer_class(
+            self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs
+        )  #  type:ignore[call-arg] #  Assume that all optimizers have lr as argument
 
     def make_quantile_net(self) -> QuantileNetwork:
         # Make sure we always have separate networks for features extractors etc

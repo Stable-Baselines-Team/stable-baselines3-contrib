@@ -73,14 +73,14 @@ class IQN(OffPolicyAlgorithm):
         learning_rate: Union[float, Schedule] = 5e-5,
         buffer_size: int = 1000000,  # 1e6
         learning_starts: int = 50000,
-        batch_size: Optional[int] = 32,
+        batch_size: int = 32,
         tau: float = 1.0,
         gamma: float = 0.99,
         num_tau_samples: int = 32,
         num_tau_prime_samples: int = 64,
         train_freq: int = 4,
         gradient_steps: int = 1,
-        replay_buffer_class: Optional[ReplayBuffer] = None,
+        replay_buffer_class: Optional[Type[ReplayBuffer]] = None,
         replay_buffer_kwargs: Optional[Dict[str, Any]] = None,
         optimize_memory_usage: bool = False,
         target_update_interval: int = 10000,
@@ -132,8 +132,8 @@ class IQN(OffPolicyAlgorithm):
         # "epsilon" for the epsilon-greedy exploration
         self.exploration_rate = 0.0
         # Linear schedule will be defined in `_setup_model()`
-        self.exploration_schedule = None
-        self.quantile_net, self.quantile_net_target = None, None
+        self.exploration_schedule: Schedule
+        self.policy: IQNPolicy  # type: ignore[assignment]
 
         if "optimizer_class" not in self.policy_kwargs:
             self.policy_kwargs["optimizer_class"] = th.optim.Adam
@@ -223,7 +223,7 @@ class IQN(OffPolicyAlgorithm):
 
     def predict(
         self,
-        observation: np.ndarray,
+        observation: Union[np.ndarray, Dict[str, np.ndarray]],
         state: Optional[Tuple[np.ndarray, ...]] = None,
         episode_start: Optional[np.ndarray] = None,
         deterministic: bool = False,
