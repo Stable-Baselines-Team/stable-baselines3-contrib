@@ -88,6 +88,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         lstm_kwargs: Optional[Dict[str, Any]] = None,
     ):
         self.lstm_output_dim = lstm_hidden_size
+
         super().__init__(
             observation_space,
             action_space,
@@ -165,6 +166,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         features: th.Tensor,
         lstm_states: Tuple[th.Tensor, th.Tensor],
         episode_starts: th.Tensor,
+        step_ends: th.Tensor,
         lstm: nn.LSTM,
     ) -> Tuple[th.Tensor, th.Tensor]:
         """
@@ -183,24 +185,26 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         n_seq = lstm_states[0].shape[1]
         n_steps = features.shape[0]
         obs_seq_length = features.shape[1]
-        
+
         # Batch to sequence
         # (padded batch size, features_dim) -> (n_seq, max length, features_dim) -> (max length, n_seq, features_dim)
         # note: max length (max sequence length) is always 1 during data collection
         features_sequence = features.reshape((n_seq, -1, lstm.input_size)).swapaxes(0, 1)
-            
+
         # If we don't have to reset the state in the middle of a sequence
         # we can avoid the for loop, which speeds up things
         if th.all(episode_starts == 0.0):
             lstm_output, lstm_states = lstm(features_sequence, lstm_states)
             lstm_output = lstm_output.reshape(n_steps, obs_seq_length, *lstm_output.shape[2:])
-            return lstm_output, lstm_states
+            broadcast_ends = step_ends[:, None, None].broadcast_to(n_steps, 1, *lstm_output.shape[2:])
+            lstm_output = th.gather(lstm_output, 1, broadcast_ends)
+            return lstm_output.squeeze(1), lstm_states
 
         indices = th.arange(0, n_steps * obs_seq_length, obs_seq_length)
         ep_starts_indices = indices[episode_starts == 1.0]
-        starts_sequence = th.zeros(features_sequence.shape[:2])
+        starts_sequence = th.zeros(features_sequence.shape[:2], device=lstm_states[0].device)
         starts_sequence.view(-1)[ep_starts_indices] = 1
-        
+
         lstm_output = []
         # Iterate over the sequence
         for features, episode_start in zip_strict(features_sequence, starts_sequence):
@@ -213,17 +217,21 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
                 ),
             )
             lstm_output += [hidden]
+
         # Sequence to batch
         # (sequence length, n_seq, lstm_out_dim) -> (batch_size, lstm_out_dim)
         lstm_output = th.cat(lstm_output).transpose(0, 1)
         lstm_output = lstm_output.reshape(n_steps, obs_seq_length, *lstm_output.shape[2:])
-        return lstm_output, lstm_states
+        broadcast_ends = step_ends[:, None, None].broadcast_to(n_steps, 1, *lstm_output.shape[2:])
+        lstm_output = th.gather(lstm_output, 1, broadcast_ends)
+        return lstm_output.squeeze(1), lstm_states
 
     def forward(
         self,
         obs: th.Tensor,
         lstm_states: RNNStates,
         episode_starts: th.Tensor,
+        step_ends: th.Tensor,
         deterministic: bool = False,
     ) -> Tuple[th.Tensor, th.Tensor, th.Tensor, RNNStates]:
         """
@@ -236,6 +244,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         :param deterministic: Whether to sample or use deterministic actions
         :return: action, value and log probability of the action
         """
+
         # Preprocess the observation if needed
         features = self.extract_features(obs)
         if self.share_features_extractor:
@@ -243,9 +252,11 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         else:
             pi_features, vf_features = features
         # latent_pi, latent_vf = self.mlp_extractor(features)
-        latent_pi, lstm_states_pi = self._process_sequence(pi_features, lstm_states.pi, episode_starts, self.lstm_actor)
+        latent_pi, lstm_states_pi = self._process_sequence(
+            pi_features, lstm_states.pi, episode_starts, step_ends, self.lstm_actor)
         if self.lstm_critic is not None:
-            latent_vf, lstm_states_vf = self._process_sequence(vf_features, lstm_states.vf, episode_starts, self.lstm_critic)
+            latent_vf, lstm_states_vf = self._process_sequence(
+                vf_features, lstm_states.vf, episode_starts, step_ends, self.lstm_critic)
         elif self.shared_lstm:
             # Re-use LSTM features but do not backpropagate
             latent_vf = latent_pi.detach()
@@ -254,8 +265,9 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             # Critic only has a feedforward network
             latent_vf = self.critic(vf_features)
             lstm_states_vf = lstm_states_pi
-        latent_pi = self.mlp_extractor.forward_actor(latent_pi[:, -1])
-        latent_vf = self.mlp_extractor.forward_critic(latent_vf[:, -1])
+
+        latent_pi = self.mlp_extractor.forward_actor(latent_pi)
+        latent_vf = self.mlp_extractor.forward_critic(latent_vf)
 
         # Evaluate the values for the given observations
         values = self.value_net(latent_vf)
@@ -269,6 +281,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         obs: th.Tensor,
         lstm_states: Tuple[th.Tensor, th.Tensor],
         episode_starts: th.Tensor,
+        step_ends: th.Tensor
     ) -> Tuple[Distribution, Tuple[th.Tensor, ...]]:
         """
         Get the current policy distribution given the observations.
@@ -281,8 +294,8 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         """
         # Call the method from the parent of the parent class
         features = super(ActorCriticPolicy, self).extract_features(obs, self.pi_features_extractor)
-        latent_pi, lstm_states = self._process_sequence(features, lstm_states, episode_starts, self.lstm_actor)
-        latent_pi = self.mlp_extractor.forward_actor(latent_pi[:, -1])
+        latent_pi, lstm_states = self._process_sequence(features, lstm_states, episode_starts, step_ends, self.lstm_actor)
+        latent_pi = self.mlp_extractor.forward_actor(latent_pi)
         return self._get_action_dist_from_latent(latent_pi), lstm_states
 
     def predict_values(
@@ -290,6 +303,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         obs: th.Tensor,
         lstm_states: Tuple[th.Tensor, th.Tensor],
         episode_starts: th.Tensor,
+        step_ends: th.Tensor
     ) -> th.Tensor:
         """
         Get the estimated values according to the current policy given the observations.
@@ -304,19 +318,20 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         features = super(ActorCriticPolicy, self).extract_features(obs, self.vf_features_extractor)
 
         if self.lstm_critic is not None:
-            latent_vf, lstm_states_vf = self._process_sequence(features, lstm_states, episode_starts, self.lstm_critic)
+            latent_vf, lstm_states_vf = self._process_sequence(
+                features, lstm_states, episode_starts, step_ends, self.lstm_critic)
         elif self.shared_lstm:
             # Use LSTM from the actor
-            latent_pi, _ = self._process_sequence(features, lstm_states, episode_starts, self.lstm_actor)
+            latent_pi, _ = self._process_sequence(features, lstm_states, episode_starts, step_ends, self.lstm_actor)
             latent_vf = latent_pi.detach()
         else:
             latent_vf = self.critic(features)
 
-        latent_vf = self.mlp_extractor.forward_critic(latent_vf[:, -1])
+        latent_vf = self.mlp_extractor.forward_critic(latent_vf)
         return self.value_net(latent_vf)
 
     def evaluate_actions(
-        self, obs: th.Tensor, actions: th.Tensor, lstm_states: RNNStates, episode_starts: th.Tensor
+        self, obs: th.Tensor, actions: th.Tensor, lstm_states: RNNStates, episode_starts: th.Tensor, step_ends: th.Tensor
     ) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
         """
         Evaluate actions according to the current policy,
@@ -336,16 +351,17 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             pi_features = vf_features = features  # alias
         else:
             pi_features, vf_features = features
-        latent_pi, _ = self._process_sequence(pi_features, lstm_states.pi, episode_starts, self.lstm_actor)
+
+        latent_pi, _ = self._process_sequence(pi_features, lstm_states.pi, episode_starts, step_ends, self.lstm_actor)
         if self.lstm_critic is not None:
-            latent_vf, _ = self._process_sequence(vf_features, lstm_states.vf, episode_starts, self.lstm_critic)
+            latent_vf, _ = self._process_sequence(vf_features, lstm_states.vf, episode_starts, step_ends, self.lstm_critic)
         elif self.shared_lstm:
             latent_vf = latent_pi.detach()
         else:
             latent_vf = self.critic(vf_features)
 
-        latent_pi = self.mlp_extractor.forward_actor(latent_pi[:, -1])
-        latent_vf = self.mlp_extractor.forward_critic(latent_vf[:, -1])
+        latent_pi = self.mlp_extractor.forward_actor(latent_pi)
+        latent_vf = self.mlp_extractor.forward_critic(latent_vf)
 
         distribution = self._get_action_dist_from_latent(latent_pi)
         log_prob = distribution.log_prob(actions)
@@ -357,6 +373,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         observation: th.Tensor,
         lstm_states: Tuple[th.Tensor, th.Tensor],
         episode_starts: th.Tensor,
+        step_ends: th.Tensor,
         deterministic: bool = False,
     ) -> Tuple[th.Tensor, Tuple[th.Tensor, ...]]:
         """
@@ -369,7 +386,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         :param deterministic: Whether to use stochastic or deterministic actions
         :return: Taken action according to the policy and hidden states of the RNN
         """
-        distribution, lstm_states = self.get_distribution(observation, lstm_states, episode_starts)
+        distribution, lstm_states = self.get_distribution(observation, lstm_states, episode_starts, step_ends)
         return distribution.get_actions(deterministic=deterministic), lstm_states
 
     def predict(
@@ -377,6 +394,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         observation: Union[np.ndarray, Dict[str, np.ndarray]],
         state: Optional[Tuple[np.ndarray, ...]] = None,
         episode_start: Optional[np.ndarray] = None,
+        step_ends: Optional[np.ndarray] = None,
         deterministic: bool = False,
     ) -> Tuple[np.ndarray, Optional[Tuple[np.ndarray, ...]]]:
         """
@@ -394,12 +412,14 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         # Switch to eval mode (this affects batch norm / dropout)
         self.set_training_mode(False)
 
-        observation, vectorized_env = self.obs_to_tensor(observation)
+        # TODO
+        observation = self._obs_as_tensor(observation)
+        vectorized_env = True
 
         if isinstance(observation, dict):
             n_envs = observation[list(observation.keys())[0]].shape[0]
         else:
-            n_envs = observation.shape[0]
+            n_envs = len(observation)
         # state : (n_layers, n_envs, dim)
         if state is None:
             # Initialize hidden states to zeros
@@ -408,6 +428,8 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
 
         if episode_start is None:
             episode_start = np.array([False for _ in range(n_envs)])
+        if step_ends is None:
+            step_ends = np.full((n_envs, ), fill_value=-1, dtype=np.int64)
 
         with th.no_grad():
             # Convert to PyTorch tensors
@@ -415,8 +437,13 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
                 state[1], dtype=th.float32, device=self.device
             )
             episode_starts = th.tensor(episode_start, dtype=th.float32, device=self.device)
+            step_ends = th.tensor(episode_start, dtype=th.int64, device=self.device)
             actions, states = self._predict(
-                observation, lstm_states=states, episode_starts=episode_starts, deterministic=deterministic
+                observation,
+                lstm_states=states,
+                episode_starts=episode_starts,
+                step_ends=step_ends,
+                deterministic=deterministic
             )
             states = (states[0].cpu().numpy(), states[1].cpu().numpy())
 
@@ -437,6 +464,13 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             actions = actions.squeeze(axis=0)
 
         return actions, states
+
+    def _obs_as_tensor(self, observation):
+        # TODO, it should be general
+        return th.stack([
+            th.as_tensor(seq, device=self.device)
+            for seq in observation
+        ])
 
 
 class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):

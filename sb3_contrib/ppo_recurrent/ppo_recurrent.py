@@ -14,7 +14,7 @@ from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedul
 from stable_baselines3.common.utils import explained_variance, get_schedule_fn, obs_as_tensor, safe_mean
 from stable_baselines3.common.vec_env import VecEnv
 
-from sb3_contrib.common.recurrent.buffers import RecurrentDictRolloutBuffer, RecurrentRolloutBuffer
+from sb3_contrib.common.recurrent.buffers import RecurrentDictRolloutBuffer, RecurrentRolloutBuffer, RecurrentSequenceRolloutBuffer
 from sb3_contrib.common.recurrent.policies import RecurrentActorCriticPolicy
 from sb3_contrib.common.recurrent.type_aliases import RNNStates
 from sb3_contrib.ppo_recurrent.policies import CnnLstmPolicy, MlpLstmPolicy, MultiInputLstmPolicy
@@ -138,10 +138,14 @@ class RecurrentPPO(OnPolicyAlgorithm):
         self._setup_lr_schedule()
         self.set_random_seed(self.seed)
 
-        buffer_cls = RecurrentDictRolloutBuffer if isinstance(self.observation_space, spaces.Dict) else RecurrentRolloutBuffer
+        buffer_cls = RecurrentSequenceRolloutBuffer
 
+        single_obs_space = self.observation_space
+        if isinstance(self.observation_space, spaces.Sequence):
+            single_obs_space = self.observation_space.feature_space
+        
         self.policy = self.policy_class(
-            self.observation_space,
+            single_obs_space,
             self.action_space,
             self.lr_schedule,
             use_sde=self.use_sde,
@@ -211,7 +215,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
             collected, False if callback terminated rollout prematurely.
         """
         assert isinstance(
-            rollout_buffer, (RecurrentRolloutBuffer, RecurrentDictRolloutBuffer)
+            rollout_buffer, (RecurrentRolloutBuffer, RecurrentDictRolloutBuffer, RecurrentSequenceRolloutBuffer)
         ), f"{rollout_buffer} doesn't support recurrent policy"
 
         assert self._last_obs is not None, "No previous observation was provided"
@@ -235,10 +239,13 @@ class RecurrentPPO(OnPolicyAlgorithm):
 
             with th.no_grad():
                 # Convert to pytorch tensor or to TensorDict
-                obs_tensor = obs_as_tensor(self._last_obs, self.device)
+                obs_tensor = self.policy._obs_as_tensor(self._last_obs)
                 episode_starts = th.tensor(self._last_episode_starts, dtype=th.float32, device=self.device)
-                actions, values, log_probs, lstm_states = self.policy.forward(obs_tensor, lstm_states, episode_starts)
-
+                step_ends = th.full((self.n_envs,), obs_tensor.shape[1] - 1, device=self.device)
+                actions, values, log_probs, lstm_states = self.policy.forward(
+                    obs_tensor, lstm_states, episode_starts, step_ends
+                )
+            
             actions = actions.cpu().numpy()
 
             # Rescale and perform action
@@ -271,7 +278,9 @@ class RecurrentPPO(OnPolicyAlgorithm):
                     and infos[idx].get("terminal_observation") is not None
                     and infos[idx].get("TimeLimit.truncated", False)
                 ):
-                    terminal_obs = self.policy.obs_to_tensor(infos[idx]["terminal_observation"])[0]
+                    terminal_obs = self.policy._obs_as_tensor(infos[idx]["terminal_observation"][-1])
+                    terminal_obs = terminal_obs[None, None, :]
+                    
                     with th.no_grad():
                         terminal_lstm_state = (
                             lstm_states.vf[0][:, idx : idx + 1, :].contiguous(),
@@ -279,9 +288,10 @@ class RecurrentPPO(OnPolicyAlgorithm):
                         )
                         # terminal_lstm_state = None
                         episode_starts = th.tensor([False], dtype=th.float32, device=self.device)
-                        terminal_value = self.policy.predict_values(terminal_obs, terminal_lstm_state, episode_starts)[0]
+                        step_ends = th.zeros(1,  dtype=th.int64, device=self.device)
+                        terminal_value = self.policy.predict_values(terminal_obs, terminal_lstm_state, episode_starts, step_ends)[0]
                     rewards[idx] += self.gamma * terminal_value
-
+            
             rollout_buffer.add(
                 self._last_obs,
                 actions,
@@ -299,7 +309,9 @@ class RecurrentPPO(OnPolicyAlgorithm):
         with th.no_grad():
             # Compute value for the last timestep
             episode_starts = th.tensor(dones, dtype=th.float32, device=self.device)
-            values = self.policy.predict_values(obs_as_tensor(new_obs, self.device), lstm_states.vf, episode_starts)
+            obs_tensor = self.policy._obs_as_tensor(new_obs)
+            step_ends = th.full((self.n_envs,), obs_tensor.shape[1] - 1, device=self.device)
+            values = self.policy.predict_values(obs_tensor, lstm_states.vf, episode_starts, step_ends)
 
         rollout_buffer.compute_returns_and_advantage(last_values=values, dones=dones)
 
@@ -331,6 +343,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
         for epoch in range(self.n_epochs):
             approx_kl_divs = []
             # Do a complete pass on the rollout buffer
+
             for rollout_data in self.rollout_buffer.get(self.batch_size):
                 actions = rollout_data.actions
                 if isinstance(self.action_space, spaces.Discrete):
@@ -343,12 +356,13 @@ class RecurrentPPO(OnPolicyAlgorithm):
                 # Re-sample the noise matrix because the log_std has changed
                 if self.use_sde:
                     self.policy.reset_noise(self.batch_size)
-
+                
                 values, log_prob, entropy = self.policy.evaluate_actions(
                     rollout_data.observations,
                     actions,
                     rollout_data.lstm_states,
                     rollout_data.episode_starts,
+                    rollout_data.step_ends
                 )
 
                 values = values.flatten()
