@@ -143,7 +143,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
         single_obs_space = self.observation_space
         if isinstance(self.observation_space, spaces.Sequence):
             single_obs_space = self.observation_space.feature_space
-        
+
         self.policy = self.policy_class(
             single_obs_space,
             self.action_space,
@@ -245,7 +245,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
                 actions, values, log_probs, lstm_states = self.policy.forward(
                     obs_tensor, lstm_states, episode_starts, step_ends
                 )
-            
+
             actions = actions.cpu().numpy()
 
             # Rescale and perform action
@@ -280,7 +280,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
                 ):
                     terminal_obs = self.policy._obs_as_tensor(infos[idx]["terminal_observation"][-1])
                     terminal_obs = terminal_obs[None, None, :]
-                    
+
                     with th.no_grad():
                         terminal_lstm_state = (
                             lstm_states.vf[0][:, idx : idx + 1, :].contiguous(),
@@ -288,10 +288,11 @@ class RecurrentPPO(OnPolicyAlgorithm):
                         )
                         # terminal_lstm_state = None
                         episode_starts = th.tensor([False], dtype=th.float32, device=self.device)
-                        step_ends = th.zeros(1,  dtype=th.int64, device=self.device)
-                        terminal_value = self.policy.predict_values(terminal_obs, terminal_lstm_state, episode_starts, step_ends)[0]
+                        step_ends = th.zeros(1, dtype=th.int64, device=self.device)
+                        terminal_value = self.policy.predict_values(
+                            terminal_obs, terminal_lstm_state, episode_starts, step_ends)[0]
                     rewards[idx] += self.gamma * terminal_value
-            
+
             rollout_buffer.add(
                 self._last_obs,
                 actions,
@@ -356,7 +357,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
                 # Re-sample the noise matrix because the log_std has changed
                 if self.use_sde:
                     self.policy.reset_noise(self.batch_size)
-                
+
                 values, log_prob, entropy = self.policy.evaluate_actions(
                     rollout_data.observations,
                     actions,

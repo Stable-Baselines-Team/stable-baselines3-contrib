@@ -372,8 +372,6 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
         observations = {key: self.pad(obs[batch_inds]) for (key, obs) in self.observations.items()}
         observations = {key: obs.reshape((padded_batch_size,) + self.obs_shape[key]) for (key, obs) in observations.items()}
 
-        import pdb
-        pdb.set_trace()
         return RecurrentDictRolloutBufferSamples(
             observations=observations,
             actions=self.pad(self.actions[batch_inds]).reshape((padded_batch_size,) + self.actions.shape[1:]),
