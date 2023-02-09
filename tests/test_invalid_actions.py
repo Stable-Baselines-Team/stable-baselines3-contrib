@@ -273,3 +273,46 @@ def test_dict_obs():
     env = ToDictWrapper(env)
     model = MaskablePPO("MultiInputPolicy", env, n_steps=32, seed=8)
     model.learn(32)
+
+
+def test_dict_obs_tougher():
+
+    import numpy as np
+    from typing import Tuple
+
+    class MyBreakingCodeEnv(gym.Env):
+        def __init__(self):
+            obs_dict = dict(
+                board = gym.spaces.Box(low=0, high=1, shape=(8 * 8,), dtype=bool),
+                player = gym.spaces.MultiDiscrete([8, 8])
+            )
+            self.observation_space = gym.spaces.Dict(obs_dict)
+            self.action_space = gym.spaces.MultiDiscrete([8, 8])
+
+        def reset(self):
+            return self._obs()
+
+        def _obs(self):
+            return {
+                'board': np.zeros(shape=(8, 8), dtype=bool).flatten(),
+                'player': (2, 3)
+            }
+
+        def step(self, action: Tuple[int, int]):
+            reward = 0.2
+            done = False
+            info = {}
+            return self._obs(), reward, done, info
+
+        def render(self):
+            print("hi")
+
+        def action_masks(self) -> np.ndarray:
+            masks = np.zeros(shape=(8, 8), dtype=bool)
+            for i in range(8):
+                masks[i, i] = True
+            return masks
+
+    env = MyBreakingCodeEnv()
+    model = MaskablePPO("MultiInputPolicy", env, n_steps=32, seed=8)
+    model.learn(32)
