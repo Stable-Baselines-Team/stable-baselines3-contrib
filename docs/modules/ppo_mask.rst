@@ -116,6 +116,9 @@ to specify the name (see `PR #25 <https://github.com/Stable-Baselines-Team/stabl
   model.predict(observation, action_masks=valid_action_array)
 
 
+.. warning::
+  If you are using a custom environment and you want to debug it with ``check_env``, note that this will execute the method ``step`` passing a random action to it, without taking into account the invalid actions mask. This could cause crashes, which can be avoided by adding to your custom environment something like ``self.action_space.sample = self.valid_action_sampler`` where ``valid_action_sampler`` is a class method.
+
 Results
 -------
 
