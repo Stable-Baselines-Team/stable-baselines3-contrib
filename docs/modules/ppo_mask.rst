@@ -83,6 +83,11 @@ returns the invalid action mask (``True`` if the action is valid, ``False`` othe
 If the environment implements the invalid action mask but using a different name, you can use the ``ActionMasker``
 to specify the name (see `PR #25 <https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/pull/25>`_):
 
+.. note::
+  If you are using a custom environment and you want to debug it with ``check_env``,
+  it will execute the method ``step`` passing a random action to it (using ``action_space.sample()``),
+  without taking into account the invalid actions mask (see `issue #145 <https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/issues/145>`_).
+
 
 .. code-block:: python
 
@@ -115,9 +120,6 @@ to specify the name (see `PR #25 <https://github.com/Stable-Baselines-Team/stabl
   # so masking can be "removed" at testing time
   model.predict(observation, action_masks=valid_action_array)
 
-
-.. warning::
-  If you are using a custom environment and you want to debug it with ``check_env``, note that this will execute the method ``step`` passing a random action to it, without taking into account the invalid actions mask. This could cause crashes, which can be avoided by adding to your custom environment something like ``self.action_space.sample = self.valid_action_sampler`` where ``valid_action_sampler`` is a class method.
 
 Results
 -------
