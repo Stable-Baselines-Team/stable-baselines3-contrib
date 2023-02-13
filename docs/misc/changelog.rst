@@ -3,7 +3,7 @@
 Changelog
 ==========
 
-Release 1.8.0a2 (WIP)
+Release 1.8.0a4 (WIP)
 --------------------------
 
 Breaking Changes:
@@ -22,6 +22,10 @@ Deprecations:
 
 Others:
 ^^^^^^^
+
+Documentation:
+^^^^^^^^^^^^^^
+- Added warning about potential crashes caused by ``check_env`` in the ``MaskablePPO`` docs (@AlexPasqua)
 
 
 Release 1.7.0 (2023-01-10)
