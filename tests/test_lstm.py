@@ -1,3 +1,5 @@
+from typing import Dict, Optional
+
 import gymnasium as gym
 import numpy as np
 import pytest
@@ -5,6 +7,7 @@ from gymnasium import spaces
 from gymnasium.envs.classic_control import CartPoleEnv
 from gymnasium.wrappers.time_limit import TimeLimit
 from stable_baselines3.common.callbacks import EvalCallback
+from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.envs import FakeImageEnv
 from stable_baselines3.common.evaluation import evaluate_policy
@@ -22,8 +25,8 @@ class ToDictWrapper(gym.Wrapper):
         super().__init__(env)
         self.observation_space = spaces.Dict({"obs": self.env.observation_space})
 
-    def reset(self):
-        return {"obs": self.env.reset()[0]}, {}
+    def reset(self, **kwargs):
+        return {"obs": self.env.reset(**kwargs)[0]}, {}
 
     def step(self, action):
         obs, reward, done, truncated, infos = self.env.step(action)
@@ -46,15 +49,19 @@ class CartPoleNoVelEnv(CartPoleEnv):
     @staticmethod
     def _pos_obs(full_obs):
         xpos, _xvel, thetapos, _thetavel = full_obs
-        return xpos, thetapos
+        return np.array([xpos, thetapos])
 
-    def reset(self):
-        full_obs = super().reset()
-        return CartPoleNoVelEnv._pos_obs(full_obs), {}
+    def reset(self, *, seed: Optional[int] = None, options: Optional[Dict] = None):
+        full_obs, info = super().reset(seed=seed, options=options)
+        return CartPoleNoVelEnv._pos_obs(full_obs), info
 
     def step(self, action):
         full_obs, rew, terminated, truncated, info = super().step(action)
         return CartPoleNoVelEnv._pos_obs(full_obs), rew, terminated, truncated, info
+
+
+def test_env():
+    check_env(CartPoleNoVelEnv())
 
 
 @pytest.mark.parametrize(
