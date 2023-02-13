@@ -185,7 +185,6 @@ class MaskableDictRolloutBuffer(DictRolloutBuffer):
         indices = np.random.permutation(self.buffer_size * self.n_envs)
         # Prepare the data
         if not self.generator_ready:
-
             for key, obs in self.observations.items():
                 self.observations[key] = self.swap_and_flatten(obs)
 
@@ -205,7 +204,6 @@ class MaskableDictRolloutBuffer(DictRolloutBuffer):
             start_idx += batch_size
 
     def _get_samples(self, batch_inds: np.ndarray, env: Optional[VecNormalize] = None) -> MaskableDictRolloutBufferSamples:
-
         return MaskableDictRolloutBufferSamples(
             observations={key: self.to_torch(obs[batch_inds]) for (key, obs) in self.observations.items()},
             actions=self.to_torch(self.actions[batch_inds]),

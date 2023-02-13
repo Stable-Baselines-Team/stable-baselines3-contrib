@@ -30,7 +30,6 @@ class ARSPolicy(BasePolicy):
         with_bias: bool = True,
         squash_output: bool = True,
     ):
-
         super().__init__(
             observation_space,
             action_space,
@@ -103,7 +102,6 @@ class ARSLinearPolicy(ARSPolicy):
         with_bias: bool = False,
         squash_output: bool = False,
     ):
-
         super().__init__(observation_space, action_space, net_arch=[], with_bias=with_bias, squash_output=squash_output)
 
 

@@ -99,7 +99,6 @@ class TRPO(OnPolicyAlgorithm):
         device: Union[th.device, str] = "auto",
         _init_setup_model: bool = True,
     ):
-
         super().__init__(
             policy,
             env,
@@ -235,7 +234,6 @@ class TRPO(OnPolicyAlgorithm):
 
         # This will only loop once (get all data in one go)
         for rollout_data in self.rollout_buffer.get(batch_size=None):
-
             # Optional: sub-sample data for faster computation
             if self.sub_sampling_factor > 1:
                 rollout_data = RolloutBufferSamples(
@@ -308,7 +306,6 @@ class TRPO(OnPolicyAlgorithm):
             with th.no_grad():
                 # Line-search (backtracking)
                 for _ in range(self.line_search_max_iter):
-
                     start_idx = 0
                     # Applying the scaled step direction
                     for param, original_param, shape in zip(actor_params, original_actor_params, grad_shape):
@@ -408,7 +405,6 @@ class TRPO(OnPolicyAlgorithm):
         reset_num_timesteps: bool = True,
         progress_bar: bool = False,
     ) -> SelfTRPO:
-
         return super().learn(
             total_timesteps=total_timesteps,
             callback=callback,
