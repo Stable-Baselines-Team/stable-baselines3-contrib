@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.noise import NormalActionNoise

@@ -3,7 +3,7 @@
 Changelog
 ==========
 
-Release 1.8.0a2 (WIP)
+Release 1.8.0a4 (WIP)
 --------------------------
 
 Breaking Changes:
