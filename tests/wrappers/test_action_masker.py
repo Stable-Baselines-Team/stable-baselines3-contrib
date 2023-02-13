@@ -1,7 +1,7 @@
 from typing import List
 
 import pytest
-from gym import spaces
+from gymnasium import spaces
 from stable_baselines3.common.envs import IdentityEnv
 
 from sb3_contrib.common.wrappers import ActionMasker

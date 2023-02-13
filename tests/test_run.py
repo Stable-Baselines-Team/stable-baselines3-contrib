@@ -1,4 +1,4 @@
-import gym
+import gymnasium as gym
 import pytest
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecNormalize

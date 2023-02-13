@@ -1,9 +1,9 @@
-import gym
+import gymnasium as gym
 import numpy as np
 import pytest
-from gym import spaces
-from gym.envs.classic_control import CartPoleEnv
-from gym.wrappers.time_limit import TimeLimit
+from gymnasium import spaces
+from gymnasium.envs.classic_control import CartPoleEnv
+from gymnasium.wrappers.time_limit import TimeLimit
 from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.envs import FakeImageEnv

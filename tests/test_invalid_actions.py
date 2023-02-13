@@ -1,10 +1,10 @@
 import random
 from typing import Dict, Tuple
 
-import gym
+import gymnasium as gym
 import numpy as np
 import pytest
-from gym import spaces
+from gymnasium import spaces
 from stable_baselines3.common.callbacks import EventCallback, StopTrainingOnNoModelImprovement
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.envs import FakeImageEnv, IdentityEnv, IdentityEnvBox

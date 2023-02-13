@@ -1,8 +1,8 @@
 from typing import Dict, Union
 
-import gym
+import gymnasium as gym
 import numpy as np
-from gym import spaces
+from gymnasium import spaces
 from stable_baselines3.common.type_aliases import Gym26ResetReturn, Gym26StepReturn
 
 

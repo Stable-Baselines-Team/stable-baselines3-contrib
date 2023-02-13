@@ -86,7 +86,7 @@ to specify the name (see `PR #25 <https://github.com/Stable-Baselines-Team/stabl
 
 .. code-block:: python
 
-  import gym
+  import gymnasium as gym
   import numpy as np
 
   from sb3_contrib.common.maskable.policies import MaskableActorCriticPolicy

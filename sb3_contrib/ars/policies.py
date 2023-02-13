@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Optional, Type
 
 import torch as th
-from gym import spaces
+from gymnasium import spaces
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.preprocessing import get_action_dim
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor, create_mlp

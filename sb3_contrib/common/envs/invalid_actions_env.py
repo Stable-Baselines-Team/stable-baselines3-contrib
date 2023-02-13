@@ -1,7 +1,7 @@
 from typing import List, Optional
 
 import numpy as np
-from gym import spaces
+from gymnasium import spaces
 from stable_baselines3.common.envs import IdentityEnv
 
 

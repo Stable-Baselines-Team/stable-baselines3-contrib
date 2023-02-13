@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import torch as th
-from gym import spaces
+from gymnasium import spaces
 from stable_baselines3.common.distributions import SquashedDiagGaussianDistribution, StateDependentNoiseDistribution
 from stable_baselines3.common.policies import BaseModel, BasePolicy
 from stable_baselines3.common.preprocessing import get_action_dim

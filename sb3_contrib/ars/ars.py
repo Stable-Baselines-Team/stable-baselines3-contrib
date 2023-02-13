@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional, Type, TypeVar, Union
 import numpy as np
 import torch as th
 import torch.nn.utils
-from gym import spaces
+from gymnasium import spaces
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.evaluation import evaluate_policy
