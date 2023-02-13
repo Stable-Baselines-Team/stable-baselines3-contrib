@@ -101,7 +101,6 @@ class TQC(OffPolicyAlgorithm):
         device: Union[th.device, str] = "auto",
         _init_setup_model: bool = True,
     ):
-
         super().__init__(
             policy,
             env,
@@ -292,7 +291,6 @@ class TQC(OffPolicyAlgorithm):
         reset_num_timesteps: bool = True,
         progress_bar: bool = False,
     ) -> SelfTQC:
-
         return super().learn(
             total_timesteps=total_timesteps,
             callback=callback,
