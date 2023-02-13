@@ -11,6 +11,7 @@ from stable_baselines3.common.running_mean_std import RunningMeanStd
 from stable_baselines3.common.utils import compat_gym_seed
 from stable_baselines3.common.vec_env import VecEnv, unwrap_vec_normalize
 from stable_baselines3.common.vec_env.base_vec_env import CloudpickleWrapper
+from stable_baselines3.common.vec_env.patch_gym import _patch_env
 
 
 def _worker(
@@ -32,7 +33,7 @@ def _worker(
     :param n_eval_episodes: Number of evaluation episodes per candidate.
     """
     parent_remote.close()
-    env = worker_env_wrapper.var()
+    env = _patch_env(worker_env_wrapper.var())
     train_policy = train_policy_wrapper.var
     vec_normalize = unwrap_vec_normalize(env)
     if vec_normalize is not None:
