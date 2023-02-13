@@ -33,7 +33,7 @@ class ToDictWrapper(gym.Wrapper):
         self.observation_space = spaces.Dict({"obs": self.env.observation_space})
 
     def reset(self, **kwargs) -> Tuple[Dict[str, np.ndarray], Dict]:
-        return {"obs": self.env.reset(seed=kwargs.get("seed", 0))[0]}, {}
+        return {"obs": self.env.reset(seed=kwargs.get("seed", 0))[0]}, {}  # type: ignore[dict-item]
 
     def step(self, action):
         obs, reward, terminated, truncated, infos = self.env.step(action)

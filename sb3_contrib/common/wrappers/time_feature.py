@@ -56,7 +56,7 @@ class TimeFeatureWrapper(gym.Wrapper):
 
         # Try to infer the max number of steps per episode
         try:
-            self._max_steps = env.spec.max_episode_steps
+            self._max_steps = env.spec.max_episode_steps  # type: ignore[union-attr]
         except AttributeError:
             self._max_steps = None
 

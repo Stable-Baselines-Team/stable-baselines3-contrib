@@ -50,7 +50,7 @@ class ARSPolicy(BasePolicy):
                 self.features_dim, action_dim, net_arch, activation_fn, with_bias=with_bias, squash_output=squash_output
             )
         elif isinstance(action_space, spaces.Discrete):
-            actor_net = create_mlp(self.features_dim, action_space.n, net_arch, activation_fn, with_bias=with_bias)
+            actor_net = create_mlp(self.features_dim, int(action_space.n), net_arch, activation_fn, with_bias=with_bias)
         else:
             raise NotImplementedError(f"Error: ARS policy not implemented for action space of type {type(action_space)}.")
 
