@@ -6,7 +6,7 @@ from stable_baselines3.common.envs import SimpleMultiObsEnv
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.vec_env import DummyVecEnv, VecFrameStack, VecNormalize
 
-from sb3_contrib import QRDQN, TQC, TRPO
+from sb3_contrib import IQN, QRDQN, TQC, TRPO
 
 
 class DummyDictEnv(gym.Env):
@@ -78,13 +78,13 @@ class DummyDictEnv(gym.Env):
         pass
 
 
-@pytest.mark.parametrize("model_class", [QRDQN, TQC, TRPO])
+@pytest.mark.parametrize("model_class", [IQN, QRDQN, TQC, TRPO])
 def test_consistency(model_class):
     """
     Make sure that dict obs with vector only vs using flatten obs is equivalent.
     This ensures notable that the network architectures are the same.
     """
-    use_discrete_actions = model_class == QRDQN
+    use_discrete_actions = model_class in {IQN, QRDQN}
     dict_env = DummyDictEnv(use_discrete_actions=use_discrete_actions, vec_only=True)
     dict_env = gym.wrappers.TimeLimit(dict_env, 100)
     env = gym.wrappers.FlattenObservation(dict_env)
@@ -106,7 +106,7 @@ def test_consistency(model_class):
             train_freq=8,
             gradient_steps=1,
         )
-        if model_class == QRDQN:
+        if model_class in {IQN, QRDQN}:
             kwargs["learning_starts"] = 0
 
     dict_model = model_class("MultiInputPolicy", dict_env, gamma=0.5, seed=1, **kwargs)
@@ -124,7 +124,7 @@ def test_consistency(model_class):
     assert np.allclose(action_1, action_2)
 
 
-@pytest.mark.parametrize("model_class", [QRDQN, TQC, TRPO])
+@pytest.mark.parametrize("model_class", [IQN, QRDQN, TQC, TRPO])
 @pytest.mark.parametrize("channel_last", [False, True])
 def test_dict_spaces(model_class, channel_last):
     """
@@ -159,7 +159,7 @@ def test_dict_spaces(model_class, channel_last):
             train_freq=8,
             gradient_steps=1,
         )
-        if model_class == QRDQN:
+        if model_class in {IQN, QRDQN}:
             kwargs["learning_starts"] = 0
 
     model = model_class("MultiInputPolicy", env, gamma=0.5, seed=1, **kwargs)
@@ -169,7 +169,7 @@ def test_dict_spaces(model_class, channel_last):
     evaluate_policy(model, env, n_eval_episodes=5, warn=False)
 
 
-@pytest.mark.parametrize("model_class", [QRDQN, TQC, TRPO])
+@pytest.mark.parametrize("model_class", [IQN, QRDQN, TQC, TRPO])
 @pytest.mark.parametrize("channel_last", [False, True])
 def test_dict_vec_framestack(model_class, channel_last):
     """
@@ -208,7 +208,7 @@ def test_dict_vec_framestack(model_class, channel_last):
             train_freq=8,
             gradient_steps=1,
         )
-        if model_class == QRDQN:
+        if model_class in {IQN, QRDQN}:
             kwargs["learning_starts"] = 0
 
     model = model_class("MultiInputPolicy", env, gamma=0.5, seed=1, **kwargs)
@@ -218,13 +218,13 @@ def test_dict_vec_framestack(model_class, channel_last):
     evaluate_policy(model, env, n_eval_episodes=5, warn=False)
 
 
-@pytest.mark.parametrize("model_class", [QRDQN, TQC, TRPO])
+@pytest.mark.parametrize("model_class", [IQN, QRDQN, TQC, TRPO])
 def test_vec_normalize(model_class):
     """
     Additional tests to check observation space support
     for GoalEnv and VecNormalize using MultiInputPolicy.
     """
-    env = DummyVecEnv([lambda: gym.wrappers.TimeLimit(DummyDictEnv(use_discrete_actions=model_class == QRDQN), 100)])
+    env = DummyVecEnv([lambda: gym.wrappers.TimeLimit(DummyDictEnv(use_discrete_actions=model_class in {IQN, QRDQN}), 100)])
     env = VecNormalize(env, norm_obs_keys=["vec"])
 
     kwargs = {}
@@ -248,7 +248,7 @@ def test_vec_normalize(model_class):
             train_freq=8,
             gradient_steps=1,
         )
-        if model_class == QRDQN:
+        if model_class in {IQN, QRDQN}:
             kwargs["learning_starts"] = 0
 
     model = model_class("MultiInputPolicy", env, gamma=0.5, seed=1, **kwargs)

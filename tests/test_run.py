@@ -3,7 +3,7 @@ import pytest
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecNormalize
 
-from sb3_contrib import ARS, QRDQN, TQC, TRPO, MaskablePPO
+from sb3_contrib import ARS, IQN, QRDQN, TQC, TRPO, MaskablePPO
 from sb3_contrib.common.envs import InvalidActionEnvDiscrete
 from sb3_contrib.common.vec_env import AsyncEval
 
@@ -50,6 +50,19 @@ def test_sde():
 
 def test_qrdqn():
     model = QRDQN(
+        "MlpPolicy",
+        "CartPole-v1",
+        policy_kwargs=dict(n_quantiles=25, net_arch=[64, 64]),
+        learning_starts=100,
+        buffer_size=500,
+        learning_rate=3e-4,
+        verbose=1,
+    )
+    model.learn(total_timesteps=500)
+
+
+def test_iqn():
+    model = IQN(
         "MlpPolicy",
         "CartPole-v1",
         policy_kwargs=dict(n_quantiles=25, net_arch=[64, 64]),
@@ -115,7 +128,7 @@ def test_ars_n_top(n_top):
         model.learn(total_timesteps=500)
 
 
-@pytest.mark.parametrize("model_class", [TQC, QRDQN])
+@pytest.mark.parametrize("model_class", [TQC, IQN, QRDQN])
 def test_offpolicy_multi_env(model_class):
     if model_class in [TQC]:
         env_id = "Pendulum-v1"

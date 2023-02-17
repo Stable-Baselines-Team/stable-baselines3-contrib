@@ -4,18 +4,18 @@ from stable_baselines3.common.envs import IdentityEnv, IdentityEnvMultiBinary, I
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.vec_env import DummyVecEnv
 
-from sb3_contrib import QRDQN, TRPO
+from sb3_contrib import IQN, QRDQN, TRPO
 
 DIM = 4
 
 
-@pytest.mark.parametrize("model_class", [QRDQN, TRPO])
+@pytest.mark.parametrize("model_class", [IQN, QRDQN, TRPO])
 @pytest.mark.parametrize("env", [IdentityEnv(DIM), IdentityEnvMultiDiscrete(DIM), IdentityEnvMultiBinary(DIM)])
 def test_discrete(model_class, env):
     env_ = DummyVecEnv([lambda: env])
     kwargs = {}
     n_steps = 1500
-    if model_class == QRDQN:
+    if model_class in {IQN, QRDQN}:
         kwargs = dict(
             learning_starts=0,
             policy_kwargs=dict(n_quantiles=25, net_arch=[32]),

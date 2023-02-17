@@ -9,11 +9,11 @@ from stable_baselines3.common.envs import FakeImageEnv
 from stable_baselines3.common.utils import zip_strict
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize, VecTransposeImage, is_vecenv_wrapped
 
-from sb3_contrib import QRDQN, TQC, TRPO, MaskablePPO, RecurrentPPO
+from sb3_contrib import IQN, QRDQN, TQC, TRPO, MaskablePPO, RecurrentPPO
 from sb3_contrib.common.wrappers import ActionMasker
 
 
-@pytest.mark.parametrize("model_class", [TQC, QRDQN, TRPO])
+@pytest.mark.parametrize("model_class", [TQC, IQN, QRDQN, TRPO])
 @pytest.mark.parametrize("share_features_extractor", [True, False])
 def test_cnn(tmp_path, model_class, share_features_extractor):
     SAVE_NAME = "cnn_model.zip"
@@ -27,7 +27,7 @@ def test_cnn(tmp_path, model_class, share_features_extractor):
         discrete=model_class not in {TQC},
     )
     kwargs = dict(policy_kwargs=dict(share_features_extractor=share_features_extractor))
-    if model_class in {TQC, QRDQN}:
+    if model_class in {TQC, IQN, QRDQN}:
         # share_features_extractor is checked later for offpolicy algorithms
         if share_features_extractor:
             return
@@ -49,7 +49,7 @@ def test_cnn(tmp_path, model_class, share_features_extractor):
     assert is_vecenv_wrapped(model.get_env(), VecTransposeImage)
 
     # Test stochastic predict with channel last input
-    if model_class == QRDQN:
+    if model_class in {IQN, QRDQN}:
         model.exploration_rate = 0.9
 
     for _ in range(10):
@@ -68,9 +68,9 @@ def test_cnn(tmp_path, model_class, share_features_extractor):
     os.remove(str(tmp_path / SAVE_NAME))
 
 
-def patch_qrdqn_names_(model):
-    # Small hack to make the test work with QRDQN
-    if isinstance(model, QRDQN):
+def patch_quantiles_dqn_names_(model):
+    # Small hack to make the test work with IQN and QRDQN
+    if isinstance(model, (QRDQN, IQN)):
         model.critic = model.quantile_net
         model.critic_target = model.quantile_net_target
 
@@ -85,15 +85,15 @@ def params_should_differ(params, other_params):
         assert not th.allclose(param, other_param)
 
 
-@pytest.mark.parametrize("model_class", [TQC, QRDQN])
+@pytest.mark.parametrize("model_class", [TQC, IQN, QRDQN])
 @pytest.mark.parametrize("share_features_extractor", [True, False])
 def test_feature_extractor_target_net(model_class, share_features_extractor):
-    if model_class == QRDQN and share_features_extractor:
+    if model_class in {IQN, QRDQN} and share_features_extractor:
         pytest.skip()
 
     env = FakeImageEnv(screen_height=40, screen_width=40, n_channels=1, discrete=model_class not in {TQC})
 
-    if model_class in {TQC, QRDQN}:
+    if model_class in {TQC, IQN, QRDQN}:
         # Avoid memory error when using replay buffer
         # Reduce the size of the features and the number of quantiles
         kwargs = dict(
@@ -101,19 +101,19 @@ def test_feature_extractor_target_net(model_class, share_features_extractor):
             learning_starts=100,
             policy_kwargs=dict(n_quantiles=25, features_extractor_kwargs=dict(features_dim=32)),
         )
-    if model_class != QRDQN:
+    if model_class not in {IQN, QRDQN}:
         kwargs["policy_kwargs"]["share_features_extractor"] = share_features_extractor
 
     model = model_class("CnnPolicy", env, seed=0, **kwargs)
 
-    patch_qrdqn_names_(model)
+    patch_quantiles_dqn_names_(model)
 
     if share_features_extractor:
         # Check that the objects are the same and not just copied
         assert id(model.policy.actor.features_extractor) == id(model.policy.critic.features_extractor)
     else:
         # Check that the objects differ
-        if model_class != QRDQN:
+        if model_class not in {IQN, QRDQN}:
             assert id(model.policy.actor.features_extractor) != id(model.policy.critic.features_extractor)
 
     # Critic and target should be equal at the begginning of training
@@ -127,7 +127,7 @@ def test_feature_extractor_target_net(model_class, share_features_extractor):
     # Re-initialize and collect some random data (without doing gradient steps)
     model = model_class("CnnPolicy", env, seed=0, **kwargs).learn(10)
 
-    patch_qrdqn_names_(model)
+    patch_quantiles_dqn_names_(model)
 
     original_param = deepcopy(list(model.critic.parameters()))
     original_target_param = deepcopy(list(model.critic_target.parameters()))
@@ -149,9 +149,9 @@ def test_feature_extractor_target_net(model_class, share_features_extractor):
     model.lr_schedule = lambda _: 0.0
     # Re-activate polyak update
     model.tau = 0.01
-    # Special case for QRDQN: target net is updated in the `collect_rollouts()`
+    # Special case for IQN and QRDQN: target net is updated in the `collect_rollouts()`
     # not the `train()` method
-    if model_class == QRDQN:
+    if model_class in {IQN, QRDQN}:
         model.target_update_interval = 1
         model._on_step()
 
@@ -164,7 +164,7 @@ def test_feature_extractor_target_net(model_class, share_features_extractor):
     params_should_match(original_param, model.critic.parameters())
 
 
-@pytest.mark.parametrize("model_class", [TRPO, MaskablePPO, RecurrentPPO, QRDQN, TQC])
+@pytest.mark.parametrize("model_class", [TRPO, MaskablePPO, RecurrentPPO, IQN, QRDQN, TQC])
 @pytest.mark.parametrize("normalize_images", [True, False])
 def test_image_like_input(model_class, normalize_images):
     """

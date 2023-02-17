@@ -1,6 +1,7 @@
 import os
 
 from sb3_contrib.ars import ARS
+from sb3_contrib.iqn import IQN
 from sb3_contrib.ppo_mask import MaskablePPO
 from sb3_contrib.ppo_recurrent import RecurrentPPO
 from sb3_contrib.qrdqn import QRDQN
@@ -14,6 +15,7 @@ with open(version_file) as file_handler:
 
 __all__ = [
     "ARS",
+    "IQN",
     "MaskablePPO",
     "RecurrentPPO",
     "QRDQN",

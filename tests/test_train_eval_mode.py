@@ -8,7 +8,7 @@ import torch.nn as nn
 from stable_baselines3.common.preprocessing import get_flattened_obs_dim
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 
-from sb3_contrib import QRDQN, TQC, MaskablePPO
+from sb3_contrib import IQN, QRDQN, TQC, MaskablePPO
 from sb3_contrib.common.envs import InvalidActionEnvDiscrete
 from sb3_contrib.common.maskable.utils import get_action_masks
 
@@ -45,7 +45,7 @@ def clone_batch_norm_stats(batch_norm: nn.BatchNorm1d) -> (th.Tensor, th.Tensor)
     return batch_norm.bias.clone(), batch_norm.running_mean.clone()
 
 
-def clone_qrdqn_batch_norm_stats(model: QRDQN) -> (th.Tensor, th.Tensor, th.Tensor, th.Tensor):
+def clone_iqn_qrdqn_batch_norm_stats(model: Union[IQN, QRDQN]) -> (th.Tensor, th.Tensor, th.Tensor, th.Tensor):
     """
     Clone the bias and running mean from the quantile network and quantile-target network.
     :param model:
@@ -85,7 +85,8 @@ def clone_on_policy_batch_norm(model: Union[MaskablePPO]) -> (th.Tensor, th.Tens
 
 
 CLONE_HELPERS = {
-    QRDQN: clone_qrdqn_batch_norm_stats,
+    QRDQN: clone_iqn_qrdqn_batch_norm_stats,
+    IQN: clone_iqn_qrdqn_batch_norm_stats,
     TQC: clone_tqc_batch_norm_stats,
     MaskablePPO: clone_on_policy_batch_norm,
 }
@@ -125,8 +126,9 @@ def test_ppo_mask_train_eval_mode():
         assert th.isclose(param_before, param_after).all()
 
 
-def test_qrdqn_train_with_batch_norm():
-    model = QRDQN(
+@pytest.mark.parametrize("model_class", [IQN, QRDQN])
+def test_train_with_batch_norm(model_class):
+    model = model_class(
         "MlpPolicy",
         "CartPole-v1",
         policy_kwargs=dict(net_arch=[16, 16], features_extractor_class=FlattenBatchNormDropoutExtractor),
@@ -140,7 +142,7 @@ def test_qrdqn_train_with_batch_norm():
         quantile_net_running_mean_before,
         quantile_net_target_bias_before,
         quantile_net_target_running_mean_before,
-    ) = clone_qrdqn_batch_norm_stats(model)
+    ) = CLONE_HELPERS[model_class](model)
 
     model.learn(total_timesteps=200)
     # Force stats copy
@@ -152,7 +154,7 @@ def test_qrdqn_train_with_batch_norm():
         quantile_net_running_mean_after,
         quantile_net_target_bias_after,
         quantile_net_target_running_mean_after,
-    ) = clone_qrdqn_batch_norm_stats(model)
+    ) = CLONE_HELPERS[model_class](model)
 
     assert ~th.isclose(quantile_net_bias_before, quantile_net_bias_after).all()
     # Running stat should be copied even when tau=0
@@ -208,9 +210,9 @@ def test_tqc_train_with_batch_norm():
     assert th.isclose(critic_running_mean_after, critic_target_running_mean_after).all()
 
 
-@pytest.mark.parametrize("model_class", [QRDQN, TQC])
+@pytest.mark.parametrize("model_class", [IQN, QRDQN, TQC])
 def test_offpolicy_collect_rollout_batch_norm(model_class):
-    if model_class in [QRDQN]:
+    if model_class in [IQN, QRDQN]:
         env_id = "CartPole-v1"
     else:
         env_id = "Pendulum-v1"
@@ -239,19 +241,19 @@ def test_offpolicy_collect_rollout_batch_norm(model_class):
         assert th.isclose(param_before, param_after).all()
 
 
-@pytest.mark.parametrize("model_class", [QRDQN, TQC])
+@pytest.mark.parametrize("model_class", [IQN, QRDQN, TQC])
 @pytest.mark.parametrize("env_id", ["Pendulum-v1", "CartPole-v1"])
 def test_predict_with_dropout_batch_norm(model_class, env_id):
     if env_id == "CartPole-v1":
         if model_class in [TQC]:
             return
-    elif model_class in [QRDQN]:
+    elif model_class in [IQN, QRDQN]:
         return
 
     model_kwargs = dict(seed=1)
     clone_helper = CLONE_HELPERS[model_class]
 
-    if model_class in [QRDQN, TQC]:
+    if model_class in [IQN, QRDQN, TQC]:
         model_kwargs["learning_starts"] = 0
     else:
         model_kwargs["n_steps"] = 64

@@ -4,7 +4,7 @@ from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.noise import NormalActionNoise
 from stable_baselines3.common.vec_env import VecNormalize
 
-from sb3_contrib import ARS, QRDQN, TQC, RecurrentPPO
+from sb3_contrib import ARS, IQN, QRDQN, TQC, RecurrentPPO
 from sb3_contrib.common.vec_env import AsyncEval
 
 N_STEPS_TRAINING = 500
@@ -12,7 +12,7 @@ SEED = 0
 ARS_MULTI = "ars_multi"
 
 
-@pytest.mark.parametrize("algo", [ARS, QRDQN, TQC, ARS_MULTI, RecurrentPPO])
+@pytest.mark.parametrize("algo", [ARS, IQN, QRDQN, TQC, ARS_MULTI, RecurrentPPO])
 def test_deterministic_training_common(algo):
     results = [[], []]
     rewards = [[], []]
@@ -34,7 +34,7 @@ def test_deterministic_training_common(algo):
             }
         )
     else:
-        if algo == QRDQN:
+        if algo in {IQN, QRDQN}:
             env_id = "CartPole-v1"
             kwargs.update({"learning_starts": 100, "target_update_interval": 100})
         elif algo == ARS:
