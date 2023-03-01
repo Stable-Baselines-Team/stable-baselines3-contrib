@@ -40,7 +40,7 @@ class RecurrentRolloutBufferSequenceSamples(NamedTuple):
     old_log_prob: th.Tensor
     advantages: th.Tensor
     returns: th.Tensor
-    masks: th.Tensor
+    mask: th.Tensor
 
 
 class RecurrentDictRolloutBufferSequenceSamples(NamedTuple):
@@ -50,4 +50,4 @@ class RecurrentDictRolloutBufferSequenceSamples(NamedTuple):
     old_log_prob: th.Tensor
     advantages: th.Tensor
     returns: th.Tensor
-    masks: th.Tensor
+    mask: th.Tensor

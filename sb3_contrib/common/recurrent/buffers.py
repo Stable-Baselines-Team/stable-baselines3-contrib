@@ -459,7 +459,7 @@ class RecurrentSequenceRolloutBuffer(RecurrentRolloutBuffer):
                 old_log_prob=old_log_probs_batch,
                 advantages=advantages_batch,
                 returns=returns_batch,
-                masks=masks_batch
+                mask=masks_batch
             )
 
 
@@ -539,5 +539,5 @@ class RecurrentSequenceDictRolloutBuffer(RecurrentDictRolloutBuffer):
                 old_log_prob=old_log_probs_batch,
                 advantages=advantages_batch,
                 returns=returns_batch,
-                masks=masks_batch
+                mask=masks_batch
             )
