@@ -71,7 +71,6 @@ class ARS(BaseAlgorithm):
         device: Union[th.device, str] = "cpu",
         _init_setup_model: bool = True,
     ):
-
         super().__init__(
             policy,
             env,
@@ -186,7 +185,6 @@ class ARS(BaseAlgorithm):
             results = async_eval.get_results()
 
             for weights_idx, (episode_rewards, episode_lengths) in results:
-
                 # Update reward to cancel out alive bonus if needed
                 candidate_returns[weights_idx] = sum(episode_rewards) + self.alive_bonus_offset * sum(episode_lengths)
                 batch_steps += np.sum(episode_lengths)
@@ -214,7 +212,6 @@ class ARS(BaseAlgorithm):
         else:
             # Single process, synchronous version
             for weights_idx in range(self.pop_size):
-
                 # Load current candidate weights
                 train_policy.load_from_vector(candidate_weights[weights_idx].cpu())
                 # Evaluate the candidate

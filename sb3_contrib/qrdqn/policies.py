@@ -123,7 +123,6 @@ class QRDQNPolicy(BasePolicy):
         optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
         optimizer_kwargs: Optional[Dict[str, Any]] = None,
     ):
-
         super().__init__(
             observation_space,
             action_space,

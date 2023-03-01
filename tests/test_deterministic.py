@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.noise import NormalActionNoise
@@ -25,7 +26,13 @@ def test_deterministic_training_common(algo):
         ars_multi = False
 
     if algo in [TQC]:
-        kwargs.update({"action_noise": NormalActionNoise(0.0, 0.1), "learning_starts": 100, "train_freq": 4})
+        kwargs.update(
+            {
+                "action_noise": NormalActionNoise(np.zeros(1), 0.1 * np.ones(1)),
+                "learning_starts": 100,
+                "train_freq": 4,
+            }
+        )
     else:
         if algo == QRDQN:
             env_id = "CartPole-v1"

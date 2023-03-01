@@ -1,2 +1,5 @@
 [tool.black]
 line-length = 127
+
+[tool.pytype]
+inputs = ['sb3_contrib']
