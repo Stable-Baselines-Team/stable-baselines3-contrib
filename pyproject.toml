@@ -3,12 +3,12 @@
 line-length = 127
 # Assume Python 3.7
 target-version = "py37"
-select = ["E", "F", "B", "UP"]
+select = ["E", "F", "B", "UP", "C90"]
 ignore = []
 
 [tool.ruff.mccabe]
-# Unlike Flake8, default to a complexity level of 10.
-max-complexity = 10
+# Unlike Flake8, ruff default to a complexity level of 10.
+max-complexity = 15
 
 # See https://github.com/PyCQA/flake8/issues/234
 # [tool.flake8]
@@ -39,7 +39,6 @@ src_paths = ["sb3_contrib"]
 inputs = ['sb3_contrib']
 
 [tool.mypy]
-python_version = "3.7"
 ignore_missing_imports = true
 follow_imports = "silent"
 show_error_codes = true
