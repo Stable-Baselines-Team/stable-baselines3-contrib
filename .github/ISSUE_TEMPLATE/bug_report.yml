@@ -1,5 +1,5 @@
 name: "\U0001F41B Bug Report"
-description: Submit a bug report to help us improve Stable-Baselines3
+description: Submit a bug report to help us improve Stable-Baselines3 Contrib
 title: "[Bug]: bug title"
 labels: ["bug"]
 body:
