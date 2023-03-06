@@ -33,7 +33,7 @@ line-length = 127
 [tool.isort]
 profile = "black"
 line_length = 127
-src_paths = ["*.py"]
+src_paths = ["sb3_contrib"]
 
 [tool.pytype]
 inputs = ['sb3_contrib']
