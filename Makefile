@@ -24,14 +24,14 @@ ruff:
 	# see https://lintlyci.github.io/Flake8Rules/
 	ruff ${LINT_PATHS} --select=E9,F63,F7,F82 --show-source
 	# exit-zero treats all errors as warnings.
-	ruff ${LINT_PATHS} --exit-zero --line-length 127
+	ruff ${LINT_PATHS} --exit-zero
 
 
 format:
 	# Sort imports
 	isort ${LINT_PATHS}
 	# Reformat using black
-	black -l 127 ${LINT_PATHS}
+	black ${LINT_PATHS}
 
 check-codestyle:
 	# Sort imports

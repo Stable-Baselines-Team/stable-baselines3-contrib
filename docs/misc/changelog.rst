@@ -22,6 +22,8 @@ Deprecations:
 
 Others:
 ^^^^^^^
+- Moved to pyproject.toml (except flake8)
+- Added github issue forms
 
 Documentation:
 ^^^^^^^^^^^^^^
