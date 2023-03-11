@@ -3,29 +3,12 @@
 line-length = 127
 # Assume Python 3.7
 target-version = "py37"
-select = ["E", "F", "B", "UP", "C90"]
+select = ["E", "F", "B", "UP", "C90", "RUF"]
 ignore = []
 
 [tool.ruff.mccabe]
 # Unlike Flake8, ruff default to a complexity level of 10.
 max-complexity = 15
-
-# See https://github.com/PyCQA/flake8/issues/234
-# [tool.flake8]
-# # line breaks before and after binary operators
-# ignore = ["W503", "W504", "E203", "E231"]
-# # Ignore import not used when aliases are defined
-# per-file-ignores =
-#
-# exclude = [
-#   # No need to traverse our git directory
-#   ".git",
-#   # There's no value in checking cache directories
-#   "__pycache__",
-# ]
-# max-complexity = 10
-# # The GitHub editor is 127 chars wide
-# max-line-length = 127
 
 [tool.black]
 line-length = 127
