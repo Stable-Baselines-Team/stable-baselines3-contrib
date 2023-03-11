@@ -10,7 +10,7 @@ from sb3_contrib.common.maskable.utils import get_action_masks, is_masking_suppo
 from sb3_contrib.ppo_mask import MaskablePPO
 
 
-def evaluate_policy(  # noqa: C901
+def evaluate_policy(
     model: MaskablePPO,
     env: Union[gym.Env, VecEnv],
     n_eval_episodes: int = 10,

@@ -14,6 +14,7 @@ jobs:
     env:
       TERM: xterm-256color
       FORCE_COLOR: 1
+      ATARI_ROMS: ${{ secrets.ATARI_ROMS }}
     # Skip CI if [ci skip] in the commit message
     if: "! contains(toJSON(github.event.commits.*.message), '[ci skip]')"
     runs-on: ubuntu-latest
@@ -32,24 +33,32 @@ jobs:
         python -m pip install --upgrade pip
         # cpu version of pytorch
         pip install torch==1.11+cpu -f https://download.pytorch.org/whl/torch_stable.html
+
+        # Install Atari Roms
+        pip install autorom
+        wget $ATARI_ROMS
+        base64 Roms.tar.gz.b64 --decode &> Roms.tar.gz
+        AutoROM --accept-license --source-file Roms.tar.gz
+
         # Install master version
         # and dependencies for docs and tests
         pip install git+https://github.com/DLR-RM/stable-baselines3#egg=stable_baselines3[extra,tests,docs]
         pip install .
         # Use headless version
         pip install opencv-python-headless
+
+    - name: Lint with ruff
+      run: |
+        make lint
+    - name: Check codestyle
+      run: |
+        make check-codestyle
     - name: Build the doc
       run: |
         make doc
     - name: Type check
       run: |
         make type
-    - name: Check codestyle
-      run: |
-        make check-codestyle
-    - name: Lint with flake8
-      run: |
-        make lint
     - name: Test with pytest
       run: |
         make pytest
