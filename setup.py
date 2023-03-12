@@ -79,6 +79,12 @@ setup(
     version=__version__,
     python_requires=">=3.7",
     # PyPI package information.
+    project_urls={
+        "Code": "https://github.com/Stable-Baselines-Team/stable-baselines3-contrib",
+        "Documentation": "https://sb3-contrib.readthedocs.io/",
+        "Stable-Baselines3": "https://github.com/DLR-RM/stable-baselines3",
+        "RL-Zoo": "https://github.com/DLR-RM/rl-baselines3-zoo",
+    },
     classifiers=[
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.7",

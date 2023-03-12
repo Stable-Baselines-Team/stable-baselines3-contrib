@@ -3,7 +3,7 @@
 Changelog
 ==========
 
-Release 1.8.0a4 (WIP)
+Release 1.8.0a9 (WIP)
 --------------------------
 
 Breaking Changes:
@@ -22,6 +22,9 @@ Deprecations:
 
 Others:
 ^^^^^^^
+- Moved to pyproject.toml (except flake8)
+- Added github issue forms
+- Fix Atari Roms download in CI
 
 Documentation:
 ^^^^^^^^^^^^^^
