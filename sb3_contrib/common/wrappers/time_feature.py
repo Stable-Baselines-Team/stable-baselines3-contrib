@@ -1,12 +1,14 @@
-from typing import Dict, Union
+from typing import Any, Dict, SupportsFloat, Tuple, Union
 
 import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
-from stable_baselines3.common.type_aliases import Gym26ResetReturn, Gym26StepReturn
+from gymnasium.core import ActType
+
+TimeFeatureObs = Union[np.ndarray, Dict[str, np.ndarray]]
 
 
-class TimeFeatureWrapper(gym.Wrapper):
+class TimeFeatureWrapper(gym.Wrapper[TimeFeatureObs, ActType, TimeFeatureObs, ActType]):
     """
     Add remaining, normalized time to observation space for fixed length episodes.
     See https://arxiv.org/abs/1712.00378 and https://github.com/aravindr93/mjrl/issues/13.
@@ -67,12 +69,12 @@ class TimeFeatureWrapper(gym.Wrapper):
         self._current_step = 0
         self._test_mode = test_mode
 
-    def reset(self, **kwargs) -> Gym26ResetReturn:
+    def reset(self, **kwargs) -> Tuple[TimeFeatureObs, Dict[str, Any]]:
         self._current_step = 0
         obs, info = self.env.reset(**kwargs)
         return self._get_obs(obs), info
 
-    def step(self, action: Union[int, np.ndarray]) -> Gym26StepReturn:
+    def step(self, action: ActType) -> Tuple[TimeFeatureObs, SupportsFloat, bool, bool, Dict[str, Any]]:
         self._current_step += 1
         obs, reward, done, truncated, info = self.env.step(action)
         return self._get_obs(obs), reward, done, truncated, info
