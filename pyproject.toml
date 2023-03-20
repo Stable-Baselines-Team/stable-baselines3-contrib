@@ -4,7 +4,8 @@ line-length = 127
 # Assume Python 3.7
 target-version = "py37"
 select = ["E", "F", "B", "UP", "C90", "RUF"]
-ignore = []
+# Ignore explicit stacklevel`
+ignore = ["B028"]
 
 [tool.ruff.mccabe]
 # Unlike Flake8, ruff default to a complexity level of 10.
@@ -62,3 +63,11 @@ filterwarnings = [
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')"
 ]
+
+[tool.coverage.run]
+disable_warnings = ["couldnt-parse"]
+branch = false
+omit = ["tests/*", "setup.py"]
+
+[tool.coverage.report]
+exclude_lines = [ "pragma: no cover", "raise NotImplementedError()", "if typing.TYPE_CHECKING:"]
