@@ -14,7 +14,12 @@ from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedul
 from stable_baselines3.common.utils import explained_variance, get_schedule_fn, obs_as_tensor, safe_mean
 from stable_baselines3.common.vec_env import VecEnv
 
-from sb3_contrib.common.recurrent.buffers import RecurrentDictRolloutBuffer, RecurrentRolloutBuffer, RecurrentSequenceDictRolloutBuffer, RecurrentSequenceRolloutBuffer
+from sb3_contrib.common.recurrent.buffers import (
+    RecurrentDictRolloutBuffer,
+    RecurrentRolloutBuffer,
+    RecurrentSequenceDictRolloutBuffer,
+    RecurrentSequenceRolloutBuffer,
+)
 from sb3_contrib.common.recurrent.policies import RecurrentActorCriticPolicy
 from sb3_contrib.common.recurrent.type_aliases import RNNStates
 from sb3_contrib.ppo_recurrent.policies import CnnLstmPolicy, MlpLstmPolicy, MultiInputLstmPolicy
@@ -143,7 +148,9 @@ class RecurrentPPO(OnPolicyAlgorithm):
         # 3d batches of whole sequences or 2d batches of constant size
         if self.whole_sequences:
             buffer_cls = (
-                RecurrentSequenceDictRolloutBuffer if isinstance(self.observation_space, spaces.Dict) else RecurrentSequenceRolloutBuffer
+                RecurrentSequenceDictRolloutBuffer
+                if isinstance(self.observation_space, spaces.Dict)
+                else RecurrentSequenceRolloutBuffer
             )
         else:
             buffer_cls = (
@@ -221,7 +228,13 @@ class RecurrentPPO(OnPolicyAlgorithm):
             collected, False if callback terminated rollout prematurely.
         """
         assert isinstance(
-            rollout_buffer, (RecurrentRolloutBuffer, RecurrentDictRolloutBuffer, RecurrentSequenceRolloutBuffer, RecurrentSequenceDictRolloutBuffer)
+            rollout_buffer,
+            (
+                RecurrentRolloutBuffer,
+                RecurrentDictRolloutBuffer,
+                RecurrentSequenceRolloutBuffer,
+                RecurrentSequenceDictRolloutBuffer,
+            ),
         ), f"{rollout_buffer} doesn't support recurrent policy"
 
         assert self._last_obs is not None, "No previous observation was provided"

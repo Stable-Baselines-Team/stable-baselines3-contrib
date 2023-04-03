@@ -1,20 +1,20 @@
 from functools import partial
-from typing import Callable, Generator, Optional, Tuple, Union
+from typing import Callable, Generator, List, Optional, Tuple, Union
 
 import numpy as np
 import torch as th
-from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
-from torch.nn.utils.rnn import pad_sequence
 from gym import spaces
 from stable_baselines3.common.buffers import DictRolloutBuffer, RolloutBuffer
 from stable_baselines3.common.vec_env import VecNormalize
+from torch.nn.utils.rnn import pad_sequence
+from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
 
 from sb3_contrib.common.recurrent.type_aliases import (
     RecurrentDictRolloutBufferSamples,
-    RecurrentRolloutBufferSamples,
-    RNNStates,
-    RecurrentRolloutBufferSequenceSamples,
     RecurrentDictRolloutBufferSequenceSamples,
+    RecurrentRolloutBufferSamples,
+    RecurrentRolloutBufferSequenceSamples,
+    RNNStates,
 )
 
 
@@ -96,6 +96,30 @@ def create_sequencers(
     local_pad = partial(pad, seq_start_indices, seq_end_indices, device)
     local_pad_and_flatten = partial(pad_and_flatten, seq_start_indices, seq_end_indices, device)
     return seq_start_indices, local_pad, local_pad_and_flatten
+
+
+def create_sequence_slicer(
+    episode_start_indices: np.ndarray, device: Union[th.device, str]
+) -> Callable[[np.ndarray, List[str]], th.Tensor]:
+    def create_sequence_minibatch(tensor: np.ndarray, seq_indices: List[str]) -> th.Tensor:
+        """
+        Create minibatch of whole sequence.
+
+        :param tensor: Tensor that will be sliced (e.g. observations, rewards)
+        :param seq_indices: Sequences to be used.
+        :return: (max_sequence_length, batch_size=n_seq, features_size)
+        """
+        return pad_sequence(
+            [
+                th.tensor(
+                    tensor[episode_start_indices[i] : episode_start_indices[i + 1]],
+                    device=device,
+                )
+                for i in seq_indices
+            ]
+        )
+
+    return create_sequence_minibatch
 
 
 class RecurrentRolloutBuffer(RolloutBuffer):
@@ -417,7 +441,9 @@ class RecurrentSequenceRolloutBuffer(RecurrentRolloutBuffer):
     ):
         self.hidden_state_shape = hidden_state_shape
         self.seq_start_indices, self.seq_end_indices = None, None
-        super().__init__(buffer_size, observation_space, action_space, hidden_state_shape, device, gae_lambda, gamma, n_envs=n_envs)
+        super().__init__(
+            buffer_size, observation_space, action_space, hidden_state_shape, device, gae_lambda, gamma, n_envs=n_envs
+        )
 
     def get(self, batch_size: Optional[int] = None) -> Generator[RecurrentRolloutBufferSequenceSamples, None, None]:
         assert self.full, "Rollout buffer must be full before sampling from it"
@@ -439,27 +465,26 @@ class RecurrentSequenceRolloutBuffer(RecurrentRolloutBuffer):
             self.generator_ready = True
 
         random_indices = SubsetRandomSampler(range(len(self.episode_start_indices)))
-        batch_sampler = BatchSampler(random_indices, batch_size, drop_last=True) # drop last batch to prevent extremely small batches causing spurious updates
-        self.episode_start_indices = np.concatenate([self.episode_start_indices, np.array([len(self.episode_start_indices)])]) # add a dummy index to make the code below simpler
+        # drop last batch to prevent extremely small batches causing spurious updates
+        batch_sampler = BatchSampler(random_indices, batch_size, drop_last=True)
+        # add a dummy index to make the code below simpler
+        self.episode_start_indices = np.concatenate([self.episode_start_indices, np.array([len(self.episode_start_indices)])])
 
-        # yields batches of whole sequences, shape: (sequence_length, batch_size, data_length))
+        create_minibatch = create_sequence_slicer(self.episode_start_indices, self.device)
+
+        # yields batches of whole sequences, shape: (max_sequence_length, batch_size=n_seq, features_size))
         for indices in batch_sampler:
-            obs_batch = pad_sequence([th.tensor(self.observations[self.episode_start_indices[i]:self.episode_start_indices[i+1]], device=self.device) for i in indices])
-            actions_batch = pad_sequence([th.tensor(self.actions[self.episode_start_indices[i]:self.episode_start_indices[i+1]], device=self.device) for i in indices])
-            old_values_batch = pad_sequence([th.tensor(self.values[self.episode_start_indices[i]:self.episode_start_indices[i+1]], device=self.device) for i in indices])
-            old_log_probs_batch = pad_sequence([th.tensor(self.log_probs[self.episode_start_indices[i]:self.episode_start_indices[i+1]], device=self.device) for i in indices])
-            advantages_batch = pad_sequence([th.tensor(self.advantages[self.episode_start_indices[i]:self.episode_start_indices[i+1]], device=self.device) for i in indices])
-            returns_batch = pad_sequence([th.tensor(self.returns[self.episode_start_indices[i]:self.episode_start_indices[i+1]], device=self.device) for i in indices])
-            masks_batch = pad_sequence([th.ones_like(r) for r in th.swapaxes(returns_batch, 0, 1)])
+            returns_batch = create_minibatch(self.returns, indices)
+            masks_batch = pad_sequence([th.ones_like(returns) for returns in th.swapaxes(returns_batch, 0, 1)])
 
             yield RecurrentRolloutBufferSequenceSamples(
-                observations=obs_batch,
-                actions=actions_batch,
-                old_values=old_values_batch,
-                old_log_prob=old_log_probs_batch,
-                advantages=advantages_batch,
+                observations=create_minibatch(self.observations, indices),
+                actions=create_minibatch(self.actions, indices),
+                old_values=create_minibatch(self.values, indices),
+                old_log_prob=create_minibatch(self.log_probs, indices),
+                advantages=create_minibatch(self.advantages, indices),
                 returns=returns_batch,
-                mask=masks_batch
+                mask=masks_batch,
             )
 
 
@@ -492,7 +517,9 @@ class RecurrentSequenceDictRolloutBuffer(RecurrentDictRolloutBuffer):
     ):
         self.hidden_state_shape = hidden_state_shape
         self.seq_start_indices, self.seq_end_indices = None, None
-        super().__init__(buffer_size, observation_space, action_space, hidden_state_shape, device, gae_lambda, gamma, n_envs=n_envs)
+        super().__init__(
+            buffer_size, observation_space, action_space, hidden_state_shape, device, gae_lambda, gamma, n_envs=n_envs
+        )
 
     def get(self, batch_size: Optional[int] = None) -> Generator[RecurrentDictRolloutBufferSequenceSamples, None, None]:
         assert self.full, "Rollout buffer must be full before sampling from it"
@@ -516,28 +543,27 @@ class RecurrentSequenceDictRolloutBuffer(RecurrentDictRolloutBuffer):
             self.generator_ready = True
 
         random_indices = SubsetRandomSampler(range(len(self.episode_start_indices)))
-        batch_sampler = BatchSampler(random_indices, batch_size, drop_last=True) # drop last batch to prevent extremely small batches causing spurious updates
-        self.episode_start_indices = np.concatenate([self.episode_start_indices, np.array([len(self.episode_start_indices)])]) # add a dummy index to make the code below simpler
+        # drop last batch to prevent extremely small batches causing spurious updates
+        batch_sampler = BatchSampler(random_indices, batch_size, drop_last=True)
+        # add a dummy index to make the code below simpler
+        self.episode_start_indices = np.concatenate([self.episode_start_indices, np.array([len(self.episode_start_indices)])])
 
-        # yields batches of whole sequences, shape: (sequence_length, batch_size, data_length)
+        create_minibatch = create_sequence_slicer(self.episode_start_indices, self.device)
+
+        # yields batches of whole sequences, shape: (sequence_length, batch_size=n_seq, features_size)
         for indices in batch_sampler:
             obs_batch = {}
             for key in self.observations:
-                obs_batch[key] = pad_sequence([th.tensor(self.observations[key][self.episode_start_indices[i]:self.episode_start_indices[i+1]], device=self.device) for i in indices])
-
-            actions_batch = pad_sequence([th.tensor(self.actions[self.episode_start_indices[i]:self.episode_start_indices[i+1]], device=self.device) for i in indices])
-            old_values_batch = pad_sequence([th.tensor(self.values[self.episode_start_indices[i]:self.episode_start_indices[i+1]], device=self.device) for i in indices])
-            old_log_probs_batch = pad_sequence([th.tensor(self.log_probs[self.episode_start_indices[i]:self.episode_start_indices[i+1]], device=self.device) for i in indices])
-            advantages_batch = pad_sequence([th.tensor(self.advantages[self.episode_start_indices[i]:self.episode_start_indices[i+1]], device=self.device) for i in indices])
-            returns_batch = pad_sequence([th.tensor(self.returns[self.episode_start_indices[i]:self.episode_start_indices[i+1]], device=self.device) for i in indices])
-            masks_batch = pad_sequence([th.ones_like(r) for r in th.swapaxes(returns_batch, 0, 1)])
+                obs_batch[key] = create_minibatch(self.observations[key], indices)
+            returns_batch = create_minibatch(self.returns, indices)
+            masks_batch = pad_sequence([th.ones_like(returns) for returns in th.swapaxes(returns_batch, 0, 1)])
 
             yield RecurrentDictRolloutBufferSequenceSamples(
                 observations=obs_batch,
-                actions=actions_batch,
-                old_values=old_values_batch,
-                old_log_prob=old_log_probs_batch,
-                advantages=advantages_batch,
+                actions=create_minibatch(self.actions, indices),
+                old_values=create_minibatch(self.values, indices),
+                old_log_prob=create_minibatch(self.log_probs, indices),
+                advantages=create_minibatch(self.advantages, indices),
                 returns=returns_batch,
-                mask=masks_batch
+                mask=masks_batch,
             )
