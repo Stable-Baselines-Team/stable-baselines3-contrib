@@ -6,9 +6,8 @@ from gym import spaces
 from stable_baselines3.common.buffers import ReplayBuffer
 from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
 from stable_baselines3.common.policies import BasePolicy
-from stable_baselines3.common.preprocessing import maybe_transpose
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
-from stable_baselines3.common.utils import get_linear_fn, get_parameters_by_name, is_vectorized_observation, polyak_update
+from stable_baselines3.common.utils import get_linear_fn, get_parameters_by_name, polyak_update
 
 from sb3_contrib.common.utils import quantile_huber_loss
 from sb3_contrib.qrdqn.policies import CnnPolicy, MlpPolicy, MultiInputPolicy, QRDQNPolicy
@@ -71,12 +70,12 @@ class QRDQN(OffPolicyAlgorithm):
         learning_rate: Union[float, Schedule] = 5e-5,
         buffer_size: int = 1000000,  # 1e6
         learning_starts: int = 50000,
-        batch_size: Optional[int] = 32,
+        batch_size: int = 32,
         tau: float = 1.0,
         gamma: float = 0.99,
         train_freq: int = 4,
         gradient_steps: int = 1,
-        replay_buffer_class: Optional[ReplayBuffer] = None,
+        replay_buffer_class: Optional[Type[ReplayBuffer]] = None,
         replay_buffer_kwargs: Optional[Dict[str, Any]] = None,
         optimize_memory_usage: bool = False,
         target_update_interval: int = 10000,
@@ -124,8 +123,9 @@ class QRDQN(OffPolicyAlgorithm):
         # "epsilon" for the epsilon-greedy exploration
         self.exploration_rate = 0.0
         # Linear schedule will be defined in `_setup_model()`
-        self.exploration_schedule = None
-        self.quantile_net, self.quantile_net_target = None, None
+        self.exploration_schedule: Schedule
+        self.quantile_net: th.nn.Module
+        self.quantile_net_target: th.nn.Module
 
         if "optimizer_class" not in self.policy_kwargs:
             self.policy_kwargs["optimizer_class"] = th.optim.Adam
@@ -146,6 +146,8 @@ class QRDQN(OffPolicyAlgorithm):
         )
 
     def _create_aliases(self) -> None:
+        # For type checker:
+        assert isinstance(self.policy, QRDQNPolicy)
         self.quantile_net = self.policy.quantile_net
         self.quantile_net_target = self.policy.quantile_net_target
         self.n_quantiles = self.policy.n_quantiles
@@ -172,7 +174,7 @@ class QRDQN(OffPolicyAlgorithm):
         losses = []
         for _ in range(gradient_steps):
             # Sample replay buffer
-            replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)
+            replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)  # type: ignore[union-attr]
 
             with th.no_grad():
                 # Compute the quantiles of next observation
@@ -214,7 +216,7 @@ class QRDQN(OffPolicyAlgorithm):
 
     def predict(
         self,
-        observation: np.ndarray,
+        observation: Union[np.ndarray, Dict[str, np.ndarray]],
         state: Optional[Tuple[np.ndarray, ...]] = None,
         episode_start: Optional[np.ndarray] = None,
         deterministic: bool = False,
@@ -233,8 +235,8 @@ class QRDQN(OffPolicyAlgorithm):
             (used in recurrent policies)
         """
         if not deterministic and np.random.rand() < self.exploration_rate:
-            if is_vectorized_observation(maybe_transpose(observation, self.observation_space), self.observation_space):
-                if isinstance(self.observation_space, spaces.Dict):
+            if self.policy.is_vectorized_observation(observation):
+                if isinstance(observation, dict):
                     n_batch = observation[list(observation.keys())[0]].shape[0]
                 else:
                     n_batch = observation.shape[0]
@@ -264,7 +266,7 @@ class QRDQN(OffPolicyAlgorithm):
         )
 
     def _excluded_save_params(self) -> List[str]:
-        return super()._excluded_save_params() + ["quantile_net", "quantile_net_target"]
+        return super()._excluded_save_params() + ["quantile_net", "quantile_net_target"]  # noqa: RUF005
 
     def _get_torch_save_params(self) -> Tuple[List[str], List[str]]:
         state_dicts = ["policy", "policy.optimizer"]

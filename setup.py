@@ -65,7 +65,7 @@ setup(
     packages=[package for package in find_packages() if package.startswith("sb3_contrib")],
     package_data={"sb3_contrib": ["py.typed", "version.txt"]},
     install_requires=[
-        "stable_baselines3>=1.8.0a2",
+        "stable_baselines3>=1.8.0a13",
     ],
     description="Contrib package of Stable Baselines3, experimental code.",
     author="Antonin Raffin",
@@ -79,6 +79,12 @@ setup(
     version=__version__,
     python_requires=">=3.7",
     # PyPI package information.
+    project_urls={
+        "Code": "https://github.com/Stable-Baselines-Team/stable-baselines3-contrib",
+        "Documentation": "https://sb3-contrib.readthedocs.io/",
+        "Stable-Baselines3": "https://github.com/DLR-RM/stable-baselines3",
+        "RL-Zoo": "https://github.com/DLR-RM/rl-baselines3-zoo",
+    },
     classifiers=[
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.7",
