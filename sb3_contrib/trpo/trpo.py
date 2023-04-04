@@ -58,6 +58,8 @@ class TRPO(OnPolicyAlgorithm):
         Should be small for stability. Values like 0.01, 0.05.
     :param sub_sampling_factor: Sub-sample the batch to make computation faster
         see p40-42 of John Schulman thesis http://joschu.net/docs/thesis.pdf
+    :param stats_window_size: Window size for the rollout logging, specifying the number of episodes to average
+        the reported success rate, mean episode length, and mean reward over
     :param tensorboard_log: the log location for tensorboard (if None, no logging)
     :param policy_kwargs: additional arguments to be passed to the policy on creation
     :param verbose: the verbosity level: 0 no output, 1 info, 2 debug
@@ -92,6 +94,7 @@ class TRPO(OnPolicyAlgorithm):
         normalize_advantage: bool = True,
         target_kl: float = 0.01,
         sub_sampling_factor: int = 1,
+        stats_window_size: int = 100,
         tensorboard_log: Optional[str] = None,
         policy_kwargs: Optional[Dict[str, Any]] = None,
         verbose: int = 0,

@@ -41,6 +41,8 @@ class ARS(BaseAlgorithm):
     :param alive_bonus_offset: Constant added to the reward at each step, used to cancel out alive bonuses.
     :param n_eval_episodes: Number of episodes to evaluate each candidate.
     :param policy_kwargs: Keyword arguments to pass to the policy on creation
+    :param stats_window_size: Window size for the rollout logging, specifying the number of episodes to average
+        the reported success rate, mean episode length, and mean reward over
     :param tensorboard_log: String with the directory to put tensorboard logs:
     :param seed: Random seed for the training
     :param verbose: Verbosity level: 0 no output, 1 info, 2 debug
@@ -65,6 +67,7 @@ class ARS(BaseAlgorithm):
         alive_bonus_offset: float = 0,
         n_eval_episodes: int = 1,
         policy_kwargs: Optional[Dict[str, Any]] = None,
+        stats_window_size: int = 100,
         tensorboard_log: Optional[str] = None,
         seed: Optional[int] = None,
         verbose: int = 0,
