@@ -112,6 +112,7 @@ class MaskablePPO(OnPolicyAlgorithm):
             max_grad_norm=max_grad_norm,
             use_sde=False,
             sde_sample_freq=-1,
+            stats_window_size=stats_window_size,
             tensorboard_log=tensorboard_log,
             policy_kwargs=policy_kwargs,
             verbose=verbose,

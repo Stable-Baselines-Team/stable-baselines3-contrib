@@ -114,6 +114,7 @@ class TRPO(OnPolicyAlgorithm):
             max_grad_norm=0.0,
             use_sde=use_sde,
             sde_sample_freq=sde_sample_freq,
+            stats_window_size=stats_window_size,
             tensorboard_log=tensorboard_log,
             policy_kwargs=policy_kwargs,
             verbose=verbose,

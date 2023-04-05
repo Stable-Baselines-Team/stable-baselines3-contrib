@@ -78,6 +78,7 @@ class ARS(BaseAlgorithm):
             policy,
             env,
             learning_rate=learning_rate,
+            stats_window_size=stats_window_size,
             tensorboard_log=tensorboard_log,
             policy_kwargs=policy_kwargs,
             verbose=verbose,
