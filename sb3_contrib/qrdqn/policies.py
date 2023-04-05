@@ -31,7 +31,7 @@ class QuantileNetwork(BasePolicy):
         self,
         observation_space: spaces.Space,
         action_space: spaces.Space,
-        features_extractor: nn.Module,
+        features_extractor: BaseFeaturesExtractor,
         features_dim: int,
         n_quantiles: int = 200,
         net_arch: Optional[List[int]] = None,
@@ -50,7 +50,6 @@ class QuantileNetwork(BasePolicy):
 
         self.net_arch = net_arch
         self.activation_fn = activation_fn
-        self.features_extractor = features_extractor
         self.features_dim = features_dim
         self.n_quantiles = n_quantiles
         action_dim = self.action_space.n  # number of actions
@@ -64,6 +63,8 @@ class QuantileNetwork(BasePolicy):
         :param obs: Observation
         :return: The estimated quantiles for each action.
         """
+        # For type checker:
+        assert isinstance(self.features_extractor, BaseFeaturesExtractor)
         quantiles = self.quantile_net(self.extract_features(obs, self.features_extractor))
         return quantiles.view(-1, self.n_quantiles, self.action_space.n)
 
@@ -152,7 +153,8 @@ class QRDQNPolicy(BasePolicy):
             "normalize_images": normalize_images,
         }
 
-        self.quantile_net, self.quantile_net_target = None, None
+        self.quantile_net: QuantileNetwork
+        self.quantile_net_target: QuantileNetwork
         self._build(lr_schedule)
 
     def _build(self, lr_schedule: Schedule) -> None:
@@ -168,7 +170,11 @@ class QRDQNPolicy(BasePolicy):
         self.quantile_net_target.set_training_mode(False)
 
         # Setup optimizer with initial learning rate
-        self.optimizer = self.optimizer_class(self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
+        self.optimizer = self.optimizer_class(  # type: ignore[call-arg]
+            self.parameters(),
+            lr=lr_schedule(1),
+            **self.optimizer_kwargs,
+        )
 
     def make_quantile_net(self) -> QuantileNetwork:
         # Make sure we always have separate networks for features extractors etc

@@ -3,7 +3,7 @@
 Changelog
 ==========
 
-Release 1.8.0a10 (WIP)
+Release 1.8.0a14 (WIP)
 --------------------------
 
 Breaking Changes:
@@ -13,6 +13,7 @@ Breaking Changes:
 
 New Features:
 ^^^^^^^^^^^^^
+- Added ``stats_window_size`` argument to control smoothing in rollout logging (@jonasreiher)
 
 Bug Fixes:
 ^^^^^^^^^^
@@ -24,7 +25,8 @@ Others:
 ^^^^^^^
 - Moved to pyproject.toml (except flake8)
 - Added github issue forms
-- Fix Atari Roms download in CI
+- Fixed Atari Roms download in CI
+- Fixed ``sb3_contrib/qrdqn/*.py`` type hints
 
 Documentation:
 ^^^^^^^^^^^^^^
@@ -407,4 +409,4 @@ Contributors:
 -------------
 
 @ku2482 @guyk1971 @minhlong94 @ayeright @kronion @glmcdona @cyprienc @sgillen @Gregwar @rnederstigt @qgallouedec
-@mlodel @CppMaster @burakdmb @honglu2875 @ZikangXiong @AlexPasqua
+@mlodel @CppMaster @burakdmb @honglu2875 @ZikangXiong @AlexPasqua @jonasreiher
