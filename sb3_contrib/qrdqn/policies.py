@@ -30,7 +30,7 @@ class QuantileNetwork(BasePolicy):
     def __init__(
         self,
         observation_space: spaces.Space,
-        action_space: spaces.Space,
+        action_space: spaces.Discrete,
         features_extractor: BaseFeaturesExtractor,
         features_dim: int,
         n_quantiles: int = 200,
@@ -52,7 +52,8 @@ class QuantileNetwork(BasePolicy):
         self.activation_fn = activation_fn
         self.features_dim = features_dim
         self.n_quantiles = n_quantiles
-        action_dim = self.action_space.n  # number of actions
+        assert isinstance(self.action_space, spaces.Discrete)
+        action_dim = int(self.action_space.n)  # number of actions
         quantile_net = create_mlp(self.features_dim, action_dim * self.n_quantiles, self.net_arch, self.activation_fn)
         self.quantile_net = nn.Sequential(*quantile_net)
 
@@ -65,8 +66,9 @@ class QuantileNetwork(BasePolicy):
         """
         # For type checker:
         assert isinstance(self.features_extractor, BaseFeaturesExtractor)
+        assert isinstance(self.action_space, spaces.Discrete)
         quantiles = self.quantile_net(self.extract_features(obs, self.features_extractor))
-        return quantiles.view(-1, self.n_quantiles, self.action_space.n)
+        return quantiles.view(-1, self.n_quantiles, int(self.action_space.n))
 
     def _predict(self, observation: th.Tensor, deterministic: bool = True) -> th.Tensor:
         q_values = self(observation).mean(dim=1)
@@ -113,7 +115,7 @@ class QRDQNPolicy(BasePolicy):
     def __init__(
         self,
         observation_space: spaces.Space,
-        action_space: spaces.Space,
+        action_space: spaces.Discrete,
         lr_schedule: Schedule,
         n_quantiles: int = 200,
         net_arch: Optional[List[int]] = None,
@@ -239,7 +241,7 @@ class CnnPolicy(QRDQNPolicy):
     def __init__(
         self,
         observation_space: spaces.Space,
-        action_space: spaces.Space,
+        action_space: spaces.Discrete,
         lr_schedule: Schedule,
         n_quantiles: int = 200,
         net_arch: Optional[List[int]] = None,
@@ -287,7 +289,7 @@ class MultiInputPolicy(QRDQNPolicy):
     def __init__(
         self,
         observation_space: spaces.Space,
-        action_space: spaces.Space,
+        action_space: spaces.Discrete,
         lr_schedule: Schedule,
         n_quantiles: int = 200,
         net_arch: Optional[List[int]] = None,
