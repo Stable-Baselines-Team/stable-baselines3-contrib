@@ -270,12 +270,6 @@ class MaskableActorCriticPolicy(BasePolicy):
         :return: the model's action and the next state
             (used in recurrent policies)
         """
-        # TODO (GH/1): add support for RNN policies
-        # if state is None:
-        #     state = self.initial_state
-        # if episode_start is None:
-        #     episode_start = [False for _ in range(self.n_envs)]
-
         # Switch to eval mode (this affects batch norm / dropout)
         self.set_training_mode(False)
 
