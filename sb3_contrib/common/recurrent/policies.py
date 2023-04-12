@@ -365,7 +365,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
 
         # temporary fix to disable the flattening that stable_baselines3 feature extractors do by default
         # flattening will turn the sequences in the batch into 1 long sequence without proper resetting of lstm hidden states
-        if isinstance(self.features_extractor_class, FlattenExtractor):
+        if self.features_extractor_class == FlattenExtractor:
             features = obs
         else:
             features = self.extract_features(obs)
