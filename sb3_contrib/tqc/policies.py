@@ -204,6 +204,8 @@ class Critic(BaseModel):
         n_quantiles: int = 25,
         n_critics: int = 2,
         share_features_extractor: bool = False,
+        dropout_rate: float = 0.0,
+        layer_norm: bool = False,
     ):
         super().__init__(
             observation_space,
@@ -221,7 +223,14 @@ class Critic(BaseModel):
         self.quantiles_total = n_quantiles * n_critics
 
         for i in range(n_critics):
-            qf_net = create_mlp(features_dim + action_dim, n_quantiles, net_arch, activation_fn)
+            qf_net = create_mlp(
+                features_dim + action_dim,
+                n_quantiles,
+                net_arch,
+                activation_fn,
+                dropout_rate=dropout_rate,
+                layer_norm=layer_norm,
+            )
             qf_net = nn.Sequential(*qf_net)
             self.add_module(f"qf{i}", qf_net)
             self.q_networks.append(qf_net)
@@ -285,6 +294,9 @@ class TQCPolicy(BasePolicy):
         n_quantiles: int = 25,
         n_critics: int = 2,
         share_features_extractor: bool = False,
+        # For the critic only
+        dropout_rate: float = 0.0,
+        layer_norm: bool = False,
     ):
         super().__init__(
             observation_space,
@@ -326,6 +338,8 @@ class TQCPolicy(BasePolicy):
             "n_critics": n_critics,
             "net_arch": critic_arch,
             "share_features_extractor": share_features_extractor,
+            "dropout_rate": dropout_rate,
+            "layer_norm": layer_norm,
         }
         self.critic_kwargs.update(tqc_kwargs)
         self.actor, self.actor_target = None, None

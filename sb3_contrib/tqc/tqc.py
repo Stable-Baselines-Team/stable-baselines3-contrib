@@ -90,6 +90,7 @@ class TQC(OffPolicyAlgorithm):
         replay_buffer_class: Optional[ReplayBuffer] = None,
         replay_buffer_kwargs: Optional[Dict[str, Any]] = None,
         optimize_memory_usage: bool = False,
+        policy_delay: int = 1,
         ent_coef: Union[str, float] = "auto",
         target_update_interval: int = 1,
         target_entropy: Union[str, float] = "auto",
@@ -141,6 +142,7 @@ class TQC(OffPolicyAlgorithm):
         self.target_update_interval = target_update_interval
         self.ent_coef_optimizer = None
         self.top_quantiles_to_drop_per_net = top_quantiles_to_drop_per_net
+        self.policy_delay = policy_delay
 
         if _init_setup_model:
             self._setup_model()
@@ -201,6 +203,8 @@ class TQC(OffPolicyAlgorithm):
         actor_losses, critic_losses = [], []
 
         for gradient_step in range(gradient_steps):
+            self._n_updates += 1
+            update_actor = self._n_updates % self.policy_delay == 0
             # Sample replay buffer
             replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)
 
@@ -218,8 +222,9 @@ class TQC(OffPolicyAlgorithm):
                 # so we don't change it with other losses
                 # see https://github.com/rail-berkeley/softlearning/issues/60
                 ent_coef = th.exp(self.log_ent_coef.detach())
-                ent_coef_loss = -(self.log_ent_coef * (log_prob + self.target_entropy).detach()).mean()
-                ent_coef_losses.append(ent_coef_loss.item())
+                if update_actor:
+                    ent_coef_loss = -(self.log_ent_coef * (log_prob + self.target_entropy).detach()).mean()
+                    ent_coef_losses.append(ent_coef_loss.item())
             else:
                 ent_coef = self.ent_coef_tensor
 
@@ -238,6 +243,7 @@ class TQC(OffPolicyAlgorithm):
                 next_actions, next_log_prob = self.actor.action_log_prob(replay_data.next_observations)
                 # Compute and cut quantiles at the next state
                 # batch x nets x quantiles
+                # Note: in dropq dropout seems to be on for target net too
                 next_quantiles = self.critic_target(replay_data.next_observations, next_actions)
 
                 # Sort and drop top k quantiles to control overestimation.
@@ -263,22 +269,21 @@ class TQC(OffPolicyAlgorithm):
             self.critic.optimizer.step()
 
             # Compute actor loss
-            qf_pi = self.critic(replay_data.observations, actions_pi).mean(dim=2).mean(dim=1, keepdim=True)
-            actor_loss = (ent_coef * log_prob - qf_pi).mean()
-            actor_losses.append(actor_loss.item())
+            if update_actor:
+                qf_pi = self.critic(replay_data.observations, actions_pi).mean(dim=2).mean(dim=1, keepdim=True)
+                actor_loss = (ent_coef * log_prob - qf_pi).mean()
+                actor_losses.append(actor_loss.item())
 
-            # Optimize the actor
-            self.actor.optimizer.zero_grad()
-            actor_loss.backward()
-            self.actor.optimizer.step()
+                # Optimize the actor
+                self.actor.optimizer.zero_grad()
+                actor_loss.backward()
+                self.actor.optimizer.step()
 
             # Update target networks
             if gradient_step % self.target_update_interval == 0:
                 polyak_update(self.critic.parameters(), self.critic_target.parameters(), self.tau)
                 # Copy running stats, see https://github.com/DLR-RM/stable-baselines3/issues/996
                 polyak_update(self.batch_norm_stats, self.batch_norm_stats_target, 1.0)
-
-        self._n_updates += gradient_steps
 
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
         self.logger.record("train/ent_coef", np.mean(ent_coefs))

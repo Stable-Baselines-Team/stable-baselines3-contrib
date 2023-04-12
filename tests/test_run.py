@@ -8,6 +8,17 @@ from sb3_contrib.common.envs import InvalidActionEnvDiscrete
 from sb3_contrib.common.vec_env import AsyncEval
 
 
+def test_dropq():
+    model = TQC(
+        "MlpPolicy",
+        "Pendulum-v1",
+        policy_kwargs=dict(net_arch=[64, 64], layer_norm=True, dropout_rate=0.005),
+        verbose=1,
+        buffer_size=250,
+    )
+    model.learn(total_timesteps=300)
+
+
 @pytest.mark.parametrize("ent_coef", ["auto", 0.01, "auto_0.01"])
 def test_tqc(ent_coef):
     model = TQC(
