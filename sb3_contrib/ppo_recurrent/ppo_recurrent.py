@@ -358,10 +358,9 @@ class RecurrentPPO(OnPolicyAlgorithm):
                 actions = rollout_data.actions
                 if isinstance(self.action_space, spaces.Discrete):
                     # Convert discrete action from float to long
-                    if self.whole_sequences:
-                        actions = rollout_data.actions.long()
-                    else:
-                        actions = rollout_data.actions.long().flatten()
+                    actions = rollout_data.actions.long()
+                    if not self.whole_sequences:
+                        actions = actions.flatten()
 
                 # Convert mask from float to bool
                 mask = rollout_data.mask > 1e-8
