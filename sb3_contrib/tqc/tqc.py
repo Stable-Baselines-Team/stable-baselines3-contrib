@@ -91,7 +91,7 @@ class TQC(OffPolicyAlgorithm):
         train_freq: int = 1,
         gradient_steps: int = 1,
         action_noise: Optional[ActionNoise] = None,
-        replay_buffer_class: Optional[ReplayBuffer] = None,
+        replay_buffer_class: Optional[Type[ReplayBuffer]] = None,
         replay_buffer_kwargs: Optional[Dict[str, Any]] = None,
         optimize_memory_usage: bool = False,
         ent_coef: Union[str, float] = "auto",
@@ -228,7 +228,6 @@ class TQC(OffPolicyAlgorithm):
                 ent_coef = self.ent_coef_tensor
 
             ent_coefs.append(ent_coef.item())
-            self.replay_buffer.ent_coef = ent_coef.item()
 
             # Optimize entropy coefficient, also called
             # entropy temperature or alpha in the paper

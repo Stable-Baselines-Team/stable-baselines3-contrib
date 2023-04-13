@@ -195,13 +195,14 @@ class Critic(BaseModel):
     """
 
     action_space: spaces.Box
+    features_extractor: BaseFeaturesExtractor
 
     def __init__(
         self,
         observation_space: spaces.Space,
         action_space: spaces.Box,
         net_arch: List[int],
-        features_extractor: nn.Module,
+        features_extractor: BaseFeaturesExtractor,
         features_dim: int,
         activation_fn: Type[nn.Module] = nn.ReLU,
         normalize_images: bool = True,
@@ -225,8 +226,8 @@ class Critic(BaseModel):
         self.quantiles_total = n_quantiles * n_critics
 
         for i in range(n_critics):
-            qf_net = create_mlp(features_dim + action_dim, n_quantiles, net_arch, activation_fn)
-            qf_net = nn.Sequential(*qf_net)
+            qf_net_list = create_mlp(features_dim + action_dim, n_quantiles, net_arch, activation_fn)
+            qf_net = nn.Sequential(*qf_net_list)
             self.add_module(f"qf{i}", qf_net)
             self.q_networks.append(qf_net)
 
@@ -342,7 +343,11 @@ class TQCPolicy(BasePolicy):
 
     def _build(self, lr_schedule: Schedule) -> None:
         self.actor = self.make_actor()
-        self.actor.optimizer = self.optimizer_class(self.actor.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
+        self.actor.optimizer = self.optimizer_class(  # type: ignore[call-arg]
+            self.actor.parameters(),
+            lr=lr_schedule(1),
+            **self.optimizer_kwargs,
+        )
 
         if self.share_features_extractor:
             self.critic = self.make_critic(features_extractor=self.actor.features_extractor)
@@ -353,7 +358,7 @@ class TQCPolicy(BasePolicy):
             # Create a separate features extractor for the critic
             # this requires more memory and computation
             self.critic = self.make_critic(features_extractor=None)
-            critic_parameters = self.critic.parameters()
+            critic_parameters = list(self.critic.parameters())
 
         # Critic target should not share the feature extactor with critic
         self.critic_target = self.make_critic(features_extractor=None)
@@ -362,7 +367,11 @@ class TQCPolicy(BasePolicy):
         # Target networks should always be in eval mode
         self.critic_target.set_training_mode(False)
 
-        self.critic.optimizer = self.optimizer_class(critic_parameters, lr=lr_schedule(1), **self.optimizer_kwargs)
+        self.critic.optimizer = self.optimizer_class(  # type: ignore[call-arg]
+            critic_parameters,
+            lr=lr_schedule(1),
+            **self.optimizer_kwargs,
+        )
 
     def _get_constructor_parameters(self) -> Dict[str, Any]:
         data = super()._get_constructor_parameters()

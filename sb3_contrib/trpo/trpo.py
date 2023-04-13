@@ -243,10 +243,10 @@ class TRPO(OnPolicyAlgorithm):
                 rollout_data = RolloutBufferSamples(
                     rollout_data.observations[:: self.sub_sampling_factor],
                     rollout_data.actions[:: self.sub_sampling_factor],
-                    None,  # old values, not used here
+                    None,  # type: ignore[arg-type]  # old values, not used here
                     rollout_data.old_log_prob[:: self.sub_sampling_factor],
                     rollout_data.advantages[:: self.sub_sampling_factor],
-                    None,  # returns, not used here
+                    None,  # type: ignore[arg-type]  # returns, not used here
                 )
 
             actions = rollout_data.actions
@@ -351,7 +351,7 @@ class TRPO(OnPolicyAlgorithm):
                         param.data = original_param.data.clone()
 
                     policy_objective_values.append(policy_objective.item())
-                    kl_divergences.append(0)
+                    kl_divergences.append(0.0)
                 else:
                     policy_objective_values.append(new_policy_objective.item())
                     kl_divergences.append(kl_div.item())
