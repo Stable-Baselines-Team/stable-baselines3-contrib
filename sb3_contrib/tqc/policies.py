@@ -43,6 +43,7 @@ class Actor(BasePolicy):
     :param normalize_images: Whether to normalize images or not,
          dividing by 255.0 (True by default)
     """
+
     action_space: spaces.Box
 
     def __init__(
@@ -192,6 +193,7 @@ class Critic(BaseModel):
     :param share_features_extractor: Whether the features extractor is shared or not
         between the actor and the critic (this saves computation time)
     """
+
     action_space: spaces.Box
 
     def __init__(
@@ -267,6 +269,7 @@ class TQCPolicy(BasePolicy):
     :param share_features_extractor: Whether to share or not the features extractor
         between the actor and the critic (this saves computation time)
     """
+
     actor: Actor
     critic: Critic
     critic_target: Critic

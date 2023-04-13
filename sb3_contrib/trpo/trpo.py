@@ -178,16 +178,16 @@ class TRPO(OnPolicyAlgorithm):
         """
         # This is necessary because not all the parameters in the policy have gradients w.r.t. the KL divergence
         # The policy objective is also called surrogate objective
-        policy_objective_gradients = []
+        policy_objective_gradients_list = []
         # Contains the gradients of the KL divergence
-        grad_kl = []
+        grad_kl_list = []
         # Contains the shape of the gradients of the KL divergence w.r.t each parameter
         # This way the flattened gradient can be reshaped back into the original shapes and applied to
         # the parameters
-        grad_shape = []
+        grad_shape: List[Tuple[int, ...]] = []
         # Contains the parameters which have non-zeros KL divergence gradients
         # The list is used during the line-search to apply the step to each parameters
-        actor_params = []
+        actor_params: List[nn.Parameter] = []
 
         for name, param in self.policy.named_parameters():
             # Skip parameters related to value function based on name
@@ -213,13 +213,13 @@ class TRPO(OnPolicyAlgorithm):
                 policy_objective_grad, *_ = th.autograd.grad(policy_objective, param, retain_graph=True, only_inputs=True)
 
                 grad_shape.append(kl_param_grad.shape)
-                grad_kl.append(kl_param_grad.reshape(-1))
-                policy_objective_gradients.append(policy_objective_grad.reshape(-1))
+                grad_kl_list.append(kl_param_grad.reshape(-1))
+                policy_objective_gradients_list.append(policy_objective_grad.reshape(-1))
                 actor_params.append(param)
 
         # Gradients are concatenated before the conjugate gradient step
-        policy_objective_gradients = th.cat(policy_objective_gradients)
-        grad_kl = th.cat(grad_kl)
+        policy_objective_gradients = th.cat(policy_objective_gradients_list)
+        grad_kl = th.cat(grad_kl_list)
         return actor_params, policy_objective_gradients, grad_kl, grad_shape
 
     def train(self) -> None:
@@ -301,7 +301,7 @@ class TRPO(OnPolicyAlgorithm):
             line_search_max_step_size /= th.matmul(
                 search_direction, hessian_vector_product_fn(search_direction, retain_graph=False)
             )
-            line_search_max_step_size = th.sqrt(line_search_max_step_size)
+            line_search_max_step_size = th.sqrt(line_search_max_step_size)  # type: ignore[assignment, arg-type]
 
             line_search_backtrack_coeff = 1.0
             original_actor_params = [param.detach().clone() for param in actor_params]

@@ -32,6 +32,7 @@ Deprecations:
 Others:
 ^^^^^^^
 - Fixed ``sb3_contrib/tqc/*.py`` type hints
+- Fixed ``sb3_contrib/trpo/*.py`` type hints
 
 
 Documentation:

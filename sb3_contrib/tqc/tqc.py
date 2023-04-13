@@ -11,7 +11,7 @@ from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback
 from stable_baselines3.common.utils import get_parameters_by_name, polyak_update
 
 from sb3_contrib.common.utils import quantile_huber_loss
-from sb3_contrib.tqc.policies import CnnPolicy, MlpPolicy, MultiInputPolicy, TQCPolicy, Actor, Critic
+from sb3_contrib.tqc.policies import Actor, CnnPolicy, Critic, MlpPolicy, MultiInputPolicy, TQCPolicy
 
 SelfTQC = TypeVar("SelfTQC", bound="TQC")
 
@@ -159,7 +159,7 @@ class TQC(OffPolicyAlgorithm):
         # Target entropy is used when learning the entropy coefficient
         if self.target_entropy == "auto":
             # automatically set target entropy if needed
-            self.target_entropy = -np.prod(self.env.action_space.shape).astype(np.float32) # type: ignore
+            self.target_entropy = -np.prod(self.env.action_space.shape).astype(np.float32)  # type: ignore
         else:
             # Force conversion
             # this will also throw an error for unexpected string
