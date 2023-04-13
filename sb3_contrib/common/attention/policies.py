@@ -395,17 +395,14 @@ class AttentionActorCriticPolicy(ActorCriticPolicy):
         # memory : (n_layers, n_envs, dim)
         if memory is None:
             # Initialize memory to zeros
-            memory = np.concatenate([np.zeros(self.memory_shape) for _ in range(n_envs)], axis=1)
-            #memory = (memory, memory)
+            memory = th.tensor(np.concatenate([np.zeros(self.memory_shape) for _ in range(n_envs)], axis=1),
+                               dtype=th.float32, device=self.device)
 
         if episode_start is None:
             episode_start = np.array([False for _ in range(n_envs)])
 
         with th.no_grad():
             # Convert to PyTorch tensors
-            #memory = th.tensor(memory[0], dtype=th.float32, device=self.device), th.tensor(
-            #    memory[1], dtype=th.float32, device=self.device
-            #)
             episode_starts = th.tensor(episode_start, dtype=th.float32, device=self.device)
             actions, memory = self._predict(
                 observation, attn_memory=memory, episode_starts=episode_starts, deterministic=deterministic
