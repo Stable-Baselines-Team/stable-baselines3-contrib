@@ -11,7 +11,7 @@ from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback
 from stable_baselines3.common.utils import get_parameters_by_name, polyak_update
 
 from sb3_contrib.common.utils import quantile_huber_loss
-from sb3_contrib.tqc.policies import CnnPolicy, MlpPolicy, MultiInputPolicy, TQCPolicy
+from sb3_contrib.tqc.policies import CnnPolicy, MlpPolicy, MultiInputPolicy, TQCPolicy, Actor, Critic
 
 SelfTQC = TypeVar("SelfTQC", bound="TQC")
 
@@ -73,6 +73,10 @@ class TQC(OffPolicyAlgorithm):
         "CnnPolicy": CnnPolicy,
         "MultiInputPolicy": MultiInputPolicy,
     }
+    policy: TQCPolicy
+    actor: Actor
+    critic: Critic
+    critic_target: Critic
 
     def __init__(
         self,
@@ -139,7 +143,7 @@ class TQC(OffPolicyAlgorithm):
         # Inverse of the reward scale
         self.ent_coef = ent_coef
         self.target_update_interval = target_update_interval
-        self.ent_coef_optimizer = None
+        self.ent_coef_optimizer: Optional[th.optim.Adam] = None
         self.top_quantiles_to_drop_per_net = top_quantiles_to_drop_per_net
 
         if _init_setup_model:
@@ -155,7 +159,7 @@ class TQC(OffPolicyAlgorithm):
         # Target entropy is used when learning the entropy coefficient
         if self.target_entropy == "auto":
             # automatically set target entropy if needed
-            self.target_entropy = -np.prod(self.env.action_space.shape).astype(np.float32)
+            self.target_entropy = -np.prod(self.env.action_space.shape).astype(np.float32) # type: ignore
         else:
             # Force conversion
             # this will also throw an error for unexpected string
@@ -202,7 +206,7 @@ class TQC(OffPolicyAlgorithm):
 
         for gradient_step in range(gradient_steps):
             # Sample replay buffer
-            replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)
+            replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)  # type: ignore[union-attr]
 
             # We need to sample because `log_std` may have changed between two gradient steps
             if self.use_sde:
@@ -213,7 +217,7 @@ class TQC(OffPolicyAlgorithm):
             log_prob = log_prob.reshape(-1, 1)
 
             ent_coef_loss = None
-            if self.ent_coef_optimizer is not None:
+            if self.ent_coef_optimizer is not None and self.log_ent_coef is not None:
                 # Important: detach the variable from the graph
                 # so we don't change it with other losses
                 # see https://github.com/rail-berkeley/softlearning/issues/60
@@ -228,7 +232,7 @@ class TQC(OffPolicyAlgorithm):
 
             # Optimize entropy coefficient, also called
             # entropy temperature or alpha in the paper
-            if ent_coef_loss is not None:
+            if ent_coef_loss is not None and self.ent_coef_optimizer is not None:
                 self.ent_coef_optimizer.zero_grad()
                 ent_coef_loss.backward()
                 self.ent_coef_optimizer.step()

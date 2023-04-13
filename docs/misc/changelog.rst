@@ -24,12 +24,14 @@ New Features:
 
 Bug Fixes:
 ^^^^^^^^^^
+- Fixed QRDQN update interval for multi envs
 
 Deprecations:
 ^^^^^^^^^^^^^
 
 Others:
 ^^^^^^^
+- Fixed ``sb3_contrib/tqc/*.py`` type hints
 
 
 Documentation:
