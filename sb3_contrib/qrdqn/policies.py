@@ -27,6 +27,8 @@ class QuantileNetwork(BasePolicy):
          dividing by 255.0 (True by default)
     """
 
+    action_space: spaces.Discrete
+
     def __init__(
         self,
         observation_space: spaces.Space,
@@ -52,7 +54,6 @@ class QuantileNetwork(BasePolicy):
         self.activation_fn = activation_fn
         self.features_dim = features_dim
         self.n_quantiles = n_quantiles
-        assert isinstance(self.action_space, spaces.Discrete)
         action_dim = int(self.action_space.n)  # number of actions
         quantile_net = create_mlp(self.features_dim, action_dim * self.n_quantiles, self.net_arch, self.activation_fn)
         self.quantile_net = nn.Sequential(*quantile_net)
@@ -64,9 +65,6 @@ class QuantileNetwork(BasePolicy):
         :param obs: Observation
         :return: The estimated quantiles for each action.
         """
-        # For type checker:
-        assert isinstance(self.features_extractor, BaseFeaturesExtractor)
-        assert isinstance(self.action_space, spaces.Discrete)
         quantiles = self.quantile_net(self.extract_features(obs, self.features_extractor))
         return quantiles.view(-1, self.n_quantiles, int(self.action_space.n))
 
@@ -112,6 +110,9 @@ class QRDQNPolicy(BasePolicy):
         excluding the learning rate, to pass to the optimizer
     """
 
+    quantile_net: QuantileNetwork
+    quantile_net_target: QuantileNetwork
+
     def __init__(
         self,
         observation_space: spaces.Space,
@@ -154,9 +155,6 @@ class QRDQNPolicy(BasePolicy):
             "activation_fn": self.activation_fn,
             "normalize_images": normalize_images,
         }
-
-        self.quantile_net: QuantileNetwork
-        self.quantile_net_target: QuantileNetwork
         self._build(lr_schedule)
 
     def _build(self, lr_schedule: Schedule) -> None:
