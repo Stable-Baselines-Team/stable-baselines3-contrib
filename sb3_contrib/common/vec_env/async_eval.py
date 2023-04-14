@@ -8,6 +8,7 @@ import torch as th
 from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.running_mean_std import RunningMeanStd
+from stable_baselines3.common.utils import compat_gym_seed
 from stable_baselines3.common.vec_env import VecEnv, unwrap_vec_normalize
 from stable_baselines3.common.vec_env.base_vec_env import CloudpickleWrapper
 
@@ -56,7 +57,7 @@ def _worker(
                     results.append((weights_idx, (episode_rewards, episode_lengths)))
                 remote.send(results)
             elif cmd == "seed":
-                remote.send(env.seed(data))
+                remote.send(compat_gym_seed(env, seed=data))
             elif cmd == "get_obs_rms":
                 remote.send(obs_rms)
             elif cmd == "sync_obs_rms":

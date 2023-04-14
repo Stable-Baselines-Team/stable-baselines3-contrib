@@ -3,6 +3,42 @@
 Changelog
 ==========
 
+Release 2.0.0a4 (WIP)
+--------------------------
+
+**Gymnasium support**
+
+.. warning::
+
+  Stable-Baselines3 (SB3) v2.0 will be the last one supporting python 3.7 (end of life in June 2023).
+  We highly recommended you to upgrade to Python >= 3.8.
+
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Switched to Gymnasium as primary backend, Gym 0.21 and 0.26 are still supported via the ``shimmy`` package (@carlosluis, @arjun-kg, @tlpss)
+- Upgraded to Stable-Baselines3 >= 2.0.0
+
+New Features:
+^^^^^^^^^^^^^
+
+Bug Fixes:
+^^^^^^^^^^
+- Fixed QRDQN update interval for multi envs
+
+Deprecations:
+^^^^^^^^^^^^^
+
+Others:
+^^^^^^^
+- Fixed ``sb3_contrib/tqc/*.py`` type hints
+- Fixed ``sb3_contrib/trpo/*.py`` type hints
+
+
+Documentation:
+^^^^^^^^^^^^^^
+
+
 Release 1.8.0 (2023-04-07)
 --------------------------
 

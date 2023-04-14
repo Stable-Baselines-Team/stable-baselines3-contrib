@@ -1,12 +1,14 @@
-from typing import Dict, Union
+from typing import Any, Dict, SupportsFloat, Tuple, Union
 
-import gym
+import gymnasium as gym
 import numpy as np
-from gym import spaces
-from stable_baselines3.common.type_aliases import GymObs, GymStepReturn
+from gymnasium import spaces
+from gymnasium.core import ActType
+
+TimeFeatureObs = Union[np.ndarray, Dict[str, np.ndarray]]
 
 
-class TimeFeatureWrapper(gym.Wrapper):
+class TimeFeatureWrapper(gym.Wrapper[TimeFeatureObs, ActType, TimeFeatureObs, ActType]):
     """
     Add remaining, normalized time to observation space for fixed length episodes.
     See https://arxiv.org/abs/1712.00378 and https://github.com/aravindr93/mjrl/issues/13.
@@ -33,27 +35,30 @@ class TimeFeatureWrapper(gym.Wrapper):
         if isinstance(env.observation_space, spaces.Dict):
             assert "observation" in env.observation_space.spaces, "No `observation` key in the observation space"
             obs_space = env.observation_space.spaces["observation"]
-            assert isinstance(obs_space, spaces.Box), "`TimeFeatureWrapper` only supports `gym.spaces.Box` observation space."
-            obs_space = env.observation_space.spaces["observation"]
         else:
             obs_space = env.observation_space
 
+        assert isinstance(obs_space, gym.spaces.Box), "`TimeFeatureWrapper` only supports `gym.spaces.Box` observation space."
         assert len(obs_space.shape) == 1, "Only 1D observation spaces are supported"
 
         low, high = obs_space.low, obs_space.high
-        low, high = np.concatenate((low, [0.0])), np.concatenate((high, [1.0]))
+        low, high = np.concatenate((low, [0.0])), np.concatenate((high, [1.0]))  # type: ignore[arg-type]
         self.dtype = obs_space.dtype
 
         if isinstance(env.observation_space, spaces.Dict):
-            env.observation_space.spaces["observation"] = spaces.Box(low=low, high=high, dtype=self.dtype)
+            env.observation_space.spaces["observation"] = spaces.Box(
+                low=low,
+                high=high,
+                dtype=self.dtype,  # type: ignore[arg-type]
+            )
         else:
-            env.observation_space = spaces.Box(low=low, high=high, dtype=self.dtype)
+            env.observation_space = spaces.Box(low=low, high=high, dtype=self.dtype)  # type: ignore[arg-type]
 
         super().__init__(env)
 
         # Try to infer the max number of steps per episode
         try:
-            self._max_steps = env.spec.max_episode_steps
+            self._max_steps = env.spec.max_episode_steps  # type: ignore[union-attr]
         except AttributeError:
             self._max_steps = None
 
@@ -64,14 +69,15 @@ class TimeFeatureWrapper(gym.Wrapper):
         self._current_step = 0
         self._test_mode = test_mode
 
-    def reset(self) -> GymObs:
+    def reset(self, **kwargs) -> Tuple[TimeFeatureObs, Dict[str, Any]]:
         self._current_step = 0
-        return self._get_obs(self.env.reset())
+        obs, info = self.env.reset(**kwargs)
+        return self._get_obs(obs), info
 
-    def step(self, action: Union[int, np.ndarray]) -> GymStepReturn:
+    def step(self, action: ActType) -> Tuple[TimeFeatureObs, SupportsFloat, bool, bool, Dict[str, Any]]:
         self._current_step += 1
-        obs, reward, done, info = self.env.step(action)
-        return self._get_obs(obs), reward, done, info
+        obs, reward, done, truncated, info = self.env.step(action)
+        return self._get_obs(obs), reward, done, truncated, info
 
     def _get_obs(self, obs: Union[np.ndarray, Dict[str, np.ndarray]]) -> Union[np.ndarray, Dict[str, np.ndarray]]:
         """
@@ -80,11 +86,13 @@ class TimeFeatureWrapper(gym.Wrapper):
         :param obs:
         :return:
         """
+        # for mypy
+        assert self._max_steps is not None
         # Remaining time is more general
         time_feature = 1 - (self._current_step / self._max_steps)
         if self._test_mode:
             time_feature = 1.0
-        time_feature = np.array(time_feature, dtype=self.dtype)
+        time_feature = np.array(time_feature, dtype=self.dtype)  # type: ignore[assignment]
 
         if isinstance(obs, dict):
             obs["observation"] = np.append(obs["observation"], time_feature)

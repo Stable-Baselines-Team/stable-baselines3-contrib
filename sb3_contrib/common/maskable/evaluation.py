@@ -1,7 +1,7 @@
 import warnings
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
-import gym
+import gymnasium as gym
 import numpy as np
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, VecEnv, VecMonitor, is_vecenv_wrapped
@@ -64,7 +64,7 @@ def evaluate_policy(
     is_monitor_wrapped = False
 
     if not isinstance(env, VecEnv):
-        env = DummyVecEnv([lambda: env])
+        env = DummyVecEnv([lambda: env])  # type: ignore[list-item, return-value]
 
     is_monitor_wrapped = is_vecenv_wrapped(env, VecMonitor) or env.env_is_wrapped(Monitor)[0]
 
@@ -93,7 +93,7 @@ def evaluate_policy(
         if use_masking:
             action_masks = get_action_masks(env)
             actions, state = model.predict(
-                observations,
+                observations,  # type: ignore[arg-type]
                 state=states,
                 episode_start=episode_starts,
                 deterministic=deterministic,
@@ -101,7 +101,10 @@ def evaluate_policy(
             )
         else:
             actions, states = model.predict(
-                observations, state=states, episode_start=episode_starts, deterministic=deterministic
+                observations,  # type: ignore[arg-type]
+                state=states,
+                episode_start=episode_starts,
+                deterministic=deterministic,
             )
         observations, rewards, dones, infos = env.step(actions)
         current_rewards += rewards

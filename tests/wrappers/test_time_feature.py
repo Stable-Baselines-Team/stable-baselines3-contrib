@@ -1,14 +1,14 @@
-import gym
+import gymnasium as gym
 import numpy as np
 import pytest
-from gym import spaces
+from gymnasium import spaces
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.envs import BitFlippingEnv
 
 from sb3_contrib.common.wrappers import TimeFeatureWrapper
 
 
-class CustomGoalEnv(gym.GoalEnv):
+class CustomGoalEnv(gym.Env):
     def __init__(self):
         super().__init__()
         self.observation_space = spaces.Dict(
@@ -21,10 +21,10 @@ class CustomGoalEnv(gym.GoalEnv):
         self.action_space = spaces.Box(low=-1, high=1, shape=(5,), dtype=np.float32)
 
     def reset(self):
-        return self.observation_space.sample()
+        return self.observation_space.sample(), {}
 
     def step(self, action):
-        return self.observation_space.sample(), 0.0, False, {}
+        return self.observation_space.sample(), 0.0, False, False, {}
 
 
 def check_time_feature(obs, timestep, max_timesteps):
@@ -37,14 +37,16 @@ def test_time_feature():
     check_env(env, warn=False)
     # Check for four episodes
     max_timesteps = 200
-    obs = env.reset()
+    obs, _ = env.reset()
     for _ in range(4):
+        done = False
         check_time_feature(obs, timestep=0, max_timesteps=max_timesteps)
         for step in range(1, max_timesteps + 1):
-            obs, _, done, _ = env.step(env.action_space.sample())
+            obs, _, terminated, truncated, _ = env.step(env.action_space.sample())
             check_time_feature(obs, timestep=step, max_timesteps=max_timesteps)
+            done = terminated or truncated
         if done:
-            obs = env.reset()
+            obs, _ = env.reset()
 
     env = BitFlippingEnv()
     with pytest.raises(AssertionError):
@@ -52,16 +54,16 @@ def test_time_feature():
 
     env = CustomGoalEnv()
     env = TimeFeatureWrapper(env, max_steps=500)
-    obs = env.reset()
+    obs, _ = env.reset()
     check_time_feature(obs["observation"], timestep=0, max_timesteps=500)
-    obs, _, _, _ = env.step(env.action_space.sample())
+    obs = env.step(env.action_space.sample())[0]
     check_time_feature(obs["observation"], timestep=1, max_timesteps=500)
 
     # In test mode, the time feature must be constant
     env = gym.make("Pendulum-v1")
     env = TimeFeatureWrapper(env, test_mode=True)
-    obs = env.reset()
+    obs, _ = env.reset()
     check_time_feature(obs, timestep=0, max_timesteps=200)
-    obs, _, _, _ = env.step(env.action_space.sample())
+    obs = env.step(env.action_space.sample())[0]
     # Should be the same
     check_time_feature(obs, timestep=0, max_timesteps=200)

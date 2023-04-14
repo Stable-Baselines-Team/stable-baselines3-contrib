@@ -1,8 +1,9 @@
+import warnings
 from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 import numpy as np
 import torch as th
-from gym import spaces
+from gymnasium import spaces
 from stable_baselines3.common.buffers import ReplayBuffer
 from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
 from stable_baselines3.common.policies import BasePolicy
@@ -10,7 +11,7 @@ from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedul
 from stable_baselines3.common.utils import get_linear_fn, get_parameters_by_name, polyak_update
 
 from sb3_contrib.common.utils import quantile_huber_loss
-from sb3_contrib.qrdqn.policies import CnnPolicy, MlpPolicy, MultiInputPolicy, QRDQNPolicy
+from sb3_contrib.qrdqn.policies import CnnPolicy, MlpPolicy, MultiInputPolicy, QRDQNPolicy, QuantileNetwork
 
 SelfQRDQN = TypeVar("SelfQRDQN", bound="QRDQN")
 
@@ -64,6 +65,11 @@ class QRDQN(OffPolicyAlgorithm):
         "CnnPolicy": CnnPolicy,
         "MultiInputPolicy": MultiInputPolicy,
     }
+    # Linear schedule will be defined in `_setup_model()`
+    exploration_schedule: Schedule
+    quantile_net: QuantileNetwork
+    quantile_net_target: QuantileNetwork
+    policy: QRDQNPolicy
 
     def __init__(
         self,
@@ -123,13 +129,11 @@ class QRDQN(OffPolicyAlgorithm):
         self.exploration_final_eps = exploration_final_eps
         self.exploration_fraction = exploration_fraction
         self.target_update_interval = target_update_interval
+        # For updating the target network with multiple envs:
+        self._n_calls = 0
         self.max_grad_norm = max_grad_norm
         # "epsilon" for the epsilon-greedy exploration
         self.exploration_rate = 0.0
-        # Linear schedule will be defined in `_setup_model()`
-        self.exploration_schedule: Schedule
-        self.quantile_net: th.nn.Module
-        self.quantile_net_target: th.nn.Module
 
         if "optimizer_class" not in self.policy_kwargs:
             self.policy_kwargs["optimizer_class"] = th.optim.Adam
@@ -148,10 +152,20 @@ class QRDQN(OffPolicyAlgorithm):
         self.exploration_schedule = get_linear_fn(
             self.exploration_initial_eps, self.exploration_final_eps, self.exploration_fraction
         )
+        # Account for multiple environments
+        # each call to step() corresponds to n_envs transitions
+        if self.n_envs > 1:
+            if self.n_envs > self.target_update_interval:
+                warnings.warn(
+                    "The number of environments used is greater than the target network "
+                    f"update interval ({self.n_envs} > {self.target_update_interval}), "
+                    "therefore the target network will be updated after each call to env.step() "
+                    f"which corresponds to {self.n_envs} steps."
+                )
+
+            self.target_update_interval = max(self.target_update_interval // self.n_envs, 1)
 
     def _create_aliases(self) -> None:
-        # For type checker:
-        assert isinstance(self.policy, QRDQNPolicy)
         self.quantile_net = self.policy.quantile_net
         self.quantile_net_target = self.policy.quantile_net_target
         self.n_quantiles = self.policy.n_quantiles
@@ -161,7 +175,8 @@ class QRDQN(OffPolicyAlgorithm):
         Update the exploration rate and target network if needed.
         This method is called in ``collect_rollouts()`` after each step in the environment.
         """
-        if self.num_timesteps % self.target_update_interval == 0:
+        self._n_calls += 1
+        if self._n_calls % self.target_update_interval == 0:
             polyak_update(self.quantile_net.parameters(), self.quantile_net_target.parameters(), self.tau)
             # Copy running stats, see https://github.com/DLR-RM/stable-baselines3/issues/996
             polyak_update(self.batch_norm_stats, self.batch_norm_stats_target, 1.0)
