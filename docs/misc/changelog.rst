@@ -124,7 +124,7 @@ Others:
 - Removed ignores on Flake8 F401 (@ZikangXiong)
 - Upgraded GitHub CI/setup-python to v4 and checkout to v3
 - Set tensors construction directly on the device
-- Standardized the use of ``from gymnasium import spaces``
+- Standardized the use of ``from gym import spaces``
 
 Release 1.6.2 (2022-10-10)
 --------------------------
