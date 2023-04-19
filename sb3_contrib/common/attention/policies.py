@@ -175,10 +175,10 @@ class AttentionActorCriticPolicy(ActorCriticPolicy):
 
         # If we don't have to reset the memory in the middle of a sequence
         # we can avoid the for loop, which speeds up things
-        if th.all(episode_starts == 0.0):
-            attn_output, attn_memory = model(features_sequence, attn_memory)
-            # attn_output = th.flatten(attn_output.transpose(0, 1), start_dim=0, end_dim=1)
-            return attn_output, attn_memory
+        # if th.all(episode_starts == 0.0):
+        #     attn_output, attn_memory = model(features_sequence, attn_memory)
+        #     # attn_output = th.flatten(attn_output.transpose(0, 1), start_dim=0, end_dim=1)
+        #     return attn_output, attn_memory
 
         outputs = []
         # Iterate over the sequence
@@ -334,7 +334,7 @@ class AttentionActorCriticPolicy(ActorCriticPolicy):
         #     latent_vf = latent_pi.detach()
         # else:
         #     latent_vf = self.critic(vf_features)
-        latent_vf = latent_pi.detach()
+        #latent_vf = latent_pi.detach()
 
         latent_pi = self.mlp_extractor.forward_actor(latent_pi)
         #latent_vf = self.mlp_extractor.forward_critic(latent_vf)
