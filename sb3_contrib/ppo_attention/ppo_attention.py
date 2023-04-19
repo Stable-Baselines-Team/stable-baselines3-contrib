@@ -130,6 +130,21 @@ class AttentionPPO(OnPolicyAlgorithm):
         ),
         """
 
+        # Sanity check, otherwise it will lead to noisy gradient and NaN
+        # because of the advantage normalization
+        if normalize_advantage:
+            assert (
+                batch_size > 1
+            ), "`batch_size` must be greater than 1. See https://github.com/DLR-RM/stable-baselines3/issues/440"
+
+        if self.env is not None:
+            # Check that `n_steps * n_envs > 1` to avoid NaN
+            # when doing advantage normalization
+            buffer_size = self.env.num_envs * self.n_steps
+            assert buffer_size > 1 or (
+                not normalize_advantage
+            ), f"`n_steps * n_envs` must be greater than 1. Currently n_steps={self.n_steps} and n_envs={self.env.num_envs}"
+
         self.batch_size = batch_size
         self.n_epochs = n_epochs
         self.clip_range = clip_range
