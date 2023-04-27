@@ -53,7 +53,7 @@ Example
 
 .. code-block:: python
 
-  import gym
+  import gymnasium as gym
 
   from sb3_contrib import QRDQN
 

@@ -49,7 +49,7 @@ Example
 
 .. code-block:: python
 
-  import gym
+  import gymnasium as gym
   import numpy as np
 
   from sb3_contrib import TRPO

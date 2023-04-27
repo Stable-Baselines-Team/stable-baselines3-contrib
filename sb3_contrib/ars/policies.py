@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Optional, Type
 
 import torch as th
-from gym import spaces
+from gymnasium import spaces
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.preprocessing import get_action_dim
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor, create_mlp
@@ -50,7 +50,7 @@ class ARSPolicy(BasePolicy):
                 self.features_dim, action_dim, net_arch, activation_fn, with_bias=with_bias, squash_output=squash_output
             )
         elif isinstance(action_space, spaces.Discrete):
-            actor_net = create_mlp(self.features_dim, action_space.n, net_arch, activation_fn, with_bias=with_bias)
+            actor_net = create_mlp(self.features_dim, int(action_space.n), net_arch, activation_fn, with_bias=with_bias)
         else:
             raise NotImplementedError(f"Error: ARS policy not implemented for action space of type {type(action_space)}.")
 

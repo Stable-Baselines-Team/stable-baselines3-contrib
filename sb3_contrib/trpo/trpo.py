@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 import numpy as np
 import torch as th
-from gym import spaces
+from gymnasium import spaces
 from stable_baselines3.common.distributions import kl_divergence
 from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
 from stable_baselines3.common.policies import ActorCriticPolicy, BasePolicy
@@ -58,6 +58,8 @@ class TRPO(OnPolicyAlgorithm):
         Should be small for stability. Values like 0.01, 0.05.
     :param sub_sampling_factor: Sub-sample the batch to make computation faster
         see p40-42 of John Schulman thesis http://joschu.net/docs/thesis.pdf
+    :param stats_window_size: Window size for the rollout logging, specifying the number of episodes to average
+        the reported success rate, mean episode length, and mean reward over
     :param tensorboard_log: the log location for tensorboard (if None, no logging)
     :param policy_kwargs: additional arguments to be passed to the policy on creation
     :param verbose: the verbosity level: 0 no output, 1 info, 2 debug
@@ -92,6 +94,7 @@ class TRPO(OnPolicyAlgorithm):
         normalize_advantage: bool = True,
         target_kl: float = 0.01,
         sub_sampling_factor: int = 1,
+        stats_window_size: int = 100,
         tensorboard_log: Optional[str] = None,
         policy_kwargs: Optional[Dict[str, Any]] = None,
         verbose: int = 0,
@@ -111,6 +114,7 @@ class TRPO(OnPolicyAlgorithm):
             max_grad_norm=0.0,
             use_sde=use_sde,
             sde_sample_freq=sde_sample_freq,
+            stats_window_size=stats_window_size,
             tensorboard_log=tensorboard_log,
             policy_kwargs=policy_kwargs,
             verbose=verbose,
@@ -174,16 +178,16 @@ class TRPO(OnPolicyAlgorithm):
         """
         # This is necessary because not all the parameters in the policy have gradients w.r.t. the KL divergence
         # The policy objective is also called surrogate objective
-        policy_objective_gradients = []
+        policy_objective_gradients_list = []
         # Contains the gradients of the KL divergence
-        grad_kl = []
+        grad_kl_list = []
         # Contains the shape of the gradients of the KL divergence w.r.t each parameter
         # This way the flattened gradient can be reshaped back into the original shapes and applied to
         # the parameters
-        grad_shape = []
+        grad_shape: List[Tuple[int, ...]] = []
         # Contains the parameters which have non-zeros KL divergence gradients
         # The list is used during the line-search to apply the step to each parameters
-        actor_params = []
+        actor_params: List[nn.Parameter] = []
 
         for name, param in self.policy.named_parameters():
             # Skip parameters related to value function based on name
@@ -209,13 +213,13 @@ class TRPO(OnPolicyAlgorithm):
                 policy_objective_grad, *_ = th.autograd.grad(policy_objective, param, retain_graph=True, only_inputs=True)
 
                 grad_shape.append(kl_param_grad.shape)
-                grad_kl.append(kl_param_grad.reshape(-1))
-                policy_objective_gradients.append(policy_objective_grad.reshape(-1))
+                grad_kl_list.append(kl_param_grad.reshape(-1))
+                policy_objective_gradients_list.append(policy_objective_grad.reshape(-1))
                 actor_params.append(param)
 
         # Gradients are concatenated before the conjugate gradient step
-        policy_objective_gradients = th.cat(policy_objective_gradients)
-        grad_kl = th.cat(grad_kl)
+        policy_objective_gradients = th.cat(policy_objective_gradients_list)
+        grad_kl = th.cat(grad_kl_list)
         return actor_params, policy_objective_gradients, grad_kl, grad_shape
 
     def train(self) -> None:
@@ -239,10 +243,10 @@ class TRPO(OnPolicyAlgorithm):
                 rollout_data = RolloutBufferSamples(
                     rollout_data.observations[:: self.sub_sampling_factor],
                     rollout_data.actions[:: self.sub_sampling_factor],
-                    None,  # old values, not used here
+                    None,  # type: ignore[arg-type]  # old values, not used here
                     rollout_data.old_log_prob[:: self.sub_sampling_factor],
                     rollout_data.advantages[:: self.sub_sampling_factor],
-                    None,  # returns, not used here
+                    None,  # type: ignore[arg-type]  # returns, not used here
                 )
 
             actions = rollout_data.actions
@@ -297,7 +301,7 @@ class TRPO(OnPolicyAlgorithm):
             line_search_max_step_size /= th.matmul(
                 search_direction, hessian_vector_product_fn(search_direction, retain_graph=False)
             )
-            line_search_max_step_size = th.sqrt(line_search_max_step_size)
+            line_search_max_step_size = th.sqrt(line_search_max_step_size)  # type: ignore[assignment, arg-type]
 
             line_search_backtrack_coeff = 1.0
             original_actor_params = [param.detach().clone() for param in actor_params]
@@ -347,7 +351,7 @@ class TRPO(OnPolicyAlgorithm):
                         param.data = original_param.data.clone()
 
                     policy_objective_values.append(policy_objective.item())
-                    kl_divergences.append(0)
+                    kl_divergences.append(0.0)
                 else:
                     policy_objective_values.append(new_policy_objective.item())
                     kl_divergences.append(kl_div.item())

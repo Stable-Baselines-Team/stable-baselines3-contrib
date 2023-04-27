@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional, Tuple, Type, TypeVar, Union
 
 import numpy as np
 import torch as th
-from gym import spaces
+from gymnasium import spaces
 from stable_baselines3.common import utils
 from stable_baselines3.common.buffers import RolloutBuffer
 from stable_baselines3.common.callbacks import BaseCallback, CallbackList, ConvertCallback, ProgressBarCallback
@@ -58,6 +58,8 @@ class MaskablePPO(OnPolicyAlgorithm):
         because the clipping is not enough to prevent large update
         see issue #213 (cf https://github.com/hill-a/stable-baselines/issues/213)
         By default, there is no limit on the kl div.
+    :param stats_window_size: Window size for the rollout logging, specifying the number of episodes to average
+        the reported success rate, mean episode length, and mean reward over
     :param tensorboard_log: the log location for tensorboard (if None, no logging)
     :param policy_kwargs: additional arguments to be passed to the policy on creation
     :param verbose: the verbosity level: 0 no output, 1 info, 2 debug
@@ -90,6 +92,7 @@ class MaskablePPO(OnPolicyAlgorithm):
         vf_coef: float = 0.5,
         max_grad_norm: float = 0.5,
         target_kl: Optional[float] = None,
+        stats_window_size: int = 100,
         tensorboard_log: Optional[str] = None,
         policy_kwargs: Optional[Dict[str, Any]] = None,
         verbose: int = 0,
@@ -109,6 +112,7 @@ class MaskablePPO(OnPolicyAlgorithm):
             max_grad_norm=max_grad_norm,
             use_sde=False,
             sde_sample_freq=-1,
+            stats_window_size=stats_window_size,
             tensorboard_log=tensorboard_log,
             policy_kwargs=policy_kwargs,
             verbose=verbose,
@@ -228,6 +232,7 @@ class MaskablePPO(OnPolicyAlgorithm):
             # Make sure training timesteps are ahead of the internal counter
             total_timesteps += self.num_timesteps
         self._total_timesteps = total_timesteps
+        self._num_timesteps_at_start = self.num_timesteps
 
         # Avoid resetting the environment when calling ``.learn()`` consecutive times
         if reset_num_timesteps or self._last_obs is None:

@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import numpy as np
 import torch as th
-from gym import spaces
+from gymnasium import spaces
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.torch_layers import (
     BaseFeaturesExtractor,
@@ -270,12 +270,6 @@ class MaskableActorCriticPolicy(BasePolicy):
         :return: the model's action and the next state
             (used in recurrent policies)
         """
-        # TODO (GH/1): add support for RNN policies
-        # if state is None:
-        #     state = self.initial_state
-        # if episode_start is None:
-        #     episode_start = [False for _ in range(self.n_envs)]
-
         # Switch to eval mode (this affects batch norm / dropout)
         self.set_training_mode(False)
 
