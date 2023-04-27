@@ -389,7 +389,8 @@ class RecurrentPPO(OnPolicyAlgorithm):
 
                 # Normalize advantage
                 advantages = rollout_data.advantages
-                if self.normalize_advantage:
+                # Normalization does not make sense if mini batchsize == 1, see GH issue #325
+                if self.normalize_advantage and len(advantages) > 1:
                     advantages = (advantages - advantages[mask].mean()) / (advantages[mask].std() + 1e-8)
 
                 # ratio between old and new policy, should be one at the first iteration
