@@ -466,7 +466,8 @@ class RecurrentSequenceRolloutBuffer(RecurrentRolloutBuffer):
 
         random_indices = SubsetRandomSampler(range(len(self.episode_start_indices)))
         # drop last batch to prevent extremely small batches causing spurious updates
-        batch_sampler = BatchSampler(random_indices, batch_size, drop_last=True)
+        # TODO: allow to change that parameter, otherwise nothing can be sampled
+        batch_sampler = BatchSampler(random_indices, batch_size, drop_last=False)
         # add a dummy index to make the code below simpler
         self.episode_start_indices = np.concatenate([self.episode_start_indices, np.array([len(self.episode_start_indices)])])
 
