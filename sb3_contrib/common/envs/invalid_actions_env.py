@@ -30,7 +30,7 @@ class InvalidActionEnvDiscrete(IdentityEnv):
         self.state = self.action_space.sample()
         # Randomly choose invalid actions that are not the current state
         potential_invalid_actions = [i for i in self.possible_actions if i != self.state]
-        self.invalid_actions = np.random.choice(potential_invalid_actions, self.n_invalid_actions, replace=False)
+        self.invalid_actions = np.random.choice(potential_invalid_actions, self.n_invalid_actions, replace=False).tolist()
 
     def action_masks(self) -> List[bool]:
         return [action not in self.invalid_actions for action in self.possible_actions]
@@ -70,7 +70,7 @@ class InvalidActionEnvMultiDiscrete(IdentityEnv):
 
         # Randomly choose invalid actions that are not the current state
         potential_invalid_actions = [i for i in self.possible_actions if i not in converted_state]
-        self.invalid_actions = np.random.choice(potential_invalid_actions, self.n_invalid_actions, replace=False)
+        self.invalid_actions = np.random.choice(potential_invalid_actions, self.n_invalid_actions, replace=False).tolist()
 
     def action_masks(self) -> List[bool]:
         return [action not in self.invalid_actions for action in self.possible_actions]
@@ -110,7 +110,7 @@ class InvalidActionEnvMultiBinary(IdentityEnv):
 
         # Randomly choose invalid actions that are not the current state
         potential_invalid_actions = [i for i in self.possible_actions if i not in converted_state]
-        self.invalid_actions = np.random.choice(potential_invalid_actions, self.n_invalid_actions, replace=False)
+        self.invalid_actions = np.random.choice(potential_invalid_actions, self.n_invalid_actions, replace=False).tolist()
 
     def action_masks(self) -> List[bool]:
         return [action not in self.invalid_actions for action in self.possible_actions]
