@@ -5,7 +5,7 @@ from gymnasium import spaces
 from stable_baselines3.common.envs import IdentityEnv
 
 
-class InvalidActionEnvDiscrete(IdentityEnv):
+class InvalidActionEnvDiscrete(IdentityEnv[int]):
     """
     Identity env with a discrete action space. Supports action masking.
     """
@@ -36,10 +36,12 @@ class InvalidActionEnvDiscrete(IdentityEnv):
         return [action not in self.invalid_actions for action in self.possible_actions]
 
 
-class InvalidActionEnvMultiDiscrete(IdentityEnv):
+class InvalidActionEnvMultiDiscrete(IdentityEnv[np.ndarray]):
     """
     Identity env with a multidiscrete action space. Supports action masking.
     """
+
+    action_space: spaces.MultiDiscrete
 
     def __init__(
         self,
@@ -76,7 +78,7 @@ class InvalidActionEnvMultiDiscrete(IdentityEnv):
         return [action not in self.invalid_actions for action in self.possible_actions]
 
 
-class InvalidActionEnvMultiBinary(IdentityEnv):
+class InvalidActionEnvMultiBinary(IdentityEnv[np.ndarray]):
     """
     Identity env with a multibinary action space. Supports action masking.
     """
@@ -94,6 +96,7 @@ class InvalidActionEnvMultiBinary(IdentityEnv):
             raise ValueError(f"Cannot find a valid action for each dim. Set n_invalid_actions <= {dims}")
 
         space = spaces.MultiBinary(dims)
+        self.n_dims = dims
         self.n_invalid_actions = n_invalid_actions
         self.possible_actions = np.arange(2 * dims)
         self.invalid_actions: List[int] = []
@@ -104,7 +107,7 @@ class InvalidActionEnvMultiBinary(IdentityEnv):
 
         converted_state: List[int] = []
         running_total = 0
-        for i in range(self.action_space.n):
+        for i in range(self.n_dims):
             converted_state.append(running_total + self.state[i])
             running_total += 2
 
