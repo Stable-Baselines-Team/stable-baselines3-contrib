@@ -3,7 +3,7 @@
 Gym Wrappers
 ============
 
-Additional `Gym Wrappers <https://github.com/openai/gym/tree/master/gym/wrappers>`_ to enhance Gym environments.
+Additional `Gymnasium Wrappers <https://gymnasium.farama.org/api/wrappers/>`_ to enhance Gymnasium environments.
 
 .. automodule:: sb3_contrib.common.wrappers
 

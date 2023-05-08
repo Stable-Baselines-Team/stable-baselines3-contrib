@@ -35,7 +35,6 @@ exclude = """(?x)(
 	| sb3_contrib/common/maskable/callbacks.py$
 	| sb3_contrib/common/maskable/policies.py$
 	| sb3_contrib/common/maskable/buffers.py$
-	| sb3_contrib/common/envs/invalid_actions_env.py$
 	| sb3_contrib/common/vec_env/async_eval.py$
 	| sb3_contrib/ppo_mask/ppo_mask.py$
 	| tests/test_train_eval_mode.py$
@@ -50,10 +49,6 @@ env = [
 filterwarnings = [
     # Tensorboard warnings
     "ignore::DeprecationWarning:tensorboard",
-    # Gym warnings
-    "ignore:Parameters to load are deprecated.:DeprecationWarning",
-    "ignore:the imp module is deprecated in favour of importlib:PendingDeprecationWarning",
-    "ignore::UserWarning:gym",
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')"
