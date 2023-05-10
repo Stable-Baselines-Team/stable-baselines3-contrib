@@ -19,7 +19,7 @@ TRPO         ✔️          ✔️             ✔️                ✔️    
 
 .. note::
   ``Tuple`` observation spaces are not supported by any environment,
-  however, single-level ``Dict`` spaces are
+  however, single-level ``Dict`` spaces are supported.
 
 Actions ``gym.spaces``:
 
