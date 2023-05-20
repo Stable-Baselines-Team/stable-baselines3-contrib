@@ -30,7 +30,7 @@ def test_discrete(model_class, env):
     elif n_steps == TRPO:
         kwargs = dict(n_steps=256, cg_max_steps=5)
 
-    model = model_class("MlpPolicy", vec_env, learning_rate=1e-3, gamma=0.4, seed=1, **kwargs).learn(n_steps)
+    model = model_class("MlpPolicy", vec_env, learning_rate=1e-3, gamma=0.4, seed=0, **kwargs).learn(n_steps)
 
     evaluate_policy(model, vec_env, n_eval_episodes=20, reward_threshold=90, warn=False)
     obs = vec_env.reset()
