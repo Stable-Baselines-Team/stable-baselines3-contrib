@@ -42,14 +42,12 @@ spelling:
 
 # PyPi package release
 release:
-	python setup.py sdist
-	python setup.py bdist_wheel
+	python -m build
 	twine upload dist/*
 
 # Test PyPi package release
 test-release:
-	python setup.py sdist
-	python setup.py bdist_wheel
+	python -m build
 	twine upload --repository-url https://test.pypi.org/legacy/ dist/*
 
 .PHONY: lint format check-codestyle commit-checks doc spelling
