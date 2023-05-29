@@ -469,9 +469,9 @@ class RecurrentSequenceRolloutBuffer(RecurrentRolloutBuffer):
         # TODO: allow to change that parameter
         batch_sampler = BatchSampler(random_indices, batch_size, drop_last=False)
         # add a dummy index to make the code below simpler
-        self.episode_start_indices = np.concatenate([self.episode_start_indices, np.array([len(self.episode_start_indices)])])
+        episode_start_indices = np.concatenate([self.episode_start_indices, np.array([len(self.episode_starts)])])
 
-        create_minibatch = create_sequence_slicer(self.episode_start_indices, self.device)
+        create_minibatch = create_sequence_slicer(episode_start_indices, self.device)
 
         # yields batches of whole sequences, shape: (max_sequence_length, batch_size=n_seq, features_size))
         for indices in batch_sampler:
@@ -547,9 +547,9 @@ class RecurrentSequenceDictRolloutBuffer(RecurrentDictRolloutBuffer):
         # drop last batch to prevent extremely small batches causing spurious updates
         batch_sampler = BatchSampler(random_indices, batch_size, drop_last=True)
         # add a dummy index to make the code below simpler
-        self.episode_start_indices = np.concatenate([self.episode_start_indices, np.array([len(self.episode_start_indices)])])
+        episode_start_indices = np.concatenate([self.episode_start_indices, np.array([len(self.episode_starts)])])
 
-        create_minibatch = create_sequence_slicer(self.episode_start_indices, self.device)
+        create_minibatch = create_sequence_slicer(episode_start_indices, self.device)
 
         # yields batches of whole sequences, shape: (sequence_length, batch_size=n_seq, features_size)
         for indices in batch_sampler:
