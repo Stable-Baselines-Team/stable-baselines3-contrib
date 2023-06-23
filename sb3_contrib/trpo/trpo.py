@@ -1,7 +1,7 @@
 import copy
 import warnings
 from functools import partial
-from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
+from typing import Any, ClassVar, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 import numpy as np
 import torch as th
@@ -69,7 +69,7 @@ class TRPO(OnPolicyAlgorithm):
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
 
-    policy_aliases: Dict[str, Type[BasePolicy]] = {
+    policy_aliases: ClassVar[Dict[str, Type[BasePolicy]]] = {
         "MlpPolicy": MlpPolicy,
         "CnnPolicy": CnnPolicy,
         "MultiInputPolicy": MultiInputPolicy,

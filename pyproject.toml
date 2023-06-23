@@ -4,8 +4,13 @@ line-length = 127
 # Assume Python 3.7
 target-version = "py37"
 select = ["E", "F", "B", "UP", "C90", "RUF"]
-# Ignore explicit stacklevel`
-ignore = ["B028"]
+# B028: Ignore explicit stacklevel`
+# RUF013: Too many false positives (implicit optional)
+ignore = ["B028", "RUF013"]
+
+[tool.ruff.per-file-ignores]
+# ClassVar, implicit optional check not needed for tests
+"./tests/*.py"= ["RUF012", "RUF013"]
 
 [tool.ruff.mccabe]
 # Unlike Flake8, ruff default to a complexity level of 10.
