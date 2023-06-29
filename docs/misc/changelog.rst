@@ -3,7 +3,7 @@
 Changelog
 ==========
 
-Release 2.0.0a4 (WIP)
+Release 2.0.0 (2023-06-22)
 --------------------------
 
 **Gymnasium support**
@@ -33,11 +33,12 @@ Others:
 ^^^^^^^
 - Fixed ``sb3_contrib/tqc/*.py`` type hints
 - Fixed ``sb3_contrib/trpo/*.py`` type hints
+- Fixed ``sb3_contrib/common/envs/invalid_actions_env.py`` type hints
 
 
 Documentation:
 ^^^^^^^^^^^^^^
-
+- Update documentation, switch from Gym to Gymnasium
 
 Release 1.8.0 (2023-04-07)
 --------------------------

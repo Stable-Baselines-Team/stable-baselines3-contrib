@@ -62,7 +62,7 @@ returns the invalid action mask (``True`` if the action is valid, ``False`` othe
 
   env = InvalidActionEnvDiscrete(dim=80, n_invalid_actions=60)
   model = MaskablePPO("MlpPolicy", env, gamma=0.4, seed=32, verbose=1)
-  model.learn(5000)
+  model.learn(5_000)
 
   evaluate_policy(model, env, n_eval_episodes=20, reward_threshold=90, warn=False)
 
@@ -71,13 +71,12 @@ returns the invalid action mask (``True`` if the action is valid, ``False`` othe
 
   model = MaskablePPO.load("ppo_mask")
 
-  obs = env.reset()
+  obs, _ = env.reset()
   while True:
       # Retrieve current action mask
       action_masks = get_action_masks(env)
       action, _states = model.predict(obs, action_masks=action_masks)
-      obs, rewards, dones, info = env.step(action)
-      env.render()
+      obs, reward, terminated, truncated, info = env.step(action)
 
 
 If the environment implements the invalid action mask but using a different name, you can use the ``ActionMasker``
