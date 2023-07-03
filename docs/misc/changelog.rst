@@ -3,6 +3,31 @@
 Changelog
 ==========
 
+
+Release 2.1.0a0 (WIP)
+--------------------------
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Removed Python 3.7 support
+
+New Features:
+^^^^^^^^^^^^^
+- Added Python 3.11 support
+
+Bug Fixes:
+^^^^^^^^^^
+
+Deprecations:
+^^^^^^^^^^^^^
+
+Others:
+^^^^^^^
+
+Documentation:
+^^^^^^^^^^^^^^
+
+
 Release 2.0.0 (2023-06-22)
 --------------------------
 
