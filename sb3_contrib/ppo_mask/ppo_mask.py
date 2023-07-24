@@ -222,8 +222,8 @@ class MaskablePPO(OnPolicyAlgorithm):
         self.start_time = time.time_ns()
         if self.ep_info_buffer is None or reset_num_timesteps:
             # Initialize buffers if they don't exist, or reinitialize if resetting counters
-            self.ep_info_buffer = deque(maxlen=100)
-            self.ep_success_buffer = deque(maxlen=100)
+            self.ep_info_buffer = deque(maxlen=self._stats_window_size)
+            self.ep_success_buffer = deque(maxlen=self._stats_window_size)
 
         if reset_num_timesteps:
             self.num_timesteps = 0
