@@ -150,7 +150,7 @@ def test_advantage_normalization(normalize_advantage):
     model.learn(64)
 
 
-@pytest.mark.parametrize("algo", [TRPO, QRDQN])
+@pytest.mark.parametrize("algo", [TRPO, QRDQN, MaskablePPO])
 @pytest.mark.parametrize("stats_window_size", [1, 42])
 def test_ep_buffers_stats_window_size(algo, stats_window_size):
     """Set stats_window_size for logging to non-default value and check if
