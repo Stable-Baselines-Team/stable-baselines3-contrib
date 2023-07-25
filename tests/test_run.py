@@ -155,7 +155,6 @@ def test_advantage_normalization(normalize_advantage):
 def test_ep_buffers_stats_window_size(algo, stats_window_size):
     """Set stats_window_size for logging to non-default value and check if
     ep_info_buffer and ep_success_buffer are initialized to the correct length"""
-    print(algo)
     env = InvalidActionEnvDiscrete() if algo == MaskablePPO else "CartPole-v1"
     model = algo("MlpPolicy", env, stats_window_size=stats_window_size)
     model.learn(total_timesteps=10)
