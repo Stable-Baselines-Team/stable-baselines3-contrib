@@ -178,13 +178,13 @@ class DiscreteCritic(BaseModel):
             normalize_images=normalize_images,
         )
 
-        action_dim = get_action_dim(self.action_space)
+        num_actions = self.action_space.n
 
         self.share_features_extractor = share_features_extractor
         self.n_critics = n_critics
         self.q_networks = []
         for idx in range(n_critics):
-            q_net = create_mlp(features_dim, action_dim, net_arch, activation_fn)
+            q_net = create_mlp(features_dim, num_actions, net_arch, activation_fn)
             q_net = nn.Sequential(*q_net)
             self.add_module(f"qf{idx}", q_net)
             self.q_networks.append(q_net)
