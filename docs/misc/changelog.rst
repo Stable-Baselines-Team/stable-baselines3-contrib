@@ -18,6 +18,7 @@ New Features:
 
 Bug Fixes:
 ^^^^^^^^^^
+- Fixed MaskablePPO ignoring stats_window_size argument
 
 Deprecations:
 ^^^^^^^^^^^^^

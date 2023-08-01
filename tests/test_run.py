@@ -150,12 +150,13 @@ def test_advantage_normalization(normalize_advantage):
     model.learn(64)
 
 
-@pytest.mark.parametrize("algo", [TRPO, QRDQN])
+@pytest.mark.parametrize("algo", [TRPO, QRDQN, MaskablePPO])
 @pytest.mark.parametrize("stats_window_size", [1, 42])
 def test_ep_buffers_stats_window_size(algo, stats_window_size):
     """Set stats_window_size for logging to non-default value and check if
     ep_info_buffer and ep_success_buffer are initialized to the correct length"""
-    model = algo("MlpPolicy", "CartPole-v1", stats_window_size=stats_window_size)
+    env = InvalidActionEnvDiscrete() if algo == MaskablePPO else "CartPole-v1"
+    model = algo("MlpPolicy", env, stats_window_size=stats_window_size)
     model.learn(total_timesteps=10)
     assert model.ep_info_buffer.maxlen == stats_window_size
     assert model.ep_success_buffer.maxlen == stats_window_size
