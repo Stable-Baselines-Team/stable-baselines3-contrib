@@ -2,13 +2,7 @@ from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import torch as th
 from gymnasium import spaces
-from torch import nn
-
-from torch.distributions import Categorical
-
-from stable_baselines3.common.distributions import SquashedDiagGaussianDistribution, StateDependentNoiseDistribution
-from stable_baselines3.common.policies import BasePolicy, BaseModel
-from stable_baselines3.common.preprocessing import get_action_dim
+from stable_baselines3.common.policies import BaseModel, BasePolicy
 from stable_baselines3.common.torch_layers import (
     BaseFeaturesExtractor,
     CombinedExtractor,
@@ -18,10 +12,13 @@ from stable_baselines3.common.torch_layers import (
     get_actor_critic_arch,
 )
 from stable_baselines3.common.type_aliases import Schedule
+from torch import nn
+from torch.distributions import Categorical
+
 
 class Actor(BasePolicy):
     """
-    Actor network (policy) for SAC.
+    Actor network (policy) for SACD
 
     :param observation_space: Obervation space
     :param action_space: Action space
@@ -42,7 +39,7 @@ class Actor(BasePolicy):
          dividing by 255.0 (True by default)
     """
 
-    action_space: spaces.Box
+    action_space: spaces.Discrete
 
     def __init__(
         self,
@@ -51,7 +48,7 @@ class Actor(BasePolicy):
         net_arch: List[int],
         features_extractor: nn.Module,
         features_dim: int,
-        activation_fn: Type[nn.Module] = nn.Softmax(dim=1),
+        activation_fn: Type[nn.Module] = nn.Softmax,
         use_sde: bool = False,
         log_std_init: float = -3,
         full_std: bool = True,
@@ -132,6 +129,7 @@ class Actor(BasePolicy):
     def _predict(self, observation: th.Tensor, deterministic: bool = False) -> th.Tensor:
         return self(observation, deterministic)
 
+
 class DiscreteCritic(BaseModel):
     """
     Critic network(s) for DDPG/SAC/TD3.
@@ -159,10 +157,12 @@ class DiscreteCritic(BaseModel):
         between the actor and the critic (this saves computation time)
     """
 
+    action_space: spaces.Discrete
+
     def __init__(
         self,
         observation_space: spaces.Space,
-        action_space: spaces.Box,
+        action_space: spaces.Discrete,
         net_arch: List[int],
         features_extractor: BaseFeaturesExtractor,
         features_dim: int,
@@ -199,9 +199,10 @@ class DiscreteCritic(BaseModel):
             features = self.extract_features(obs, self.features_extractor)
         return tuple(q_net(features) for q_net in self.q_networks)
 
-class SACPolicy(BasePolicy):
+
+class SACDPolicy(BasePolicy):
     """
-    Policy class (with both actor and critic) for SAC.
+    Policy class (with both actor and critic) for SACD.
 
     :param observation_space: Observation space
     :param action_space: Action space
@@ -351,14 +352,6 @@ class SACPolicy(BasePolicy):
         )
         return data
 
-    def reset_noise(self, batch_size: int = 1) -> None:
-        """
-        Sample new weights for the exploration matrix, when using gSDE.
-
-        :param batch_size:
-        """
-        self.actor.reset_noise(batch_size=batch_size)
-
     def make_actor(self, features_extractor: Optional[BaseFeaturesExtractor] = None) -> Actor:
         actor_kwargs = self._update_features_extractor(self.actor_kwargs, features_extractor)
         return Actor(**actor_kwargs).to(self.device)
@@ -386,12 +379,12 @@ class SACPolicy(BasePolicy):
         self.training = mode
 
 
-MlpPolicy = SACPolicy
+MlpPolicy = SACDPolicy
 
 
-class CnnPolicy(SACPolicy):
+class CnnPolicy(SACDPolicy):
     """
-    Policy class (with both actor and critic) for SAC.
+    Policy class (with both actor and critic) for SACD.
 
     :param observation_space: Observation space
     :param action_space: Action space
@@ -455,9 +448,9 @@ class CnnPolicy(SACPolicy):
         )
 
 
-class MultiInputPolicy(SACPolicy):
+class MultiInputPolicy(SACDPolicy):
     """
-    Policy class (with both actor and critic) for SAC.
+    Policy class (with both actor and critic) for SACD.
 
     :param observation_space: Observation space
     :param action_space: Action space

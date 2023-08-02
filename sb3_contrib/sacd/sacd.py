@@ -3,23 +3,22 @@ from typing import Any, ClassVar, Dict, List, Optional, Tuple, Type, TypeVar, Un
 import numpy as np
 import torch as th
 from gymnasium import spaces
-from torch.nn import functional as F
-
 from stable_baselines3.common.buffers import ReplayBuffer
 from stable_baselines3.common.noise import ActionNoise
 from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from stable_baselines3.common.utils import get_parameters_by_name, polyak_update
+from torch.nn import functional as F
 
-from sb3_contrib.sacd.policies import Actor, DiscreteCritic, CnnPolicy, MlpPolicy, MultiInputPolicy, SACPolicy
+from sb3_contrib.sacd.policies import Actor, CnnPolicy, DiscreteCritic, MlpPolicy, MultiInputPolicy, SACDPolicy
 
 SelfSACD = TypeVar("SelfSACD", bound="SACD")
 
 
 class SACD(OffPolicyAlgorithm):
     """
-    Soft Actor-Critic (SAC)
+    Soft Actor-Critic (SACD)
     Off-Policy Maximum Entropy Deep Reinforcement Learning with a Stochastic Actor,
     This implementation borrows code from original implementation (https://github.com/haarnoja/sac)
     from OpenAI Spinning Up (https://github.com/openai/spinningup), from the softlearning repo
@@ -84,14 +83,14 @@ class SACD(OffPolicyAlgorithm):
         "CnnPolicy": CnnPolicy,
         "MultiInputPolicy": MultiInputPolicy,
     }
-    policy: SACPolicy
+    policy: SACDPolicy
     actor: Actor
     critic: DiscreteCritic
     critic_target: DiscreteCritic
 
     def __init__(
         self,
-        policy: Union[str, Type[SACPolicy]],
+        policy: Union[str, Type[SACDPolicy]],
         env: Union[GymEnv, str],
         learning_rate: Union[float, Schedule] = 3e-4,
         buffer_size: int = 1_000_000,  # 1e6
@@ -112,7 +111,7 @@ class SACD(OffPolicyAlgorithm):
         sde_sample_freq: int = -1,
         use_sde_at_warmup: bool = False,
         stats_window_size: int = 100,
-        max_grad_norm = 5.0,
+        max_grad_norm=5.0,
         tensorboard_log: Optional[str] = None,
         policy_kwargs: Optional[Dict[str, Any]] = None,
         verbose: int = 0,
@@ -189,7 +188,7 @@ class SACD(OffPolicyAlgorithm):
             # as discussed in https://github.com/rail-berkeley/softlearning/issues/37
             # self.log_ent_coef = th.log(th.ones(1, device=self.device) * init_value).requires_grad_(True)
             self.log_ent_coef = th.zeros(1, device=self.device, requires_grad=True)
-            self.ent_coef = th.exp(self.log_ent_coef)
+            self.ent_coef_tensor = th.exp(self.log_ent_coef)
             self.ent_coef_optimizer = th.optim.Adam([self.log_ent_coef], lr=self.lr_schedule(1))
         else:
             # Force conversion to float
@@ -231,8 +230,8 @@ class SACD(OffPolicyAlgorithm):
             self.take_optimisation_step(self.actor.optimizer, self.actor, actor_loss, self.gradient_clip_norm)
 
             # Compute entropy loss and optimize
-            ent_coeff = self.calc_entropy_loss(log_action_prob)
-            ent_coefs.append(self.ent_coef.item())
+            self.ent_coef_tensor = self.calc_entropy_loss(log_action_prob)
+            ent_coefs.append(self.ent_coef_tensor.item())
 
             # Update target networks
             if gradient_step % self.target_update_interval == 0:
@@ -253,7 +252,7 @@ class SACD(OffPolicyAlgorithm):
         optimizer.zero_grad()
         loss.backward()
         if clipping_norm is not None:
-            th.nn.utils.clip_grad_norm_(network.parameters(), clipping_norm) #clip gradients to help stabilise training
+            th.nn.utils.clip_grad_norm_(network.parameters(), clipping_norm)  # clip gradients to help stabilise training
         optimizer.step()
 
     def calc_critic_loss(self, replay_data):
@@ -265,7 +264,7 @@ class SACD(OffPolicyAlgorithm):
             next_q_values = th.stack(self.critic_target(replay_data.next_observations), dim=2)
             next_q_values, _ = th.min(next_q_values, dim=2)
 
-            next_q_values = (action_prob * (next_q_values - self.ent_coef * next_log_prob)).sum(dim=1).unsqueeze(-1)
+            next_q_values = (action_prob * (next_q_values - self.ent_coef_tensor * next_log_prob)).sum(dim=1).unsqueeze(-1)
             target_q_values = replay_data.rewards + (1 - replay_data.dones) * self.gamma * next_q_values
 
         # Get current Q-values estimates for each critic network
@@ -273,7 +272,9 @@ class SACD(OffPolicyAlgorithm):
         current_q_values = self.critic(replay_data.observations)
 
         # Compute critic loss
-        critic_loss = 0.5 * sum(F.mse_loss(current_q.gather(1, replay_data.actions), target_q_values) for current_q in current_q_values)
+        critic_loss = 0.5 * sum(
+            F.mse_loss(current_q.gather(1, replay_data.actions), target_q_values) for current_q in current_q_values
+        )
 
         return critic_loss
 
@@ -284,25 +285,21 @@ class SACD(OffPolicyAlgorithm):
         q_values_pi = th.stack(self.critic(replay_data.observations), dim=2)
         min_qf_pi, _ = th.min(q_values_pi, dim=2)
 
-        inside_term = self.ent_coef * log_prob - min_qf_pi
+        inside_term = self.ent_coef_tensor * log_prob - min_qf_pi
         actor_loss = (action_prob * inside_term).sum(dim=1).mean()
         return actor_loss, log_prob
 
     def calc_entropy_loss(self, log_action_prob):
-        ent_coef_loss = None
         if self.ent_coef_optimizer is not None and self.log_ent_coef is not None:
             # Important: detach the variable from the graph
             # so we don't change it with other losses
             # see https://github.com/rail-berkeley/softlearning/issues/60
             ent_coef_loss = -(self.log_ent_coef * (log_action_prob + self.target_entropy).detach()).mean()
-            # ent_coef_losses.append(ent_coef_loss.item())
             ent_coef_loss.backward()
             self.ent_coef_optimizer.step()
-            self.ent_coef = th.exp(self.log_ent_coef.detach())
+            return th.exp(self.log_ent_coef.detach())
         else:
-            self.ent_coef = self.ent_coef_tensor
-
-        return self.ent_coef
+            return self.ent_coef_tensor
 
     def learn(
         self: SelfSACD,
