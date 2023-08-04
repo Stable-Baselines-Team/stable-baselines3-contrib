@@ -61,7 +61,6 @@ class Actor(BasePolicy):
             action_space,
             features_extractor=features_extractor,
             normalize_images=normalize_images,
-            # squash_output=True,
             squash_output=False,
         )
 
@@ -78,7 +77,7 @@ class Actor(BasePolicy):
 
         num_actions = self.action_space.n
 
-        latent_pi_net = create_mlp(features_dim, num_actions, net_arch, activation_fn)
+        latent_pi_net = create_mlp(features_dim, num_actions.item(), net_arch, activation_fn)
         self.latent_pi = nn.Sequential(*latent_pi_net)
 
         self.output_activation = nn.Softmax(dim=1)
@@ -184,8 +183,8 @@ class DiscreteCritic(BaseModel):
         self.n_critics = n_critics
         self.q_networks = []
         for idx in range(n_critics):
-            q_net = create_mlp(features_dim, num_actions, net_arch, activation_fn)
-            q_net = nn.Sequential(*q_net)
+            q_net_list = create_mlp(features_dim, num_actions.item(), net_arch, activation_fn)
+            q_net = nn.Sequential(*q_net_list)
             self.add_module(f"qf{idx}", q_net)
             self.q_networks.append(q_net)
 
@@ -195,8 +194,9 @@ class DiscreteCritic(BaseModel):
     def forward(self, obs: th.Tensor) -> Tuple[th.Tensor, ...]:
         # Learn the features extractor using the policy loss only
         # when the features_extractor is shared with the actor
-        with th.set_grad_enabled(not self.share_features_extractor):
-            features = self.extract_features(obs, self.features_extractor)
+        if self.features_extractor is not None:
+            with th.set_grad_enabled(not self.share_features_extractor):
+                features = self.extract_features(obs, self.features_extractor)
         return tuple(q_net(features) for q_net in self.q_networks)
 
 
