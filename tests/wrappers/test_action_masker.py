@@ -76,5 +76,5 @@ def test_action_masks_returns_expected_result():
 
     # Only one valid action expected
     masks = env.action_masks()
-    masks[env.state] = not masks[env.state]  # Bit-flip the one expected valid action
+    masks[env.unwrapped.state] = not masks[env.unwrapped.state]  # Bit-flip the one expected valid action
     assert all([not mask for mask in masks])

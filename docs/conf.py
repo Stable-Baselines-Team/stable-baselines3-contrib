@@ -13,7 +13,7 @@
 #
 import os
 import sys
-from unittest.mock import MagicMock
+from typing import Dict
 
 # We CANNOT enable 'sphinxcontrib.spelling' because ReadTheDocs.org does not support
 # PyEnchant.
@@ -36,21 +36,6 @@ except ImportError:
 sys.path.insert(0, os.path.abspath(".."))
 
 
-class Mock(MagicMock):
-    __subclasses__ = []
-
-    @classmethod
-    def __getattr__(cls, name):
-        return MagicMock()
-
-
-# Mock modules that requires C modules
-# Note: because of that we cannot test examples using CI
-# 'torch', 'torch.nn', 'torch.nn.functional',
-# DO not mock modules for now, we will need to do that for read the docs later
-MOCK_MODULES = []
-sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
-
 # Read version from file
 version_file = os.path.join(os.path.dirname(__file__), "../sb3_contrib", "version.txt")
 with open(version_file) as file_handler:
@@ -59,7 +44,7 @@ with open(version_file) as file_handler:
 # -- Project information -----------------------------------------------------
 
 project = "Stable Baselines3 - Contrib"
-copyright = "2022, Stable Baselines3"
+copyright = "2023, Stable Baselines3"
 author = "Stable Baselines3 Contributors"
 
 # The short X.Y version
@@ -171,7 +156,7 @@ htmlhelp_basename = "StableBaselines3doc"
 
 # -- Options for LaTeX output ------------------------------------------------
 
-latex_elements = {
+latex_elements: Dict[str, str] = {
     # The paper size ('letterpaper' or 'a4paper').
     #
     # 'papersize': 'letterpaper',

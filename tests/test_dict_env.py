@@ -62,10 +62,6 @@ class DummyDictEnv(gym.Env):
             # Add dictionary observation inside observation space
             self.observation_space.spaces["nested-dict"] = spaces.Dict({"nested-dict-discrete": spaces.Discrete(4)})
 
-    def seed(self, seed=None):
-        if seed is not None:
-            self.observation_space.seed(seed)
-
     def step(self, action):
         reward = 0.0
         done = truncated = False
@@ -103,8 +99,7 @@ def test_consistency(model_class):
     dict_env = DummyDictEnv(use_discrete_actions=use_discrete_actions, vec_only=True)
     dict_env = gym.wrappers.TimeLimit(dict_env, 100)
     env = gym.wrappers.FlattenObservation(dict_env)
-    dict_env.seed(10)
-    obs, _ = dict_env.reset()
+    obs, _ = dict_env.reset(seed=10)
 
     kwargs = {}
     n_steps = 256
