@@ -389,7 +389,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         observation, vectorized_env = self.obs_to_tensor(observation)
 
         if isinstance(observation, dict):
-            n_envs = observation[list(observation.keys())[0]].shape[0]
+            n_envs = observation[next(iter(observation.keys()))].shape[0]
         else:
             n_envs = observation.shape[0]
         # state : (n_layers, n_envs, dim)

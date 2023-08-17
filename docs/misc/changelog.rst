@@ -4,13 +4,14 @@ Changelog
 ==========
 
 
-Release 2.1.0a0 (WIP)
+Release 2.1.0 (2023-08-17)
 --------------------------
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
 - Removed Python 3.7 support
 - SB3 now requires PyTorch > 1.13
+- Upgraded to Stable-Baselines3 >= 2.1.0
 
 New Features:
 ^^^^^^^^^^^^^
@@ -18,7 +19,7 @@ New Features:
 
 Bug Fixes:
 ^^^^^^^^^^
-- Fixed MaskablePPO ignoring stats_window_size argument
+- Fixed MaskablePPO ignoring ``stats_window_size`` argument
 
 Deprecations:
 ^^^^^^^^^^^^^
