@@ -1,5 +1,5 @@
 SHELL=/bin/bash
-LINT_PATHS=sb3_contrib/ tests/ setup.py
+LINT_PATHS=sb3_contrib/ tests/ setup.py docs/conf.py
 
 pytest:
 	./scripts/run_tests.sh
