@@ -309,7 +309,7 @@ class MaskablePPO(OnPolicyAlgorithm):
 
             # Give access to local variables
             callback.update_locals(locals())
-            if callback.on_step() is False:
+            if not callback.on_step():
                 return False
 
             self._update_info_buffer(infos)
@@ -525,7 +525,7 @@ class MaskablePPO(OnPolicyAlgorithm):
         while self.num_timesteps < total_timesteps:
             continue_training = self.collect_rollouts(self.env, callback, self.rollout_buffer, self.n_steps, use_masking)
 
-            if continue_training is False:
+            if not continue_training:
                 break
 
             iteration += 1
