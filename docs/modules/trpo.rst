@@ -1,4 +1,4 @@
-.. _tqc:
+.. _trpo:
 
 .. automodule:: sb3_contrib.trpo
 
@@ -105,7 +105,7 @@ Run the benchmark (replace ``$ENV_ID`` by the envs mentioned above):
 
 .. code-block:: bash
 
-  python train.py --algo tqc --env $ENV_ID --n-eval-envs 10 --eval-episodes 20 --eval-freq 50000
+  python train.py --algo trpo --env $ENV_ID --n-eval-envs 10 --eval-episodes 20 --eval-freq 50000
 
 
 Plot the results:

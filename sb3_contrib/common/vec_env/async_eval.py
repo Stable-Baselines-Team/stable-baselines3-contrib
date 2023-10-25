@@ -1,6 +1,6 @@
 import multiprocessing as mp
 from collections import defaultdict
-from typing import Callable, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import numpy as np
 import torch as th
@@ -57,6 +57,9 @@ def _worker(
             elif cmd == "seed":
                 # Note: the seed will only be effective at the next reset
                 remote.send(vec_env.seed(seed=data))
+            elif cmd == "set_options":
+                # Note: the options will only be effective at the next reset
+                remote.send(vec_env.set_options(data))
             elif cmd == "get_obs_rms":
                 remote.send(obs_rms)
             elif cmd == "sync_obs_rms":
@@ -156,6 +159,19 @@ class AsyncEval:
         """
         for idx, remote in enumerate(self.remotes):
             remote.send(("seed", seed + idx))
+        return [remote.recv() for remote in self.remotes]
+
+    def set_options(self, options: Optional[Union[List[Dict], Dict]] = None) -> List[Union[None, int]]:
+        """
+        Set environment options for all environments.
+        If a dict is passed instead of a list, the same options will be used for all environments.
+        WARNING: Those options will only be passed to the environment at the next reset.
+
+        :param options: A dictionary of environment options to pass to each environment at the next reset.
+        :return:
+        """
+        for remote in self.remotes:
+            remote.send(("set_options", options))
         return [remote.recv() for remote in self.remotes]
 
     def get_results(self) -> List[Tuple[int, Tuple[np.ndarray, np.ndarray]]]:
