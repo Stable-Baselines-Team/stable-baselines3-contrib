@@ -15,6 +15,7 @@ Breaking Changes:
 
 New Features:
 ^^^^^^^^^^^^^
+- Added ``set_options`` for ``AsyncEval``
 
 Bug Fixes:
 ^^^^^^^^^^

@@ -100,6 +100,7 @@ def test_ars_multi_env():
     # with parallelism
     async_eval = AsyncEval([lambda: VecNormalize(make_vec_env("Pendulum-v1", n_envs=1)) for _ in range(2)], model.policy)
     async_eval.seed(0)
+    async_eval.set_options()
     model.learn(500, async_eval=async_eval)
 
 
