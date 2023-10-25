@@ -24,6 +24,8 @@ Deprecations:
 
 Others:
 ^^^^^^^
+- Fixed ``ActorCriticPolicy.extract_features()`` signature by adding an optional ``features_extractor`` argument
+- Update dependencies (accept newer Shimmy/Sphinx version and remove ``sphinx_autodoc_typehints``)
 
 Documentation:
 ^^^^^^^^^^^^^^
