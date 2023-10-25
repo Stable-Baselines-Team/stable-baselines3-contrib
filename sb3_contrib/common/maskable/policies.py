@@ -146,6 +146,7 @@ class MaskableActorCriticPolicy(BasePolicy):
     ) -> Union[th.Tensor, Tuple[th.Tensor, th.Tensor]]:
         """
         Preprocess the observation if needed and extract features.
+
         :param obs: Observation
         :param features_extractor: The features extractor to use. If None, then ``self.features_extractor`` is used.
         :return: The extracted features. If features extractor is not shared, returns a tuple with the
