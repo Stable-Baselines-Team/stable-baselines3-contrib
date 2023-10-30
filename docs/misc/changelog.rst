@@ -4,7 +4,7 @@ Changelog
 ==========
 
 
-Release 2.2.0a8 (WIP)
+Release 2.2.0a9 (WIP)
 --------------------------
 
 Breaking Changes:
@@ -16,6 +16,7 @@ Breaking Changes:
 New Features:
 ^^^^^^^^^^^^^
 - Added ``set_options`` for ``AsyncEval``
+- Added ``rollout_buffer_class`` and ``rollout_buffer_kwargs`` arguments to TRPO
 
 Bug Fixes:
 ^^^^^^^^^^
