@@ -10,7 +10,7 @@ from stable_baselines3.common.torch_layers import (
     NatureCNN,
     create_mlp,
 )
-from stable_baselines3.common.type_aliases import Schedule
+from stable_baselines3.common.type_aliases import PyTorchObs, Schedule
 from torch import nn
 
 
@@ -58,7 +58,7 @@ class QuantileNetwork(BasePolicy):
         quantile_net = create_mlp(self.features_dim, action_dim * self.n_quantiles, self.net_arch, self.activation_fn)
         self.quantile_net = nn.Sequential(*quantile_net)
 
-    def forward(self, obs: th.Tensor) -> th.Tensor:
+    def forward(self, obs: PyTorchObs) -> th.Tensor:
         """
         Predict the quantiles.
 
@@ -68,7 +68,7 @@ class QuantileNetwork(BasePolicy):
         quantiles = self.quantile_net(self.extract_features(obs, self.features_extractor))
         return quantiles.view(-1, self.n_quantiles, int(self.action_space.n))
 
-    def _predict(self, observation: th.Tensor, deterministic: bool = True) -> th.Tensor:
+    def _predict(self, observation: PyTorchObs, deterministic: bool = True) -> th.Tensor:
         q_values = self(observation).mean(dim=1)
         # Greedy action
         action = q_values.argmax(dim=1).reshape(-1)
@@ -181,10 +181,10 @@ class QRDQNPolicy(BasePolicy):
         net_args = self._update_features_extractor(self.net_args, features_extractor=None)
         return QuantileNetwork(**net_args).to(self.device)
 
-    def forward(self, obs: th.Tensor, deterministic: bool = True) -> th.Tensor:
+    def forward(self, obs: PyTorchObs, deterministic: bool = True) -> th.Tensor:
         return self._predict(obs, deterministic=deterministic)
 
-    def _predict(self, obs: th.Tensor, deterministic: bool = True) -> th.Tensor:
+    def _predict(self, obs: PyTorchObs, deterministic: bool = True) -> th.Tensor:
         return self.quantile_net._predict(obs, deterministic=deterministic)
 
     def _get_constructor_parameters(self) -> Dict[str, Any]:

@@ -4,7 +4,8 @@ import torch as th
 from gymnasium import spaces
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.preprocessing import get_action_dim
-from stable_baselines3.common.torch_layers import BaseFeaturesExtractor, create_mlp
+from stable_baselines3.common.torch_layers import create_mlp
+from stable_baselines3.common.type_aliases import PyTorchObs
 from torch import nn
 
 
@@ -66,10 +67,7 @@ class ARSPolicy(BasePolicy):
         )
         return data
 
-    def forward(self, obs: th.Tensor) -> th.Tensor:
-        # Make mypy happy:
-        assert isinstance(self.features_extractor, BaseFeaturesExtractor)
-
+    def forward(self, obs: PyTorchObs) -> th.Tensor:
         features = self.extract_features(obs, self.features_extractor)
         if isinstance(self.action_space, spaces.Box):
             return self.action_net(features)
@@ -79,7 +77,7 @@ class ARSPolicy(BasePolicy):
         else:
             raise NotImplementedError()
 
-    def _predict(self, observation: th.Tensor, deterministic: bool = True) -> th.Tensor:
+    def _predict(self, observation: PyTorchObs, deterministic: bool = True) -> th.Tensor:
         # Non deterministic action does not really make sense for ARS, we ignore this parameter for now..
         return self(observation)
 
