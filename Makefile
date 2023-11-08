@@ -4,13 +4,10 @@ LINT_PATHS=sb3_contrib/ tests/ setup.py docs/conf.py
 pytest:
 	./scripts/run_tests.sh
 
-pytype:
-	pytype -j auto
-
 mypy:
 	mypy ${LINT_PATHS}
 
-type: pytype mypy
+type: mypy
 
 lint:
 	# stop the build if there are Python syntax errors or undefined names
