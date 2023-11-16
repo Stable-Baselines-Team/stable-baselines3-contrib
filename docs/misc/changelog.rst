@@ -4,7 +4,7 @@ Changelog
 ==========
 
 
-Release 2.2.0a11 (WIP)
+Release 2.2.0 (2023-11-16)
 --------------------------
 
 Breaking Changes:
