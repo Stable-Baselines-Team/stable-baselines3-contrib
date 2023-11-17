@@ -4,12 +4,12 @@ Changelog
 ==========
 
 
-Release 2.2.0 (2023-11-16)
+Release 2.2.1 (2023-11-17)
 --------------------------
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
-- Upgraded to Stable-Baselines3 >= 2.2.0
+- Upgraded to Stable-Baselines3 >= 2.2.1
 - Switched to ``ruff`` for sorting imports (isort is no longer needed), black and ruff version now require a minimum version
 - Dropped ``x is False`` in favor of ``not x``, which means that callbacks that wrongly returned None (instead of a boolean) will cause the training to stop (@iwishiwasaneagle)
 
