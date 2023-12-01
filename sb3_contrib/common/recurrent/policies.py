@@ -170,7 +170,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         Do a forward pass in the LSTM network.
 
         :param features: Input tensor
-        :param lstm_states: previous cell and hidden states of the LSTM
+        :param lstm_states: previous hidden and cell states of the LSTM, respectively
         :param episode_starts: Indicates when a new episode starts,
             in that case, we need to reset LSTM states.
         :param lstm: LSTM object.
