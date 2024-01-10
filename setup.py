@@ -65,7 +65,7 @@ setup(
     packages=[package for package in find_packages() if package.startswith("sb3_contrib")],
     package_data={"sb3_contrib": ["py.typed", "version.txt"]},
     install_requires=[
-        "stable_baselines3>=2.1.0",
+        "stable_baselines3>=2.2.1,<3.0",
     ],
     description="Contrib package of Stable Baselines3, experimental code.",
     author="Antonin Raffin",
@@ -95,8 +95,3 @@ setup(
         "Programming Language :: Python :: 3.11",
     ],
 )
-
-# python setup.py sdist
-# python setup.py bdist_wheel
-# twine upload --repository-url https://test.pypi.org/legacy/ dist/*
-# twine upload dist/*
