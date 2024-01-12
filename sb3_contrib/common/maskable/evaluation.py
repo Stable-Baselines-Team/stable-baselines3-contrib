@@ -106,7 +106,7 @@ def evaluate_policy(
                 episode_start=episode_starts,
                 deterministic=deterministic,
             )
-        observations, rewards, dones, infos = env.step(actions)
+        new_observations, rewards, dones, infos = env.step(actions)
         current_rewards += rewards
         current_lengths += 1
         for i in range(n_envs):
@@ -119,6 +119,7 @@ def evaluate_policy(
 
                 if callback is not None:
                     callback(locals(), globals())
+                observations = new_observations
 
                 if dones[i]:
                     if is_monitor_wrapped:

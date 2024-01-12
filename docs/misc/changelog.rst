@@ -2,6 +2,7 @@
 
 Changelog
 ==========
+- Renamed environment output observations in ``evaluate_policy`` to prevent shadowing the input observations during callbacks (@npit)
 
 Release 2.3.0a1 (WIP)
 --------------------------
@@ -544,4 +545,4 @@ Contributors:
 -------------
 
 @ku2482 @guyk1971 @minhlong94 @ayeright @kronion @glmcdona @cyprienc @sgillen @Gregwar @rnederstigt @qgallouedec
-@mlodel @CppMaster @burakdmb @honglu2875 @ZikangXiong @AlexPasqua @jonasreiher
+@mlodel @CppMaster @burakdmb @honglu2875 @ZikangXiong @AlexPasqua @jonasreiher @npit
