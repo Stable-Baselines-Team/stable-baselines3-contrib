@@ -20,7 +20,8 @@ class QRDQN(OffPolicyAlgorithm):
     """
     Quantile Regression Deep Q-Network (QR-DQN)
     Paper: https://arxiv.org/abs/1710.10044
-    Default hyperparameters are taken from the paper and are tuned for Atari games.
+    Default hyperparameters are taken from the paper and are tuned for Atari games
+    (except for the ``learning_starts`` parameter).
 
     :param policy: The policy model to use (MlpPolicy, CnnPolicy, ...)
     :param env: The environment to learn from (if registered in Gym, can be str)
@@ -77,7 +78,7 @@ class QRDQN(OffPolicyAlgorithm):
         env: Union[GymEnv, str],
         learning_rate: Union[float, Schedule] = 5e-5,
         buffer_size: int = 1000000,  # 1e6
-        learning_starts: int = 50000,
+        learning_starts: int = 100,
         batch_size: int = 32,
         tau: float = 1.0,
         gamma: float = 0.99,

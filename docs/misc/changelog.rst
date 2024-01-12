@@ -3,6 +3,38 @@
 Changelog
 ==========
 
+Release 2.3.0a1 (WIP)
+--------------------------
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Upgraded to Stable-Baselines3 >= 2.3.0
+- The default ``leanrning_starts`` parameter of ``QRDQN`` have been changed to be consistent with the other offpolicy algorithms
+
+
+.. code-block:: python
+
+  # SB3 < 2.3.0 default hyperparameters, 50_000 corresponded to Atari defaults hyperparameters
+  # model = QRDQN("MlpPolicy", env, learning_start=50_000)
+  # SB3 >= 2.3.0:
+  model = QRDQN("MlpPolicy", env, learning_start=100)
+
+
+New Features:
+^^^^^^^^^^^^^
+
+Bug Fixes:
+^^^^^^^^^^
+
+Deprecations:
+^^^^^^^^^^^^^
+
+Others:
+^^^^^^^
+
+Documentation:
+^^^^^^^^^^^^^^
+
 
 Release 2.2.1 (2023-11-17)
 --------------------------
