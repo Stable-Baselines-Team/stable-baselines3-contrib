@@ -87,6 +87,10 @@ to specify the name (see `PR #25 <https://github.com/Stable-Baselines-Team/stabl
   it will execute the method ``step`` passing a random action to it (using ``action_space.sample()``),
   without taking into account the invalid actions mask (see `issue #145 <https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/issues/145>`_).
 
+.. note::
+  If you want to use [```EvalCallback```](https://stable-baselines3.readthedocs.io/en/master/guide/callbacks.html#evalcallback)
+  with invalid action masking to periodically evaluate the perforamance of an agent and save the current best model, make sure to use ```MaskableEvalCallback``` to avoid crashes.
+  
 
 .. code-block:: python
 
