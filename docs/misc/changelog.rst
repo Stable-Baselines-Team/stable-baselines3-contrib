@@ -34,6 +34,7 @@ Others:
 
 Documentation:
 ^^^^^^^^^^^^^^
+- Add some additional notes about ``MaskablePPO`` (evaluation and multi-process) (@icheered)
 
 
 Release 2.2.1 (2023-11-17)
@@ -544,4 +545,4 @@ Contributors:
 -------------
 
 @ku2482 @guyk1971 @minhlong94 @ayeright @kronion @glmcdona @cyprienc @sgillen @Gregwar @rnederstigt @qgallouedec
-@mlodel @CppMaster @burakdmb @honglu2875 @ZikangXiong @AlexPasqua @jonasreiher
+@mlodel @CppMaster @burakdmb @honglu2875 @ZikangXiong @AlexPasqua @jonasreiher @icheered

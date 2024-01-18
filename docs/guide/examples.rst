@@ -35,6 +35,12 @@ MaskablePPO
 
 Train a PPO with invalid action masking agent on a toy environment.
 
+.. warning::
+  You must use ``MaskableEvalCallback`` from ``sb3_contrib.common.maskable.callbacks`` instead of the base ``EvalCallback`` to properly evaluate a model with action masks.
+  Similarly, you must use ``evaluate_policy`` from ``sb3_contrib.common.maskable.evaluation`` instead of the SB3 one.
+
+
+
 .. code-block:: python
 
   from sb3_contrib import MaskablePPO
