@@ -30,6 +30,7 @@ Deprecations:
 ^^^^^^^^^^^^^
 
 Others:
+- Fixed `train_freq` type for tqc and qrdn
 ^^^^^^^
 
 Documentation:
