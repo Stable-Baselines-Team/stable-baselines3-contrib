@@ -30,8 +30,9 @@ Deprecations:
 ^^^^^^^^^^^^^
 
 Others:
-- Fixed `train_freq` type for tqc and qrdqn
 ^^^^^^^
+
+- Fixed ``train_freq`` type annotation for tqc and qrdqn (@Armandpl)
 
 Documentation:
 ^^^^^^^^^^^^^^
@@ -546,4 +547,4 @@ Contributors:
 -------------
 
 @ku2482 @guyk1971 @minhlong94 @ayeright @kronion @glmcdona @cyprienc @sgillen @Gregwar @rnederstigt @qgallouedec
-@mlodel @CppMaster @burakdmb @honglu2875 @ZikangXiong @AlexPasqua @jonasreiher @icheered
+@mlodel @CppMaster @burakdmb @honglu2875 @ZikangXiong @AlexPasqua @jonasreiher @icheered @Armandpl
