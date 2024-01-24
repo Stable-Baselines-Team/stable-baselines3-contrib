@@ -32,6 +32,8 @@ Deprecations:
 Others:
 ^^^^^^^
 
+- Fixed ``train_freq`` type annotation for tqc and qrdqn (@Armandpl)
+
 Documentation:
 ^^^^^^^^^^^^^^
 - Add some additional notes about ``MaskablePPO`` (evaluation and multi-process) (@icheered)
@@ -545,4 +547,4 @@ Contributors:
 -------------
 
 @ku2482 @guyk1971 @minhlong94 @ayeright @kronion @glmcdona @cyprienc @sgillen @Gregwar @rnederstigt @qgallouedec
-@mlodel @CppMaster @burakdmb @honglu2875 @ZikangXiong @AlexPasqua @jonasreiher @icheered
+@mlodel @CppMaster @burakdmb @honglu2875 @ZikangXiong @AlexPasqua @jonasreiher @icheered @Armandpl
