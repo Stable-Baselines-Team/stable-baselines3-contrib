@@ -325,7 +325,7 @@ class MaskableActorCriticPolicy(BasePolicy):
         self,
         obs: th.Tensor,
         actions: th.Tensor,
-        action_masks: Optional[np.ndarray] = None,
+        action_masks: Optional[th.Tensor] = None,
     ) -> Tuple[th.Tensor, th.Tensor, Optional[th.Tensor]]:
         """
         Evaluate actions according to the current policy,
@@ -366,7 +366,7 @@ class MaskableActorCriticPolicy(BasePolicy):
             distribution.apply_masking(action_masks)
         return distribution
 
-    def predict_values(self, obs: th.Tensor) -> th.Tensor:
+    def predict_values(self, obs: PyTorchObs) -> th.Tensor:
         """
         Get the estimated values according to the current policy given the observations.
 
