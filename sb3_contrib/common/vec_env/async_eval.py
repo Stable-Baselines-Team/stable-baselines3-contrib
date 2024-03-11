@@ -59,10 +59,11 @@ def _worker(
                 remote.send(vec_env.seed(seed=data))
             elif cmd == "set_options":
                 # Note: the options will only be effective at the next reset
-                remote.send(vec_env.set_options(data))
+                remote.send(vec_env.set_options(data))  # type: ignore[func-returns-value]
             elif cmd == "get_obs_rms":
                 remote.send(obs_rms)
             elif cmd == "sync_obs_rms":
+                assert vec_normalize is not None, "Tried to call `sync_obs_rms` when not using VecNormalize"
                 vec_normalize.obs_rms = data
                 obs_rms = data
             elif cmd == "close":
@@ -130,7 +131,7 @@ class AsyncEval:
                 n_eval_episodes,
             )
             # daemon=True: if the main process crashes, we should not cause things to hang
-            process = ctx.Process(target=_worker, args=args, daemon=True)  # pytype:disable=attribute-error
+            process = ctx.Process(target=_worker, args=args, daemon=True)  # type: ignore[attr-defined]
             process.start()
             self.processes.append(process)
             work_remote.close()
@@ -157,6 +158,10 @@ class AsyncEval:
         :param seed: The seed for the pseudo-random generators.
         :return:
         """
+        if seed is None:
+            # Do nothing
+            return []
+
         for idx, remote in enumerate(self.remotes):
             remote.send(("seed", seed + idx))
         return [remote.recv() for remote in self.remotes]

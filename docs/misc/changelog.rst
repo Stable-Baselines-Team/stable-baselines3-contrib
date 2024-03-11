@@ -22,6 +22,7 @@ Breaking Changes:
 
 New Features:
 ^^^^^^^^^^^^^
+- Added ``rollout_buffer_class`` and ``rollout_buffer_kwargs`` arguments to MaskablePPO
 
 Bug Fixes:
 ^^^^^^^^^^
@@ -31,8 +32,10 @@ Deprecations:
 
 Others:
 ^^^^^^^
-
 - Fixed ``train_freq`` type annotation for tqc and qrdqn (@Armandpl)
+- Fixed ``sb3_contrib/common/maskable/*.py`` type annotations
+- Fixed ``sb3_contrib/ppo_mask/ppo_mask.py`` type annotations
+- Fixed ``sb3_contrib/common/vec_env/async_eval.py`` type annotations
 
 Documentation:
 ^^^^^^^^^^^^^^
