@@ -55,7 +55,7 @@ class MaskableEvalCallback(EvalCallback):
 
             # Note that evaluate_policy() has been patched to support masking
             episode_rewards, episode_lengths = evaluate_policy(
-                self.model,
+                self.model,  # type: ignore[arg-type]
                 self.eval_env,
                 n_eval_episodes=self.n_eval_episodes,
                 render=self.render,
@@ -67,6 +67,8 @@ class MaskableEvalCallback(EvalCallback):
             )
 
             if self.log_path is not None:
+                assert isinstance(episode_rewards, list)
+                assert isinstance(episode_lengths, list)
                 self.evaluations_timesteps.append(self.num_timesteps)
                 self.evaluations_results.append(episode_rewards)
                 self.evaluations_length.append(episode_lengths)
@@ -87,7 +89,7 @@ class MaskableEvalCallback(EvalCallback):
 
             mean_reward, std_reward = np.mean(episode_rewards), np.std(episode_rewards)
             mean_ep_length, std_ep_length = np.mean(episode_lengths), np.std(episode_lengths)
-            self.last_mean_reward = mean_reward
+            self.last_mean_reward = float(mean_reward)
 
             if self.verbose > 0:
                 print(f"Eval num_timesteps={self.num_timesteps}, " f"episode_reward={mean_reward:.2f} +/- {std_reward:.2f}")
@@ -111,7 +113,7 @@ class MaskableEvalCallback(EvalCallback):
                     print("New best mean reward!")
                 if self.best_model_save_path is not None:
                     self.model.save(os.path.join(self.best_model_save_path, "best_model"))
-                self.best_mean_reward = mean_reward
+                self.best_mean_reward = float(mean_reward)
                 # Trigger callback on new best model, if needed
                 if self.callback_on_new_best is not None:
                     continue_training = self.callback_on_new_best.on_step()

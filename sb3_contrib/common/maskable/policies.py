@@ -13,7 +13,7 @@ from stable_baselines3.common.torch_layers import (
     MlpExtractor,
     NatureCNN,
 )
-from stable_baselines3.common.type_aliases import Schedule
+from stable_baselines3.common.type_aliases import PyTorchObs, Schedule
 from torch import nn
 
 from sb3_contrib.common.maskable.distributions import MaskableDistribution, make_masked_proba_distribution
@@ -141,8 +141,8 @@ class MaskableActorCriticPolicy(BasePolicy):
         log_prob = distribution.log_prob(actions)
         return actions, values, log_prob
 
-    def extract_features(
-        self, obs: th.Tensor, features_extractor: Optional[BaseFeaturesExtractor] = None
+    def extract_features(  # type: ignore[override]
+        self, obs: PyTorchObs, features_extractor: Optional[BaseFeaturesExtractor] = None
     ) -> Union[th.Tensor, Tuple[th.Tensor, th.Tensor]]:
         """
         Preprocess the observation if needed and extract features.
@@ -233,7 +233,11 @@ class MaskableActorCriticPolicy(BasePolicy):
                 module.apply(partial(self.init_weights, gain=gain))
 
         # Setup optimizer with initial learning rate
-        self.optimizer = self.optimizer_class(self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
+        self.optimizer = self.optimizer_class(
+            self.parameters(),
+            lr=lr_schedule(1),  # type: ignore[call-arg]
+            **self.optimizer_kwargs,
+        )
 
     def _get_action_dist_from_latent(self, latent_pi: th.Tensor) -> MaskableDistribution:
         """
@@ -245,9 +249,9 @@ class MaskableActorCriticPolicy(BasePolicy):
         action_logits = self.action_net(latent_pi)
         return self.action_dist.proba_distribution(action_logits=action_logits)
 
-    def _predict(
+    def _predict(  # type: ignore[override]
         self,
-        observation: th.Tensor,
+        observation: PyTorchObs,
         deterministic: bool = False,
         action_masks: Optional[np.ndarray] = None,
     ) -> th.Tensor:
@@ -284,35 +288,45 @@ class MaskableActorCriticPolicy(BasePolicy):
         # Switch to eval mode (this affects batch norm / dropout)
         self.set_training_mode(False)
 
-        observation, vectorized_env = self.obs_to_tensor(observation)
+        # Check for common mistake that the user does not mix Gym/VecEnv API
+        # Tuple obs are not supported by SB3, so we can safely do that check
+        if isinstance(observation, tuple) and len(observation) == 2 and isinstance(observation[1], dict):
+            raise ValueError(
+                "You have passed a tuple to the predict() function instead of a Numpy array or a Dict. "
+                "You are probably mixing Gym API with SB3 VecEnv API: `obs, info = env.reset()` (Gym) "
+                "vs `obs = vec_env.reset()` (SB3 VecEnv). "
+                "See related issue https://github.com/DLR-RM/stable-baselines3/issues/1694 "
+                "and documentation for more information: https://stable-baselines3.readthedocs.io/en/master/guide/vec_envs.html#vecenv-api-vs-gym-api"
+            )
+
+        obs_tensor, vectorized_env = self.obs_to_tensor(observation)
 
         with th.no_grad():
-            actions = self._predict(observation, deterministic=deterministic, action_masks=action_masks)
+            actions = self._predict(obs_tensor, deterministic=deterministic, action_masks=action_masks)
             # Convert to numpy
             actions = actions.cpu().numpy()
 
         if isinstance(self.action_space, spaces.Box):
             if self.squash_output:
                 # Rescale to proper domain when using squashing
-                actions = self.unscale_action(actions)
+                actions = self.unscale_action(actions)  # type: ignore[assignment, arg-type]
             else:
                 # Actions could be on arbitrary scale, so clip the actions to avoid
                 # out of bound error (e.g. if sampling from a Gaussian distribution)
-                actions = np.clip(actions, self.action_space.low, self.action_space.high)
+                actions = np.clip(actions, self.action_space.low, self.action_space.high)  # type: ignore[assignment, arg-type]
 
         if not vectorized_env:
-            if state is not None:
-                raise ValueError("Error: The environment must be vectorized when using recurrent policies.")
+            assert isinstance(actions, np.ndarray)
             actions = actions.squeeze(axis=0)
 
-        return actions, None
+        return actions, state  # type: ignore[return-value]
 
     def evaluate_actions(
         self,
         obs: th.Tensor,
         actions: th.Tensor,
-        action_masks: Optional[np.ndarray] = None,
-    ) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
+        action_masks: Optional[th.Tensor] = None,
+    ) -> Tuple[th.Tensor, th.Tensor, Optional[th.Tensor]]:
         """
         Evaluate actions according to the current policy,
         given the observations.
@@ -337,7 +351,7 @@ class MaskableActorCriticPolicy(BasePolicy):
         values = self.value_net(latent_vf)
         return values, log_prob, distribution.entropy()
 
-    def get_distribution(self, obs: th.Tensor, action_masks: Optional[np.ndarray] = None) -> MaskableDistribution:
+    def get_distribution(self, obs: PyTorchObs, action_masks: Optional[np.ndarray] = None) -> MaskableDistribution:
         """
         Get the current policy distribution given the observations.
 
@@ -352,7 +366,7 @@ class MaskableActorCriticPolicy(BasePolicy):
             distribution.apply_masking(action_masks)
         return distribution
 
-    def predict_values(self, obs: th.Tensor) -> th.Tensor:
+    def predict_values(self, obs: PyTorchObs) -> th.Tensor:
         """
         Get the estimated values according to the current policy given the observations.
 

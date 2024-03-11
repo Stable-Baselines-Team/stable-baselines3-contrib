@@ -18,7 +18,7 @@ class MaskableRolloutBufferSamples(NamedTuple):
     action_masks: th.Tensor
 
 
-class MaskableDictRolloutBufferSamples(MaskableRolloutBufferSamples):
+class MaskableDictRolloutBufferSamples(NamedTuple):
     observations: TensorDict
     actions: th.Tensor
     old_values: th.Tensor
@@ -42,6 +42,8 @@ class MaskableRolloutBuffer(RolloutBuffer):
     :param n_envs: Number of parallel environments
     """
 
+    action_masks: np.ndarray
+
     def __init__(
         self,
         buffer_size: int,
@@ -53,7 +55,6 @@ class MaskableRolloutBuffer(RolloutBuffer):
         n_envs: int = 1,
     ):
         super().__init__(buffer_size, observation_space, action_space, device, gae_lambda, gamma, n_envs)
-        self.action_masks = None
 
     def reset(self) -> None:
         if isinstance(self.action_space, spaces.Discrete):
@@ -61,6 +62,10 @@ class MaskableRolloutBuffer(RolloutBuffer):
         elif isinstance(self.action_space, spaces.MultiDiscrete):
             mask_dims = sum(self.action_space.nvec)
         elif isinstance(self.action_space, spaces.MultiBinary):
+            assert isinstance(self.action_space.n, int), (
+                f"Multi-dimensional MultiBinary({self.action_space.n}) action space is not supported. "
+                "You can flatten it instead."
+            )
             mask_dims = 2 * self.action_space.n  # One mask per binary outcome
         else:
             raise ValueError(f"Unsupported action space {type(self.action_space)}")
@@ -79,7 +84,7 @@ class MaskableRolloutBuffer(RolloutBuffer):
 
         super().add(*args, **kwargs)
 
-    def get(self, batch_size: Optional[int] = None) -> Generator[MaskableRolloutBufferSamples, None, None]:
+    def get(self, batch_size: Optional[int] = None) -> Generator[MaskableRolloutBufferSamples, None, None]:  # type: ignore[override]
         assert self.full, ""
         indices = np.random.permutation(self.buffer_size * self.n_envs)
         # Prepare the data
@@ -105,7 +110,7 @@ class MaskableRolloutBuffer(RolloutBuffer):
             yield self._get_samples(indices[start_idx : start_idx + batch_size])
             start_idx += batch_size
 
-    def _get_samples(self, batch_inds: np.ndarray, env: Optional[VecNormalize] = None) -> MaskableRolloutBufferSamples:
+    def _get_samples(self, batch_inds: np.ndarray, env: Optional[VecNormalize] = None) -> MaskableRolloutBufferSamples:  # type: ignore[override]
         data = (
             self.observations[batch_inds],
             self.actions[batch_inds],
@@ -143,17 +148,18 @@ class MaskableDictRolloutBuffer(DictRolloutBuffer):
     :param n_envs: Number of parallel environments
     """
 
+    action_masks: np.ndarray
+
     def __init__(
         self,
         buffer_size: int,
-        observation_space: spaces.Space,
+        observation_space: spaces.Dict,
         action_space: spaces.Space,
         device: Union[th.device, str] = "auto",
         gae_lambda: float = 1,
         gamma: float = 0.99,
         n_envs: int = 1,
     ):
-        self.action_masks = None
         super().__init__(buffer_size, observation_space, action_space, device, gae_lambda, gamma, n_envs=n_envs)
 
     def reset(self) -> None:
@@ -162,6 +168,10 @@ class MaskableDictRolloutBuffer(DictRolloutBuffer):
         elif isinstance(self.action_space, spaces.MultiDiscrete):
             mask_dims = sum(self.action_space.nvec)
         elif isinstance(self.action_space, spaces.MultiBinary):
+            assert isinstance(self.action_space.n, int), (
+                f"Multi-dimensional MultiBinary({self.action_space.n}) action space is not supported. "
+                "You can flatten it instead."
+            )
             mask_dims = 2 * self.action_space.n  # One mask per binary outcome
         else:
             raise ValueError(f"Unsupported action space {type(self.action_space)}")
@@ -180,7 +190,7 @@ class MaskableDictRolloutBuffer(DictRolloutBuffer):
 
         super().add(*args, **kwargs)
 
-    def get(self, batch_size: Optional[int] = None) -> Generator[MaskableDictRolloutBufferSamples, None, None]:
+    def get(self, batch_size: Optional[int] = None) -> Generator[MaskableDictRolloutBufferSamples, None, None]:  # type: ignore[override]
         assert self.full, ""
         indices = np.random.permutation(self.buffer_size * self.n_envs)
         # Prepare the data
@@ -203,7 +213,7 @@ class MaskableDictRolloutBuffer(DictRolloutBuffer):
             yield self._get_samples(indices[start_idx : start_idx + batch_size])
             start_idx += batch_size
 
-    def _get_samples(self, batch_inds: np.ndarray, env: Optional[VecNormalize] = None) -> MaskableDictRolloutBufferSamples:
+    def _get_samples(self, batch_inds: np.ndarray, env: Optional[VecNormalize] = None) -> MaskableDictRolloutBufferSamples:  # type: ignore[override]
         return MaskableDictRolloutBufferSamples(
             observations={key: self.to_torch(obs[batch_inds]) for (key, obs) in self.observations.items()},
             actions=self.to_torch(self.actions[batch_inds]),
