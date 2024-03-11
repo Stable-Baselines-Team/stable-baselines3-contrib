@@ -3,13 +3,13 @@
 Changelog
 ==========
 
-Release 2.3.0a1 (WIP)
+Release 2.3.0a4 (WIP)
 --------------------------
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
 - Upgraded to Stable-Baselines3 >= 2.3.0
-- The default ``leanrning_starts`` parameter of ``QRDQN`` have been changed to be consistent with the other offpolicy algorithms
+- The default ``learning_starts`` parameter of ``QRDQN`` have been changed to be consistent with the other offpolicy algorithms
 
 
 .. code-block:: python
