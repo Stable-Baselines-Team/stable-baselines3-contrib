@@ -94,6 +94,13 @@ class MaskableDistribution(Distribution, ABC):
             previously applied masking is removed, and the original logits are restored.
         """
 
+    @abstractmethod
+    def proba_distribution_net(self, *args, **kwargs) -> nn.Module:
+        """Create the layers and parameters that represent the distribution.
+
+        Subclasses must define this, but the arguments and return type vary between
+        concrete classes."""
+
 
 class MaskableCategoricalDistribution(MaskableDistribution):
     """
