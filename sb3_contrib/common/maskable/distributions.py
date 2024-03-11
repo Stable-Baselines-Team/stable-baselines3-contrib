@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional, Tuple, TypeVar
+from typing import List, Optional, Tuple, TypeVar, Union
 
 import numpy as np
 import torch as th
@@ -13,6 +13,7 @@ SelfMaskableCategoricalDistribution = TypeVar("SelfMaskableCategoricalDistributi
 SelfMaskableMultiCategoricalDistribution = TypeVar(
     "SelfMaskableMultiCategoricalDistribution", bound="MaskableMultiCategoricalDistribution"
 )
+MaybeMasks = Union[th.Tensor, np.ndarray, None]
 
 
 class MaskableCategorical(Categorical):
@@ -36,14 +37,14 @@ class MaskableCategorical(Categorical):
         probs: Optional[th.Tensor] = None,
         logits: Optional[th.Tensor] = None,
         validate_args: Optional[bool] = None,
-        masks: Optional[np.ndarray] = None,
+        masks: MaybeMasks = None,
     ):
         self.masks: Optional[th.Tensor] = None
         super().__init__(probs, logits, validate_args)
         self._original_logits = self.logits
         self.apply_masking(masks)
 
-    def apply_masking(self, masks: Optional[np.ndarray]) -> None:
+    def apply_masking(self, masks: MaybeMasks) -> None:
         """
         Eliminate ("mask out") chosen categorical outcomes by setting their probability to 0.
 
@@ -84,7 +85,7 @@ class MaskableCategorical(Categorical):
 
 class MaskableDistribution(Distribution, ABC):
     @abstractmethod
-    def apply_masking(self, masks: Optional[np.ndarray]) -> None:
+    def apply_masking(self, masks: MaybeMasks) -> None:
         """
         Eliminate ("mask out") chosen distribution outcomes by setting their probability to 0.
 
@@ -161,7 +162,7 @@ class MaskableCategoricalDistribution(MaskableDistribution):
         log_prob = self.log_prob(actions)
         return actions, log_prob
 
-    def apply_masking(self, masks: Optional[np.ndarray]) -> None:
+    def apply_masking(self, masks: MaybeMasks) -> None:
         assert self.distribution is not None, "Must set distribution parameters"
         self.distribution.apply_masking(masks)
 
@@ -236,7 +237,7 @@ class MaskableMultiCategoricalDistribution(MaskableDistribution):
         log_prob = self.log_prob(actions)
         return actions, log_prob
 
-    def apply_masking(self, masks: Optional[np.ndarray]) -> None:
+    def apply_masking(self, masks: MaybeMasks) -> None:
         assert len(self.distributions) > 0, "Must set distribution parameters"
 
         split_masks = [None] * len(self.distributions)
