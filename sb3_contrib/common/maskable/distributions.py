@@ -192,7 +192,7 @@ class MaskableMultiCategoricalDistribution(MaskableDistribution):
         reshaped_logits = action_logits.view(-1, sum(self.action_dims))
 
         self.distributions = [
-            MaskableCategorical(logits=split) for split in th.split(reshaped_logits, tuple(self.action_dims), dim=1)
+            MaskableCategorical(logits=split) for split in th.split(reshaped_logits, list(self.action_dims), dim=1)
         ]
         return self
 
@@ -234,13 +234,11 @@ class MaskableMultiCategoricalDistribution(MaskableDistribution):
 
         split_masks = [None] * len(self.distributions)
         if masks is not None:
-            masks = th.as_tensor(masks)
-
+            masks_tensor = th.as_tensor(masks)
             # Restructure shape to align with logits
-            masks = masks.view(-1, sum(self.action_dims))
-
+            masks_tensor = masks_tensor.view(-1, sum(self.action_dims))
             # Then split columnwise for each discrete action
-            split_masks = th.split(masks, tuple(self.action_dims), dim=1)
+            split_masks = th.split(masks_tensor, list(self.action_dims), dim=1)  # type: ignore[assignment]
 
         for distribution, mask in zip(self.distributions, split_masks):
             distribution.apply_masking(mask)
@@ -268,10 +266,13 @@ def make_masked_proba_distribution(action_space: spaces.Space) -> MaskableDistri
     """
 
     if isinstance(action_space, spaces.Discrete):
-        return MaskableCategoricalDistribution(action_space.n)
+        return MaskableCategoricalDistribution(int(action_space.n))
     elif isinstance(action_space, spaces.MultiDiscrete):
-        return MaskableMultiCategoricalDistribution(action_space.nvec)
+        return MaskableMultiCategoricalDistribution(list(action_space.nvec))
     elif isinstance(action_space, spaces.MultiBinary):
+        assert isinstance(
+            action_space.n, int
+        ), f"Multi-dimensional MultiBinary({action_space.n}) action space is not supported. You can flatten it instead."
         return MaskableBernoulliDistribution(action_space.n)
     else:
         raise NotImplementedError(
