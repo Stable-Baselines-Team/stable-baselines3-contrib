@@ -30,7 +30,6 @@ exclude = """(?x)(
 	| sb3_contrib/common/recurrent/buffers.py$
 	| sb3_contrib/common/maskable/distributions.py$
 	| sb3_contrib/common/maskable/policies.py$
-	| sb3_contrib/common/maskable/buffers.py$
 	| sb3_contrib/ppo_mask/ppo_mask.py$
 	| tests/test_train_eval_mode.py$
   )"""
