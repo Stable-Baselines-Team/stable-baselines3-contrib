@@ -149,7 +149,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
             self.action_space,
             self.lr_schedule,
             use_sde=self.use_sde,
-            **self.policy_kwargs,  # pytype:disable=not-instantiable
+            **self.policy_kwargs,
         )
         self.policy = self.policy.to(self.device)
 
