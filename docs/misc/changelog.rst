@@ -3,8 +3,10 @@
 Changelog
 ==========
 
-Release 2.3.0a4 (WIP)
+Release 2.3.0 (2024-03-31)
 --------------------------
+
+**New defaults hyperparameters for QR-DQN**
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
@@ -23,6 +25,8 @@ Breaking Changes:
 New Features:
 ^^^^^^^^^^^^^
 - Added ``rollout_buffer_class`` and ``rollout_buffer_kwargs`` arguments to MaskablePPO
+- Log success rate ``rollout/success_rate`` when available for on policy algorithms
+
 
 Bug Fixes:
 ^^^^^^^^^^
