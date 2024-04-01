@@ -17,9 +17,9 @@ Breaking Changes:
 .. code-block:: python
 
   # SB3 < 2.3.0 default hyperparameters, 50_000 corresponded to Atari defaults hyperparameters
-  # model = QRDQN("MlpPolicy", env, learning_start=50_000)
+  # model = QRDQN("MlpPolicy", env, learning_starts=50_000)
   # SB3 >= 2.3.0:
-  model = QRDQN("MlpPolicy", env, learning_start=100)
+  model = QRDQN("MlpPolicy", env, learning_starts=100)
 
 
 New Features:
