@@ -12,7 +12,12 @@ from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedul
 from stable_baselines3.common.utils import explained_variance, get_schedule_fn, obs_as_tensor
 from stable_baselines3.common.vec_env import VecEnv
 
-from sb3_contrib.common.recurrent.buffers import RecurrentDictRolloutBuffer, RecurrentRolloutBuffer
+from sb3_contrib.common.recurrent.buffers import (
+    RecurrentDictRolloutBuffer,
+    RecurrentRolloutBuffer,
+    RecurrentSequenceDictRolloutBuffer,
+    RecurrentSequenceRolloutBuffer,
+)
 from sb3_contrib.common.recurrent.policies import RecurrentActorCriticPolicy
 from sb3_contrib.common.recurrent.type_aliases import RNNStates
 from sb3_contrib.ppo_recurrent.policies import CnnLstmPolicy, MlpLstmPolicy, MultiInputLstmPolicy
@@ -78,6 +83,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
         learning_rate: Union[float, Schedule] = 3e-4,
         n_steps: int = 128,
         batch_size: Optional[int] = 128,
+        whole_sequences: bool = False,
         n_epochs: int = 10,
         gamma: float = 0.99,
         gae_lambda: float = 0.95,
@@ -126,6 +132,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
         )
 
         self.batch_size = batch_size
+        self.whole_sequences = whole_sequences
         self.n_epochs = n_epochs
         self.clip_range = clip_range
         self.clip_range_vf = clip_range_vf
@@ -140,7 +147,17 @@ class RecurrentPPO(OnPolicyAlgorithm):
         self._setup_lr_schedule()
         self.set_random_seed(self.seed)
 
-        buffer_cls = RecurrentDictRolloutBuffer if isinstance(self.observation_space, spaces.Dict) else RecurrentRolloutBuffer
+        # 3d batches of whole sequences or 2d batches of constant size
+        if self.whole_sequences:
+            buffer_cls = (
+                RecurrentSequenceDictRolloutBuffer
+                if isinstance(self.observation_space, spaces.Dict)
+                else RecurrentSequenceRolloutBuffer
+            )
+        else:
+            buffer_cls = (
+                RecurrentDictRolloutBuffer if isinstance(self.observation_space, spaces.Dict) else RecurrentRolloutBuffer
+            )
 
         self.policy = self.policy_class(
             self.observation_space,
@@ -213,7 +230,13 @@ class RecurrentPPO(OnPolicyAlgorithm):
             collected, False if callback terminated rollout prematurely.
         """
         assert isinstance(
-            rollout_buffer, (RecurrentRolloutBuffer, RecurrentDictRolloutBuffer)
+            rollout_buffer,
+            (
+                RecurrentRolloutBuffer,
+                RecurrentDictRolloutBuffer,
+                RecurrentSequenceRolloutBuffer,
+                RecurrentSequenceDictRolloutBuffer,
+            ),
         ), f"{rollout_buffer} doesn't support recurrent policy"
 
         assert self._last_obs is not None, "No previous observation was provided"
@@ -337,7 +360,9 @@ class RecurrentPPO(OnPolicyAlgorithm):
                 actions = rollout_data.actions
                 if isinstance(self.action_space, spaces.Discrete):
                     # Convert discrete action from float to long
-                    actions = rollout_data.actions.long().flatten()
+                    actions = rollout_data.actions.long()
+                    if not self.whole_sequences:
+                        actions = actions.flatten()
 
                 # Convert mask from float to bool
                 mask = rollout_data.mask > 1e-8
@@ -346,17 +371,24 @@ class RecurrentPPO(OnPolicyAlgorithm):
                 if self.use_sde:
                     self.policy.reset_noise(self.batch_size)
 
-                values, log_prob, entropy = self.policy.evaluate_actions(
-                    rollout_data.observations,
-                    actions,
-                    rollout_data.lstm_states,
-                    rollout_data.episode_starts,
-                )
+                if self.whole_sequences:
+                    values, log_prob, entropy = self.policy.evaluate_actions_whole_sequence(
+                        rollout_data.observations,
+                        actions,
+                    )
+                else:
+                    values, log_prob, entropy = self.policy.evaluate_actions(
+                        rollout_data.observations,
+                        actions,
+                        rollout_data.lstm_states,
+                        rollout_data.episode_starts,
+                    )
+                    values = values.flatten()
 
-                values = values.flatten()
                 # Normalize advantage
                 advantages = rollout_data.advantages
-                if self.normalize_advantage:
+                # Normalization does not make sense if mini batchsize == 1, see GH issue #325
+                if self.normalize_advantage and len(advantages) > 1:
                     advantages = (advantages - advantages[mask].mean()) / (advantages[mask].std() + 1e-8)
 
                 # ratio between old and new policy, should be one at the first iteration

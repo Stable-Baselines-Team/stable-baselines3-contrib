@@ -1,15 +1,19 @@
 from functools import partial
-from typing import Callable, Generator, Optional, Tuple, Union
+from typing import Callable, Generator, List, Optional, Tuple, Union
 
 import numpy as np
 import torch as th
 from gymnasium import spaces
 from stable_baselines3.common.buffers import DictRolloutBuffer, RolloutBuffer
 from stable_baselines3.common.vec_env import VecNormalize
+from torch.nn.utils.rnn import pad_sequence
+from torch.utils.data.sampler import BatchSampler, SubsetRandomSampler
 
 from sb3_contrib.common.recurrent.type_aliases import (
     RecurrentDictRolloutBufferSamples,
+    RecurrentDictRolloutBufferSequenceSamples,
     RecurrentRolloutBufferSamples,
+    RecurrentRolloutBufferSequenceSamples,
     RNNStates,
 )
 
@@ -92,6 +96,30 @@ def create_sequencers(
     local_pad = partial(pad, seq_start_indices, seq_end_indices, device)
     local_pad_and_flatten = partial(pad_and_flatten, seq_start_indices, seq_end_indices, device)
     return seq_start_indices, local_pad, local_pad_and_flatten
+
+
+def create_sequence_slicer(
+    episode_start_indices: np.ndarray, device: Union[th.device, str]
+) -> Callable[[np.ndarray, List[str]], th.Tensor]:
+    def create_sequence_minibatch(tensor: np.ndarray, seq_indices: List[str]) -> th.Tensor:
+        """
+        Create minibatch of whole sequence.
+
+        :param tensor: Tensor that will be sliced (e.g. observations, rewards)
+        :param seq_indices: Sequences to be used.
+        :return: (max_sequence_length, batch_size=n_seq, features_size)
+        """
+        return pad_sequence(
+            [
+                th.tensor(
+                    tensor[episode_start_indices[i] : episode_start_indices[i + 1]],
+                    device=device,
+                )
+                for i in seq_indices
+            ]
+        )
+
+    return create_sequence_minibatch
 
 
 class RecurrentRolloutBuffer(RolloutBuffer):
@@ -382,3 +410,161 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
             episode_starts=self.pad_and_flatten(self.episode_starts[batch_inds]),
             mask=self.pad_and_flatten(np.ones_like(self.returns[batch_inds])),
         )
+
+
+class RecurrentSequenceRolloutBuffer(RecurrentRolloutBuffer):
+    """
+    Sequence Rollout buffer used in on-policy algorithms like A2C/PPO.
+    Overrides the RecurrentRolloutBuffer to yield 3d batches of whole sequences
+
+    :param buffer_size: Max number of element in the buffer
+    :param observation_space: Observation space
+    :param action_space: Action space
+    :param hidden_state_shape: Shape of the buffer that will collect lstm states
+    :param device: PyTorch device
+    :param gae_lambda: Factor for trade-off of bias vs variance for Generalized Advantage Estimator
+        Equivalent to classic advantage when set to 1.
+    :param gamma: Discount factor
+    :param n_envs: Number of parallel environments
+    """
+
+    def __init__(
+        self,
+        buffer_size: int,
+        observation_space: spaces.Space,
+        action_space: spaces.Space,
+        hidden_state_shape: Tuple[int, int, int, int],
+        device: Union[th.device, str] = "auto",
+        gae_lambda: float = 1,
+        gamma: float = 0.99,
+        n_envs: int = 1,
+    ):
+        self.hidden_state_shape = hidden_state_shape
+        self.seq_start_indices, self.seq_end_indices = None, None
+        super().__init__(
+            buffer_size, observation_space, action_space, hidden_state_shape, device, gae_lambda, gamma, n_envs=n_envs
+        )
+
+    def get(self, batch_size: Optional[int] = None) -> Generator[RecurrentRolloutBufferSequenceSamples, None, None]:
+        assert self.full, "Rollout buffer must be full before sampling from it"
+        # Prepare the data
+        if not self.generator_ready:
+            self.episode_starts[0, :] = 1
+            for tensor in [
+                "observations",
+                "actions",
+                "values",
+                "log_probs",
+                "advantages",
+                "returns",
+                "episode_starts",
+            ]:
+                self.__dict__[tensor] = self.swap_and_flatten(self.__dict__[tensor])
+
+            self.episode_start_indices = np.where(self.episode_starts == 1)[0]
+            self.generator_ready = True
+
+        random_indices = SubsetRandomSampler(range(len(self.episode_start_indices)))
+        # Do not drop last batch so we are sure we sample at least one sequence
+        # TODO: allow to change that parameter
+        batch_sampler = BatchSampler(random_indices, batch_size, drop_last=False)
+        # add a dummy index to make the code below simpler
+        episode_start_indices = np.concatenate([self.episode_start_indices, np.array([len(self.episode_starts)])])
+
+        create_minibatch = create_sequence_slicer(episode_start_indices, self.device)
+
+        # yields batches of whole sequences, shape: (max_sequence_length, batch_size=n_seq, features_size))
+        for indices in batch_sampler:
+            returns_batch = create_minibatch(self.returns, indices)
+            masks_batch = pad_sequence([th.ones_like(returns) for returns in th.swapaxes(returns_batch, 0, 1)])
+
+            yield RecurrentRolloutBufferSequenceSamples(
+                observations=create_minibatch(self.observations, indices),
+                actions=create_minibatch(self.actions, indices),
+                old_values=create_minibatch(self.values, indices),
+                old_log_prob=create_minibatch(self.log_probs, indices),
+                advantages=create_minibatch(self.advantages, indices),
+                returns=returns_batch,
+                mask=masks_batch,
+            )
+
+
+class RecurrentSequenceDictRolloutBuffer(RecurrentDictRolloutBuffer):
+    """
+    Sequence Dict Rollout buffer used in on-policy algorithms like A2C/PPO.
+    Overrides the DictRecurrentRolloutBuffer to yield 3d batches of whole sequences
+
+    :param buffer_size: Max number of element in the buffer
+    :param observation_space: Observation space
+    :param action_space: Action space
+    :param hidden_state_shape: Shape of the buffer that will collect lstm states
+    :param device: PyTorch device
+    :param gae_lambda: Factor for trade-off of bias vs variance for Generalized Advantage Estimator
+        Equivalent to classic advantage when set to 1.
+    :param gamma: Discount factor
+    :param n_envs: Number of parallel environments
+    """
+
+    def __init__(
+        self,
+        buffer_size: int,
+        observation_space: spaces.Space,
+        action_space: spaces.Space,
+        hidden_state_shape: Tuple[int, int, int, int],
+        device: Union[th.device, str] = "auto",
+        gae_lambda: float = 1,
+        gamma: float = 0.99,
+        n_envs: int = 1,
+    ):
+        self.hidden_state_shape = hidden_state_shape
+        self.seq_start_indices, self.seq_end_indices = None, None
+        super().__init__(
+            buffer_size, observation_space, action_space, hidden_state_shape, device, gae_lambda, gamma, n_envs=n_envs
+        )
+
+    def get(self, batch_size: Optional[int] = None) -> Generator[RecurrentDictRolloutBufferSequenceSamples, None, None]:
+        assert self.full, "Rollout buffer must be full before sampling from it"
+        # Prepare the data
+        if not self.generator_ready:
+            self.episode_starts[0, :] = 1
+            for key, obs in self.observations.items():
+                self.observations[key] = self.swap_and_flatten(obs)
+
+            for tensor in [
+                "actions",
+                "values",
+                "log_probs",
+                "advantages",
+                "returns",
+                "episode_starts",
+            ]:
+                self.__dict__[tensor] = self.swap_and_flatten(self.__dict__[tensor])
+
+            self.episode_start_indices = np.where(self.episode_starts == 1)[0]
+            self.generator_ready = True
+
+        random_indices = SubsetRandomSampler(range(len(self.episode_start_indices)))
+        # drop last batch to prevent extremely small batches causing spurious updates
+        batch_sampler = BatchSampler(random_indices, batch_size, drop_last=True)
+        # add a dummy index to make the code below simpler
+        episode_start_indices = np.concatenate([self.episode_start_indices, np.array([len(self.episode_starts)])])
+
+        create_minibatch = create_sequence_slicer(episode_start_indices, self.device)
+
+        # yields batches of whole sequences, shape: (sequence_length, batch_size=n_seq, features_size)
+        for indices in batch_sampler:
+            obs_batch = {}
+            for key in self.observations:
+                obs_batch[key] = create_minibatch(self.observations[key], indices)
+            returns_batch = create_minibatch(self.returns, indices)
+            masks_batch = pad_sequence([th.ones_like(returns) for returns in th.swapaxes(returns_batch, 0, 1)])
+
+            yield RecurrentDictRolloutBufferSequenceSamples(
+                observations=obs_batch,
+                actions=create_minibatch(self.actions, indices),
+                old_values=create_minibatch(self.values, indices),
+                old_log_prob=create_minibatch(self.log_probs, indices),
+                advantages=create_minibatch(self.advantages, indices),
+                returns=returns_batch,
+                mask=masks_batch,
+            )

@@ -47,3 +47,5 @@ src
 *.prof
 
 MUJOCO_LOG.TXT
+
+temp/
