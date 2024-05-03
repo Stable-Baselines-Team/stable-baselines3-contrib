@@ -3,9 +3,19 @@ import pytest
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecNormalize
 
-from sb3_contrib import ARS, QRDQN, TQC, TRPO, MaskablePPO
+from sb3_contrib import ARS, QRDQN, TQC, TRPO, CrossQ, MaskablePPO
 from sb3_contrib.common.envs import InvalidActionEnvDiscrete
 from sb3_contrib.common.vec_env import AsyncEval
+
+
+def test():
+    model = CrossQ(
+        "MlpPolicy",
+        "Pendulum-v1",
+        learning_starts=100,
+        verbose=1,
+    )
+    model.learn(total_timesteps=300)
 
 
 @pytest.mark.parametrize("ent_coef", ["auto", 0.01, "auto_0.01"])
