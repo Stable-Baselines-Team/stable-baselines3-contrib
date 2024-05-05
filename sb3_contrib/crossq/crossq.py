@@ -6,12 +6,12 @@ from gymnasium import spaces
 from stable_baselines3.common.buffers import ReplayBuffer
 from stable_baselines3.common.noise import ActionNoise
 from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
-from stable_baselines3.common.policies import BasePolicy, ContinuousCritic
+from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
-from stable_baselines3.common.utils import get_parameters_by_name, polyak_update
+from stable_baselines3.common.utils import get_parameters_by_name
 from torch.nn import functional as F
 
-from sb3_contrib.crossq.policies import Actor, CrossQPolicy, CrossQCritic, MlpPolicy
+from sb3_contrib.crossq.policies import Actor, CrossQCritic, CrossQPolicy, MlpPolicy
 
 SelfCrossQ = TypeVar("SelfCrossQ", bound="CrossQ")
 

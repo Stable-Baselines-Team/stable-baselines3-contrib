@@ -7,9 +7,7 @@ from stable_baselines3.common.policies import BaseModel, BasePolicy
 from stable_baselines3.common.preprocessing import get_action_dim
 from stable_baselines3.common.torch_layers import (
     BaseFeaturesExtractor,
-    CombinedExtractor,
     FlattenExtractor,
-    NatureCNN,
     create_mlp,
     get_actor_critic_arch,
 )
@@ -89,7 +87,7 @@ class Actor(BasePolicy):
 
         if batch_norm:
             # If batchnorm, then we want to add torch.nn.Batch_Norm layers before every linear layer
-            net : List[Union[nn.Module, BatchRenorm1d]] = []
+            net: List[Union[nn.Module, BatchRenorm1d]] = []
             for layer in latent_pi_net:
                 if isinstance(layer, nn.Linear):
                     net.append(BatchRenorm1d(layer.in_features, eps=0.001, momentum=0.01))
@@ -246,7 +244,7 @@ class CrossQCritic(BaseModel):
 
             if batch_norm:
                 # If batchnorm, then we want to add torch.nn.Batch_Norm layers before every linear layer
-                net : List[Union[nn.Module, BatchRenorm1d]] = []
+                net: List[Union[nn.Module, BatchRenorm1d]] = []
                 for layer in q_net_list:
                     if isinstance(layer, nn.Linear):
                         net.append(BatchRenorm1d(layer.in_features, eps=0.001, momentum=0.01))

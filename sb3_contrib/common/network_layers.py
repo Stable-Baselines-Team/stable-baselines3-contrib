@@ -3,10 +3,6 @@ import torch
 __all__ = ["BatchRenorm1d"]
 
 
-import torch
-import torch.nn as nn
-
-
 class BatchRenorm(torch.jit.ScriptModule):
     """
     BatchRenorm Module (https://arxiv.org/abs/1702.03275).
