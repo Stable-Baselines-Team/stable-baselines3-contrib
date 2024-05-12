@@ -192,7 +192,7 @@ class CrossQ(OffPolicyAlgorithm):
         ent_coef_losses, ent_coefs = [], []
         actor_losses, critic_losses = [], []
 
-        for gradient_step in range(gradient_steps):
+        for _ in range(gradient_steps):
             # Sample replay buffer
             replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)  # type: ignore[union-attr]
 
@@ -224,8 +224,7 @@ class CrossQ(OffPolicyAlgorithm):
 
             # Optimize entropy coefficient, also called
             # entropy temperature or alpha in the paper
-            if ent_coef_loss is not None and self.ent_coef_optimizer is not None \
-                and self._n_updates % self.policy_delay == 0:
+            if ent_coef_loss is not None and self.ent_coef_optimizer is not None and self._n_updates % self.policy_delay == 0:
 
                 self.ent_coef_optimizer.zero_grad()
                 ent_coef_loss.backward()
@@ -324,7 +323,7 @@ class CrossQ(OffPolicyAlgorithm):
         )
 
     def _excluded_save_params(self) -> List[str]:
-        return super()._excluded_save_params() + ["actor", "critic"]
+        return [*super()._excluded_save_params(), "actor", "critic"]
 
     def _get_torch_save_params(self) -> Tuple[List[str], List[str]]:
         state_dicts = ["policy", "actor.optimizer", "critic.optimizer"]

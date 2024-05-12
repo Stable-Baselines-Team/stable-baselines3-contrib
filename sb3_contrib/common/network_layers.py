@@ -57,10 +57,10 @@ class BatchRenorm(torch.jit.ScriptModule):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Normalize the input tensor.
-        
+
         Args:
             x: Input tensor
-        
+
         Returns:
             Normalized tensor.
         """

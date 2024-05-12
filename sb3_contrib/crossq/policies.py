@@ -63,7 +63,7 @@ class Actor(BasePolicy):
         normalize_images: bool = True,
         batch_norm: bool = True,
         batch_norm_momentum: float = 0.01,
-        batch_norm_eps: float = 0.001
+        batch_norm_eps: float = 0.001,
     ):
         super().__init__(
             observation_space,
@@ -229,7 +229,7 @@ class CrossQCritic(BaseModel):
         share_features_extractor: bool = True,
         batch_norm: bool = True,
         batch_norm_momentum: float = 0.01,
-        batch_norm_eps: float = 0.001
+        batch_norm_eps: float = 0.001,
     ):
         super().__init__(
             observation_space,
