@@ -327,7 +327,10 @@ class CrossQPolicy(BasePolicy):
         )
 
         if net_arch is None:
-            net_arch = {"pi": [256, 256], "qf": [2048, 2048]}
+            # While CrossQ already works with a [256,256] critic network,
+            # the authors found that a wider network significantly improves performance.
+            # We use a slightly smaller net for faster computation, [1024, 1024] instead of [2048, 2048] in the paper.
+            net_arch = {"pi": [256, 256], "qf": [1024, 1024]}
 
         actor_arch, critic_arch = get_actor_critic_arch(net_arch)
 
