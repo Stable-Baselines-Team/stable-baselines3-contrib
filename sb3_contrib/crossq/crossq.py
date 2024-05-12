@@ -89,6 +89,7 @@ class CrossQ(OffPolicyAlgorithm):
         optimize_memory_usage: bool = False,
         ent_coef: Union[str, float] = "auto",
         target_entropy: Union[str, float] = "auto",
+        policy_delay: int = 3,
         use_sde: bool = False,
         sde_sample_freq: int = -1,
         use_sde_at_warmup: bool = False,
@@ -134,6 +135,7 @@ class CrossQ(OffPolicyAlgorithm):
         # Inverse of the reward scale
         self.ent_coef = ent_coef
         self.ent_coef_optimizer: Optional[th.optim.Adam] = None
+        self.policy_delay = policy_delay
 
         if _init_setup_model:
             self._setup_model()
@@ -198,9 +200,10 @@ class CrossQ(OffPolicyAlgorithm):
             if self.use_sde:
                 self.actor.reset_noise()
 
-            # Note, in the following lines we always need to make sure to set train/eval modes
+            # Note: in the following lines we always need to make sure to set train/eval modes
             # of actor and critic carefully. This is because of the BatchNorm layers in the networks
             # which behave differently in train and eval modes.
+
             self.actor.set_training_mode(True)
             actions_pi, log_prob = self.actor.action_log_prob(replay_data.observations)
             log_prob = log_prob.reshape(-1, 1)
@@ -221,7 +224,9 @@ class CrossQ(OffPolicyAlgorithm):
 
             # Optimize entropy coefficient, also called
             # entropy temperature or alpha in the paper
-            if ent_coef_loss is not None and self.ent_coef_optimizer is not None:
+            if ent_coef_loss is not None and self.ent_coef_optimizer is not None \
+                and self._n_updates % self.policy_delay == 0:
+
                 self.ent_coef_optimizer.zero_grad()
                 ent_coef_loss.backward()
                 self.ent_coef_optimizer.step()
@@ -276,19 +281,20 @@ class CrossQ(OffPolicyAlgorithm):
             critic_loss.backward()
             self.critic.optimizer.step()
 
-            # Compute actor loss
-            self.critic.set_training_mode(False)
-            q_values_pi = th.cat(self.critic(replay_data.observations, actions_pi), dim=1)
-            self.critic.set_training_mode(False)
+            if self._n_updates % self.policy_delay == 0:
+                # Compute actor loss
+                self.critic.set_training_mode(False)
+                q_values_pi = th.cat(self.critic(replay_data.observations, actions_pi), dim=1)
+                self.critic.set_training_mode(False)
 
-            min_qf_pi, _ = th.min(q_values_pi, dim=1, keepdim=True)
-            actor_loss = (ent_coef * log_prob.reshape(-1, 1) - min_qf_pi).mean()
-            actor_losses.append(actor_loss.item())
+                min_qf_pi, _ = th.min(q_values_pi, dim=1, keepdim=True)
+                actor_loss = (ent_coef * log_prob.reshape(-1, 1) - min_qf_pi).mean()
+                actor_losses.append(actor_loss.item())
 
-            # Optimize the actor
-            self.actor.optimizer.zero_grad()
-            actor_loss.backward()
-            self.actor.optimizer.step()
+                # Optimize the actor
+                self.actor.optimizer.zero_grad()
+                actor_loss.backward()
+                self.actor.optimizer.step()
 
         self._n_updates += gradient_steps
 
