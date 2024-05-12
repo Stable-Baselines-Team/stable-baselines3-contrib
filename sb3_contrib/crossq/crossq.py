@@ -254,7 +254,7 @@ class CrossQ(OffPolicyAlgorithm):
             all_q_values = th.cat(self.critic(all_obs, all_acts), dim=1)
             self.critic.set_training_mode(False)
             current_q_values, next_q_values = th.split(all_q_values, batch_size, dim=0)
-            current_q_values = th.split(current_q_values, [1, 1], dim=1)  # type: ignore
+            current_q_values = current_q_values.T[..., None]
 
             with th.no_grad():
                 # Compute the target Q value
