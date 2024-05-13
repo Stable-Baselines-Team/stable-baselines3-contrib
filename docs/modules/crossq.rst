@@ -21,6 +21,10 @@ This yield a simpler and more sample-efficient algorithm without requiring high 
 
     MlpPolicy
 
+.. note::
+
+  Compared to the original implementation, the default network architecture for the q-value function is ``[1024, 1024]``
+  instead of ``[2048, 2048]``` as it provides a good compromise between speed and performance.
 
 Notes
 -----
@@ -52,9 +56,6 @@ Example
 -------
 
 .. code-block:: python
-
-  import gymnasium as gym
-  import numpy as np
 
   from sb3_contrib import CrossQ
 
@@ -96,4 +97,3 @@ CrossQ Policies
 .. autoclass:: sb3_contrib.crossq.policies.CrossQPolicy
   :members:
   :noindex:
-
