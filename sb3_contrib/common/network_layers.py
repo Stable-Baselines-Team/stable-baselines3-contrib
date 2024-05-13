@@ -37,6 +37,7 @@ class BatchRenorm(torch.jit.ScriptModule):
         warmup_steps: int = 100_000,
     ):
         super().__init__()
+        # Running average mean and variance
         self.register_buffer("ra_mean", torch.zeros(num_features, dtype=torch.float))
         self.register_buffer("ra_var", torch.ones(num_features, dtype=torch.float))
         self.register_buffer("steps", torch.tensor(0, dtype=torch.long))
@@ -114,4 +115,4 @@ class BatchRenorm(torch.jit.ScriptModule):
 class BatchRenorm1d(BatchRenorm):
     def _check_input_dim(self, x: torch.Tensor) -> None:
         if x.dim() == 1:
-            raise ValueError("expected 2D or 3D input (got {x.dim()}D input)")
+            raise ValueError(f"Expected 2D or 3D input (got {x.dim()}D input)")
