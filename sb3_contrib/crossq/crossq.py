@@ -8,7 +8,6 @@ from stable_baselines3.common.noise import ActionNoise
 from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
-from stable_baselines3.common.utils import get_parameters_by_name
 from torch.nn import functional as F
 
 from sb3_contrib.crossq.policies import Actor, CrossQCritic, CrossQPolicy, MlpPolicy
@@ -18,8 +17,8 @@ SelfCrossQ = TypeVar("SelfCrossQ", bound="CrossQ")
 
 class CrossQ(OffPolicyAlgorithm):
     """
-    Implementation of the CrossQ algorithm.
-    Paper: https://openreview.net/pdf?id=PczQtTsTIX
+    Implementation of Batch Normalization in Deep Reinforcement Learning (CrossQ).
+    Paper: https://openreview.net/forum?id=PczQtTsTIX
 
     :param policy: The policy model to use (MlpPolicy)
     :param env: The environment to learn from (if registered in Gym, can be str)
@@ -143,8 +142,6 @@ class CrossQ(OffPolicyAlgorithm):
     def _setup_model(self) -> None:
         super()._setup_model()
         self._create_aliases()
-        # Running mean and running var
-        self.batch_norm_stats = get_parameters_by_name(self.critic, ["running_"])
         # Target entropy is used when learning the entropy coefficient
         if self.target_entropy == "auto":
             # automatically set target entropy if needed
@@ -193,6 +190,9 @@ class CrossQ(OffPolicyAlgorithm):
         actor_losses, critic_losses = [], []
 
         for _ in range(gradient_steps):
+            self._n_updates += 1
+            # delayed updates
+            update_actor_and_temperature = self._n_updates % self.policy_delay == 0
             # Sample replay buffer
             replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)  # type: ignore[union-attr]
 
@@ -224,7 +224,7 @@ class CrossQ(OffPolicyAlgorithm):
 
             # Optimize entropy coefficient, also called
             # entropy temperature or alpha in the paper
-            if ent_coef_loss is not None and self.ent_coef_optimizer is not None and self._n_updates % self.policy_delay == 0:
+            if ent_coef_loss is not None and self.ent_coef_optimizer is not None and update_actor_and_temperature:
 
                 self.ent_coef_optimizer.zero_grad()
                 ent_coef_loss.backward()
@@ -258,6 +258,7 @@ class CrossQ(OffPolicyAlgorithm):
             all_q_values = th.cat(self.critic(all_obs, all_acts), dim=1)
             self.critic.set_training_mode(False)
             current_q_values, next_q_values = th.split(all_q_values, batch_size, dim=0)
+            # (batch_size, n_critics) -> (n_critics, batch_size, 1)
             current_q_values = current_q_values.T[..., None]
 
             with th.no_grad():
@@ -280,7 +281,8 @@ class CrossQ(OffPolicyAlgorithm):
             critic_loss.backward()
             self.critic.optimizer.step()
 
-            if self._n_updates % self.policy_delay == 0:
+            # Delayed policy updates
+            if update_actor_and_temperature:
                 # Compute actor loss
                 self.critic.set_training_mode(False)
                 q_values_pi = th.cat(self.critic(replay_data.observations, actions_pi), dim=1)
@@ -295,11 +297,10 @@ class CrossQ(OffPolicyAlgorithm):
                 actor_loss.backward()
                 self.actor.optimizer.step()
 
-        self._n_updates += gradient_steps
-
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
         self.logger.record("train/ent_coef", np.mean(ent_coefs))
-        self.logger.record("train/actor_loss", np.mean(actor_losses))
+        if len(actor_losses) > 0:
+            self.logger.record("train/actor_loss", np.mean(actor_losses))
         self.logger.record("train/critic_loss", np.mean(critic_losses))
         if len(ent_coef_losses) > 0:
             self.logger.record("train/ent_coef_loss", np.mean(ent_coef_losses))
