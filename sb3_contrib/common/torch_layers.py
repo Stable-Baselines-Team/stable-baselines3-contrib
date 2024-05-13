@@ -1,6 +1,6 @@
 import torch
 
-__all__ = ["BatchRenorm1d"]
+__all__ = ["BatchRenorm1d", "BatchRenorm"]
 
 
 class BatchRenorm(torch.jit.ScriptModule):
@@ -18,13 +18,12 @@ class BatchRenorm(torch.jit.ScriptModule):
     training mode. During evaluation mode, the running statistics are used for normalization but
     not updated.
 
-    Args:
-        num_features: Number of features in the input tensor.
-        eps: A value added to the variance for numerical stability.
-        momentum: The value used for the ra_mean and ra_var computation.
-        affine: A boolean value that when set to True, this module has learnable
+    :param num_features: Number of features in the input tensor.
+    :param eps: A value added to the variance for numerical stability.
+    :param momentum: The value used for the ra_mean and ra_var computation.
+    :param affine: A boolean value that when set to True, this module has learnable
             affine parameters. Default: True
-        warmup_steps: Number of warum steps that are performed before the running statistics
+    :param warmup_steps: Number of warum steps that are performed before the running statistics
             are used form normalization. During the warump phase, the batch statistics are used.
     """
 
@@ -59,11 +58,8 @@ class BatchRenorm(torch.jit.ScriptModule):
         """
         Normalize the input tensor.
 
-        Args:
-            x: Input tensor
-
-        Returns:
-            Normalized tensor.
+        :param x: Input tensor
+        :return: Normalized tensor.
         """
 
         if self.training:

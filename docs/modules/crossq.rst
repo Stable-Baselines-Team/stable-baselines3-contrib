@@ -24,13 +24,14 @@ This yield a simpler and more sample-efficient algorithm without requiring high 
 .. note::
 
   Compared to the original implementation, the default network architecture for the q-value function is ``[1024, 1024]``
-  instead of ``[2048, 2048]``` as it provides a good compromise between speed and performance.
+  instead of ``[2048, 2048]`` as it provides a good compromise between speed and performance.
 
 Notes
 -----
 
 - Original paper: https://openreview.net/pdf?id=PczQtTsTIX
 - Original Implementation: https://github.com/adityab/CrossQ
+- SBX Implementation: https://github.com/araffin/sbx
 
 
 Can I use?
@@ -68,7 +69,7 @@ Results
 -------
 
 Performance evaluation of CrossQ on six MuJoCo environments.
-Compared to results from the original paper as well as a version from SBX.
+Compared to results from the original paper as well as a version from `SBX <https://github.com/araffin/sbx>`_.
 
 .. image:: ../images/crossQ_performance.png
 
