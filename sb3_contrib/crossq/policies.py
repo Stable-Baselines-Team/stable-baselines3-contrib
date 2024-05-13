@@ -14,7 +14,7 @@ from stable_baselines3.common.torch_layers import (
 from stable_baselines3.common.type_aliases import PyTorchObs, Schedule
 from torch import nn
 
-from sb3_contrib.common.network_layers import BatchRenorm1d
+from sb3_contrib.common.torch_layers import BatchRenorm1d
 
 # CAP the standard deviation of the actor
 LOG_STD_MAX = 2
