@@ -3,6 +3,32 @@
 Changelog
 ==========
 
+
+Release 2.4.0a4 (WIP)
+--------------------------
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Upgraded to Stable-Baselines3 >= 2.4.0
+
+New Features:
+^^^^^^^^^^^^^
+
+Bug Fixes:
+^^^^^^^^^^
+
+Deprecations:
+^^^^^^^^^^^^^
+
+Others:
+^^^^^^^
+- Updated PyTorch version on CI to 2.3.1
+- Remove unnecessary SDE noise resampling in PPO/TRPO update
+
+Documentation:
+^^^^^^^^^^^^^^
+
+
 Release 2.3.0 (2024-03-31)
 --------------------------
 
