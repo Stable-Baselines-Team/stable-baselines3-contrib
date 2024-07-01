@@ -32,6 +32,7 @@ RL Baselines3 Zoo also offers a simple interface to train, evaluate agents and d
   :caption: RL Algorithms
 
   modules/ars
+  modules/crossq
   modules/ppo_mask
   modules/ppo_recurrent
   modules/qrdqn
@@ -42,6 +43,7 @@ RL Baselines3 Zoo also offers a simple interface to train, evaluate agents and d
   :maxdepth: 1
   :caption: Common
 
+  common/torch_layers
   common/utils
   common/wrappers
 
