@@ -342,10 +342,6 @@ class RecurrentPPO(OnPolicyAlgorithm):
                 # Convert mask from float to bool
                 mask = rollout_data.mask > 1e-8
 
-                # Re-sample the noise matrix because the log_std has changed
-                if self.use_sde:
-                    self.policy.reset_noise(self.batch_size)
-
                 values, log_prob, entropy = self.policy.evaluate_actions(
                     rollout_data.observations,
                     actions,

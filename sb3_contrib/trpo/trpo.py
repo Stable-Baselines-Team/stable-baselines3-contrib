@@ -261,11 +261,6 @@ class TRPO(OnPolicyAlgorithm):
                 # Convert discrete action from float to long
                 actions = rollout_data.actions.long().flatten()
 
-            # Re-sample the noise matrix because the log_std has changed
-            if self.use_sde:
-                # batch_size is only used for the value function
-                self.policy.reset_noise(actions.shape[0])
-
             with th.no_grad():
                 # Note: is copy enough, no need for deepcopy?
                 # If using gSDE and deepcopy, we need to use `old_distribution.distribution`
