@@ -43,6 +43,11 @@ class Actor(BasePolicy):
     :param clip_mean: Clip the mean output when using gSDE to avoid numerical instability.
     :param normalize_images: Whether to normalize images or not,
          dividing by 255.0 (True by default)
+    :param batch_norm: Whether to use Batch Renorm layers (default=True)
+    :param batch_norm_momentum: The rate of convergence for the batch renormalization statistics
+    :param batch_norm_eps: A small value added to the variance to prevent division by zero
+    :param renorm_warmup_steps: Number of steps to warm up BatchRenorm statistics before the running statistics
+            are used for normalization.
     """
 
     action_space: spaces.Box
@@ -64,6 +69,7 @@ class Actor(BasePolicy):
         batch_norm: bool = True,
         batch_norm_momentum: float = 0.01,
         batch_norm_eps: float = 0.001,
+        renorm_warmup_steps: int = 100_000,
     ):
         super().__init__(
             observation_space,
@@ -87,14 +93,20 @@ class Actor(BasePolicy):
         action_dim = get_action_dim(self.action_space)
         latent_pi_net = create_mlp(features_dim, -1, net_arch, activation_fn)
 
+        batch_norm_params = {
+            "momentum": batch_norm_momentum,
+            "eps": batch_norm_eps,
+            "warmup_steps": renorm_warmup_steps,
+        }
+
         if batch_norm:
             # If batchnorm, then we want to add torch.nn.Batch_Norm layers before every linear layer
             net: List[Union[nn.Module, BatchRenorm1d]] = []
             for layer in latent_pi_net:
                 if isinstance(layer, nn.Linear):
-                    net.append(BatchRenorm1d(layer.in_features, eps=batch_norm_eps, momentum=batch_norm_momentum))
+                    net.append(BatchRenorm1d(layer.in_features, **batch_norm_params))
                 net.append(layer)
-            net.append(BatchRenorm1d(net_arch[-1], eps=batch_norm_eps, momentum=batch_norm_momentum))
+            net.append(BatchRenorm1d(net_arch[-1], **batch_norm_params))
             latent_pi_net = net
 
         self.latent_pi = nn.Sequential(*latent_pi_net)
@@ -212,6 +224,11 @@ class CrossQCritic(BaseModel):
     :param n_critics: Number of critic networks to create.
     :param share_features_extractor: Whether the features extractor is shared or not
         between the actor and the critic (this saves computation time)
+    :param batch_norm: Whether to use Batch Renorm layers (default=True)
+    :param batch_norm_momentum: The rate of convergence for the batch renormalization statistics
+    :param batch_norm_eps: A small value added to the variance to prevent division by zero
+    :param renorm_warmup_steps: Number of steps to warm up BatchRenorm statistics before the running statistics
+            are used for normalization.
     """
 
     features_extractor: BaseFeaturesExtractor
@@ -230,6 +247,7 @@ class CrossQCritic(BaseModel):
         batch_norm: bool = True,
         batch_norm_momentum: float = 0.01,
         batch_norm_eps: float = 0.001,
+        renorm_warmup_steps: int = 100_000,
     ):
         super().__init__(
             observation_space,
@@ -239,6 +257,11 @@ class CrossQCritic(BaseModel):
         )
 
         action_dim = get_action_dim(self.action_space)
+        batch_norm_params = {
+            "momentum": batch_norm_momentum,
+            "eps": batch_norm_eps,
+            "warmup_steps": renorm_warmup_steps,
+        }
 
         self.share_features_extractor = share_features_extractor
         self.n_critics = n_critics
@@ -251,7 +274,7 @@ class CrossQCritic(BaseModel):
                 net: List[Union[nn.Module, BatchRenorm1d]] = []
                 for layer in q_net_list:
                     if isinstance(layer, nn.Linear):
-                        net.append(BatchRenorm1d(layer.in_features, eps=batch_norm_eps, momentum=batch_norm_momentum))
+                        net.append(BatchRenorm1d(layer.in_features, **batch_norm_params))
                     net.append(layer)
                 q_net_list = net
 
@@ -277,6 +300,11 @@ class CrossQPolicy(BasePolicy):
     :param lr_schedule: Learning rate schedule (could be constant)
     :param net_arch: The specification of the policy and value networks.
     :param activation_fn: Activation function
+    :param batch_norm: Whether to use Batch Renorm layers (default=True)
+    :param batch_norm_momentum: The rate of convergence for the batch renormalization statistics
+    :param batch_norm_eps: A small value added to the variance to prevent division by zero
+    :param renorm_warmup_steps: Number of steps to warm up BatchRenorm statistics before the running statistics
+            are used for normalization.
     :param use_sde: Whether to use State Dependent Exploration or not
     :param log_std_init: Initial value for the log standard deviation
     :param use_expln: Use ``expln()`` function instead of ``exp()`` when using gSDE to ensure
@@ -307,6 +335,10 @@ class CrossQPolicy(BasePolicy):
         lr_schedule: Schedule,
         net_arch: Optional[Union[List[int], Dict[str, List[int]]]] = None,
         activation_fn: Type[nn.Module] = nn.ReLU,
+        batch_norm: bool = True,
+        batch_norm_momentum: float = 0.99,
+        batch_norm_eps: float = 0.001,
+        renorm_warmup_steps: int = 100_000,
         use_sde: bool = False,
         log_std_init: float = -3,
         use_expln: bool = False,
@@ -338,6 +370,13 @@ class CrossQPolicy(BasePolicy):
 
         actor_arch, critic_arch = get_actor_critic_arch(net_arch)
 
+        self.batch_norm_params = {
+            "batch_norm": batch_norm,
+            "batch_norm_momentum": batch_norm_momentum,
+            "batch_norm_eps": batch_norm_eps,
+            "renorm_warmup_steps": renorm_warmup_steps,
+        }
+
         self.net_arch = net_arch
         self.activation_fn = activation_fn
         self.net_args = {
@@ -346,7 +385,7 @@ class CrossQPolicy(BasePolicy):
             "net_arch": actor_arch,
             "activation_fn": self.activation_fn,
             "normalize_images": normalize_images,
-            "batch_norm": True,
+            **self.batch_norm_params,
         }
         self.actor_kwargs = self.net_args.copy()
 
@@ -363,7 +402,6 @@ class CrossQPolicy(BasePolicy):
                 "n_critics": n_critics,
                 "net_arch": critic_arch,
                 "share_features_extractor": share_features_extractor,
-                "batch_norm": True,
             }
         )
 
@@ -413,6 +451,7 @@ class CrossQPolicy(BasePolicy):
                 optimizer_kwargs=self.optimizer_kwargs,
                 features_extractor_class=self.features_extractor_class,
                 features_extractor_kwargs=self.features_extractor_kwargs,
+                **self.batch_norm_params,
             )
         )
         return data
