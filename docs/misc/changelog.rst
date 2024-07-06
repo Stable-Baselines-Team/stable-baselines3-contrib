@@ -16,6 +16,8 @@ New Features:
 
 Bug Fixes:
 ^^^^^^^^^^
+- Updated QR-DQN optimizer input to only include quantile_net parameters (@corentinlger)
+- Updated QR-DQN paper link in docs (@corentinlger)
 
 Deprecations:
 ^^^^^^^^^^^^^
@@ -580,4 +582,4 @@ Contributors:
 -------------
 
 @ku2482 @guyk1971 @minhlong94 @ayeright @kronion @glmcdona @cyprienc @sgillen @Gregwar @rnederstigt @qgallouedec
-@mlodel @CppMaster @burakdmb @honglu2875 @ZikangXiong @AlexPasqua @jonasreiher @icheered @Armandpl
+@mlodel @CppMaster @burakdmb @honglu2875 @ZikangXiong @AlexPasqua @jonasreiher @icheered @Armandpl @corentinlger
