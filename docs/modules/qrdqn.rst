@@ -24,7 +24,7 @@ instead of predicting the mean return (DQN).
 Notes
 -----
 
-- Original paper: https://arxiv.org/abs/1710.100442
+- Original paper: https://arxiv.org/abs/1710.10044
 - Distributional RL (C51): https://arxiv.org/abs/1707.06887
 - Further reference: https://github.com/amy12xx/ml_notes_and_reports/blob/master/distributional_rl/QRDQN.pdf
 
