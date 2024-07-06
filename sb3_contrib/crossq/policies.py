@@ -99,14 +99,15 @@ class Actor(BasePolicy):
             "warmup_steps": renorm_warmup_steps,
         }
 
+        # TODO(antonin): refactor once we can have batch norm/custom layers easily in SB3
         if batch_norm:
             # If batchnorm, then we want to add torch.nn.Batch_Norm layers before every linear layer
             net: List[Union[nn.Module, BatchRenorm1d]] = []
             for layer in latent_pi_net:
                 if isinstance(layer, nn.Linear):
-                    net.append(BatchRenorm1d(layer.in_features, **batch_norm_params))
+                    net.append(BatchRenorm1d(layer.in_features, **batch_norm_params))  # type: ignore[arg-type]
                 net.append(layer)
-            net.append(BatchRenorm1d(net_arch[-1], **batch_norm_params))
+            net.append(BatchRenorm1d(net_arch[-1], **batch_norm_params))  # type: ignore[arg-type]
             latent_pi_net = net
 
         self.latent_pi = nn.Sequential(*latent_pi_net)
@@ -269,12 +270,13 @@ class CrossQCritic(BaseModel):
         for idx in range(n_critics):
             q_net_list = create_mlp(features_dim + action_dim, 1, net_arch, activation_fn)
 
+            # TODO(antonin): refactor once we can have batch norm/custom layers easily in SB3
             if batch_norm:
                 # If batchnorm, then we want to add torch.nn.Batch_Norm layers before every linear layer
                 net: List[Union[nn.Module, BatchRenorm1d]] = []
                 for layer in q_net_list:
                     if isinstance(layer, nn.Linear):
-                        net.append(BatchRenorm1d(layer.in_features, **batch_norm_params))
+                        net.append(BatchRenorm1d(layer.in_features, **batch_norm_params))  # type: ignore[arg-type]
                     net.append(layer)
                 q_net_list = net
 

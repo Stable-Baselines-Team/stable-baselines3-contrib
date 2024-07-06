@@ -66,6 +66,7 @@ class CrossQ(OffPolicyAlgorithm):
 
     policy_aliases: ClassVar[Dict[str, Type[BasePolicy]]] = {
         "MlpPolicy": MlpPolicy,
+        # TODO: Implement CnnPolicy and MultiInputPolicy
     }
     policy: CrossQPolicy
     actor: Actor
@@ -107,7 +108,7 @@ class CrossQ(OffPolicyAlgorithm):
             buffer_size,
             learning_starts,
             batch_size,
-            1.0,
+            1.0,  # no target networks, tau=1.0
             gamma,
             train_freq,
             gradient_steps,
@@ -191,7 +192,7 @@ class CrossQ(OffPolicyAlgorithm):
 
         for _ in range(gradient_steps):
             self._n_updates += 1
-            # delayed updates
+            # Delayed updates
             update_actor_and_temperature = self._n_updates % self.policy_delay == 0
             # Sample replay buffer
             replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)  # type: ignore[union-attr]
@@ -204,6 +205,8 @@ class CrossQ(OffPolicyAlgorithm):
             # of actor and critic carefully. This is because of the BatchNorm layers in the networks
             # which behave differently in train and eval modes.
 
+            # TODO: replace with more precise, set_training_mode_bn(), to allow the use of Dropout
+            # TODO: double check, should be moved with the ent coef to the delayed update?
             self.actor.set_training_mode(True)
             actions_pi, log_prob = self.actor.action_log_prob(replay_data.observations)
             log_prob = log_prob.reshape(-1, 1)
@@ -252,10 +255,10 @@ class CrossQ(OffPolicyAlgorithm):
             # 2. From a computational perspective a single forward pass is simply more efficient than
             #    two sequential forward passes.
             all_obs = th.cat([replay_data.observations, replay_data.next_observations], dim=0)
-            all_acts = th.cat([replay_data.actions, next_actions], dim=0)
+            all_actions = th.cat([replay_data.actions, next_actions], dim=0)
 
             self.critic.set_training_mode(True)
-            all_q_values = th.cat(self.critic(all_obs, all_acts), dim=1)
+            all_q_values = th.cat(self.critic(all_obs, all_actions), dim=1)
             self.critic.set_training_mode(False)
             current_q_values, next_q_values = th.split(all_q_values, batch_size, dim=0)
             # (batch_size, n_critics) -> (n_critics, batch_size, 1)
@@ -263,10 +266,8 @@ class CrossQ(OffPolicyAlgorithm):
 
             with th.no_grad():
                 # Compute the target Q value
-                next_q_values = next_q_values.detach()
-                next_q_values, _ = th.min(next_q_values, dim=1, keepdim=True)
-
-                # add entropy term
+                next_q_values, _ = th.min(next_q_values.detach(), dim=1, keepdim=True)
+                # Add entropy term
                 next_q_values = next_q_values - ent_coef * next_log_prob.reshape(-1, 1)
                 # td error + entropy term
                 target_q_values = replay_data.rewards + (1 - replay_data.dones) * self.gamma * next_q_values
