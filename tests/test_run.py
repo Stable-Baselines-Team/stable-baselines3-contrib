@@ -9,7 +9,13 @@ from sb3_contrib.common.vec_env import AsyncEval
 
 
 def test_crossq():
-    model = CrossQ("MlpPolicy", "Pendulum-v1", learning_starts=100, verbose=1, policy_kwargs=dict(net_arch=[64]))
+    model = CrossQ(
+        "MlpPolicy",
+        "Pendulum-v1",
+        learning_starts=100,
+        verbose=1,
+        policy_kwargs=dict(net_arch=[32], renorm_warmup_steps=1),
+    )
     model.learn(total_timesteps=110)
 
 
@@ -39,11 +45,12 @@ def test_n_critics(n_critics):
     model.learn(total_timesteps=110)
 
 
-def test_sde():
-    model = TQC(
+@pytest.mark.parametrize("model_class", [TQC, CrossQ])
+def test_sde(model_class):
+    model = model_class(
         "MlpPolicy",
         "Pendulum-v1",
-        policy_kwargs=dict(net_arch=[64]),
+        policy_kwargs=dict(net_arch=[16]),
         use_sde=True,
         learning_starts=100,
         verbose=1,
