@@ -3,7 +3,7 @@
 Changelog
 ==========
 
-Release 2.4.0a4 (WIP)
+Release 2.4.0a5 (WIP)
 --------------------------
 
 Breaking Changes:
@@ -12,7 +12,8 @@ Breaking Changes:
 
 New Features:
 ^^^^^^^^^^^^^
-- Added CrossQ (@danielpalen)
+- Added ``CrossQ`` algorithm, from "Batch Normalization in Deep Reinforcement Learning" paper (@danielpalen)
+- Added ``BatchRenorm`` PyTorch layer used in ``CrossQ`` (@danielpalen)
 
 Bug Fixes:
 ^^^^^^^^^^

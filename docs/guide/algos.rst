@@ -10,6 +10,7 @@ Name         ``Box``     ``Discrete`` ``MultiDiscrete`` ``MultiBinary`` Multi Pr
 ============ =========== ============ ================= =============== ================
 ARS          ✔️          ❌️            ❌                ❌                ✔️
 MaskablePPO  ❌           ✔️             ✔️                ✔️               ✔️
+CrossQ       ✔️          ❌            ❌                ❌                ✔️
 QR-DQN       ️❌          ️✔️            ❌                ❌                ✔️
 RecurrentPPO ✔️           ✔️             ✔️                ✔️               ✔️
 TQC          ✔️          ❌            ❌                ❌                ✔️

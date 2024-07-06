@@ -25,13 +25,19 @@ This yield a simpler and more sample-efficient algorithm without requiring high 
 
   Compared to the original implementation, the default network architecture for the q-value function is ``[1024, 1024]``
   instead of ``[2048, 2048]`` as it provides a good compromise between speed and performance.
+  We also use the default hyperparameters for Adam, since they have little impact on performance.
+
+.. note::
+
+  There is currently no ``CnnPolicy`` for using CrossQ with images. We welcome help from contributors to add this feature.
+
 
 Notes
 -----
 
 - Original paper: https://openreview.net/pdf?id=PczQtTsTIX
 - Original Implementation: https://github.com/adityab/CrossQ
-- SBX Implementation: https://github.com/araffin/sbx
+- SBX (SB3 Jax) Implementation: https://github.com/araffin/sbx
 
 
 Can I use?
@@ -49,7 +55,7 @@ Discrete      ❌      ✔️
 Box           ✔️      ✔️
 MultiDiscrete ❌      ✔️
 MultiBinary   ❌      ✔️
-Dict          ❌      ✔️
+Dict          ❌      ❌
 ============= ====== ===========
 
 
@@ -68,10 +74,36 @@ Example
 Results
 -------
 
-Performance evaluation of CrossQ on six MuJoCo environments.
+Performance evaluation of CrossQ on six MuJoCo environments, see `PR #243 <https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/pull/243>`_.
 Compared to results from the original paper as well as a version from `SBX <https://github.com/araffin/sbx>`_.
 
 .. image:: ../images/crossQ_performance.png
+
+
+How to replicate the results?
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Clone RL-Zoo:
+
+.. code-block:: bash
+
+  git clone https://github.com/DLR-RM/rl-baselines3-zoo
+  cd rl-baselines3-zoo/
+
+Run the benchmark (replace ``$ENV_ID`` by the envs mentioned above):
+
+.. code-block:: bash
+
+  python train.py --algo crossq --env $ENV_ID --n-eval-envs 5 --eval-episodes 20 --eval-freq 25000
+
+
+Plot the results:
+
+.. code-block:: bash
+
+  python scripts/all_plots.py -a crossq -e HalfCheetah Ant Hopper Walker2D -f logs/ -o logs/crossq_results
+  python scripts/plot_from_file.py -i logs/crossq_results.pkl -latex -l CrossQ
+
 
 Comments
 --------
