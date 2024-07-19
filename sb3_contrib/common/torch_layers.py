@@ -3,7 +3,7 @@ import torch
 __all__ = ["BatchRenorm1d", "BatchRenorm"]
 
 
-class BatchRenorm(torch.jit.ScriptModule):
+class BatchRenorm(torch.nn.Module):
     """
     BatchRenorm Module (https://arxiv.org/abs/1702.03275).
     Adapted to Pytorch from
@@ -49,6 +49,7 @@ class BatchRenorm(torch.jit.ScriptModule):
         self.eps = eps
         self.step = 0
         self.momentum = momentum
+        self.num_features = num_features
         # Clip scale and bias of the affine transform
         self.rmax = 3.0
         self.dmax = 5.0
@@ -107,8 +108,11 @@ class BatchRenorm(torch.jit.ScriptModule):
 
         return x
 
-    # def extra_repr(self) -> str:
-    #     return f"num_features={self.num_features}, momentum={self.momentum}, warmup_steps={self.warmup_steps}"
+    def extra_repr(self) -> str:
+        return (
+            f"num_features={self.num_features}, momentum={self.momentum}, "
+            f"warmup_steps={self.warmup_steps}, affine={self.affine}"
+        )
 
 
 class BatchRenorm1d(BatchRenorm):
