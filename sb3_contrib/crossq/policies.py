@@ -204,6 +204,17 @@ class Actor(BasePolicy):
     def _predict(self, observation: PyTorchObs, deterministic: bool = False) -> th.Tensor:
         return self(observation, deterministic)
 
+    def set_bn_training_mode(self, mode: bool) -> None:
+        """
+        Set the training mode of the BatchRenorm layers.
+        When training is True, the running statistics are updated.
+
+        :param mode: Whether to set the layers in training mode or not
+        """
+        for module in self.modules():
+            if isinstance(module, BatchRenorm1d):
+                module.train(mode)
+
 
 class CrossQCritic(BaseModel):
     """
@@ -291,6 +302,17 @@ class CrossQCritic(BaseModel):
             features = self.extract_features(obs, self.features_extractor)
         qvalue_input = th.cat([features, actions], dim=1)
         return tuple(q_net(qvalue_input) for q_net in self.q_networks)
+
+    def set_bn_training_mode(self, mode: bool) -> None:
+        """
+        Set the training mode of the BatchRenorm layers.
+        When training is True, the running statistics are updated.
+
+        :param mode: Whether to set the layers in training mode or not
+        """
+        for module in self.modules():
+            if isinstance(module, BatchRenorm1d):
+                module.train(mode)
 
 
 class CrossQPolicy(BasePolicy):

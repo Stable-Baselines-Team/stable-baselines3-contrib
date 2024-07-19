@@ -215,8 +215,8 @@ class CrossQ(OffPolicyAlgorithm):
 
             with th.no_grad():
                 # Select action according to policy
-                # TODO: replace with more precise, set_training_mode_bn(), to allow the use of Dropout
-                self.actor.set_training_mode(False)
+                # Use more precise set_training_mode to allow the use of Dropout
+                self.actor.set_bn_training_mode(False)
                 next_actions, next_log_prob = self.actor.action_log_prob(replay_data.next_observations)
 
             # Joint forward pass of obs/next_obs and actions/next_state_actions to have only
@@ -237,9 +237,9 @@ class CrossQ(OffPolicyAlgorithm):
             all_obs = th.cat([replay_data.observations, replay_data.next_observations], dim=0)
             all_actions = th.cat([replay_data.actions, next_actions], dim=0)
             # Update critic BN stats
-            self.critic.set_training_mode(True)
+            self.critic.set_bn_training_mode(True)
             all_q_values = th.cat(self.critic(all_obs, all_actions), dim=1)
-            self.critic.set_training_mode(False)
+            self.critic.set_bn_training_mode(False)
             current_q_values, next_q_values = th.split(all_q_values, batch_size, dim=0)
             # (batch_size, n_critics) -> (n_critics, batch_size, 1)
             current_q_values = current_q_values.T[..., None]
@@ -265,10 +265,10 @@ class CrossQ(OffPolicyAlgorithm):
             # Delayed policy updates
             if self._n_updates % self.policy_delay == 0:
                 # Sample action according to policy and update actor BN stats
-                self.actor.set_training_mode(True)
+                self.actor.set_bn_training_mode(True)
                 actions_pi, log_prob = self.actor.action_log_prob(replay_data.observations)
                 log_prob = log_prob.reshape(-1, 1)
-                self.actor.set_training_mode(False)
+                self.actor.set_bn_training_mode(False)
 
                 # Optimize entropy coefficient, also called entropy temperature or alpha in the paper
                 if self.ent_coef_optimizer is not None:
@@ -280,7 +280,7 @@ class CrossQ(OffPolicyAlgorithm):
                     self.ent_coef_optimizer.step()
 
                 # Compute actor loss
-                self.critic.set_training_mode(False)
+                self.critic.set_bn_training_mode(False)
                 q_values_pi = th.cat(self.critic(replay_data.observations, actions_pi), dim=1)
 
                 min_qf_pi, _ = th.min(q_values_pi, dim=1, keepdim=True)

@@ -67,6 +67,7 @@ class BatchRenorm(torch.nn.Module):
         """
 
         if self.training:
+            # Compute batch statistics
             batch_mean = x.mean(dim=0)
             batch_var = x.var(dim=0)
             batch_std = (batch_var + self.eps).sqrt()
@@ -98,6 +99,7 @@ class BatchRenorm(torch.nn.Module):
             self.steps += 1
 
         else:
+            # Use running statistics during evaluation mode
             custom_mean, custom_var = self.ra_mean, self.ra_var
 
         # Normalize
