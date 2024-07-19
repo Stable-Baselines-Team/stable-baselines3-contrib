@@ -192,8 +192,6 @@ class CrossQ(OffPolicyAlgorithm):
 
         for _ in range(gradient_steps):
             self._n_updates += 1
-            # Delayed updates
-            update_actor_and_temperature = self._n_updates % self.policy_delay == 0
             # Sample replay buffer
             replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)  # type: ignore[union-attr]
 
@@ -205,39 +203,21 @@ class CrossQ(OffPolicyAlgorithm):
             # of actor and critic carefully. This is because of the BatchNorm layers in the networks
             # which behave differently in train and eval modes.
 
-            # TODO: replace with more precise, set_training_mode_bn(), to allow the use of Dropout
-            # TODO: double check, should be moved with the ent coef to the delayed update?
-            self.actor.set_training_mode(True)
-            actions_pi, log_prob = self.actor.action_log_prob(replay_data.observations)
-            log_prob = log_prob.reshape(-1, 1)
-            self.actor.set_training_mode(False)
-
-            ent_coef_loss = None
-            if self.ent_coef_optimizer is not None and self.log_ent_coef is not None:
+            if self.log_ent_coef is not None:
                 # Important: detach the variable from the graph
                 # so we don't change it with other losses
                 # see https://github.com/rail-berkeley/softlearning/issues/60
                 ent_coef = th.exp(self.log_ent_coef.detach())
-                ent_coef_loss = -(self.log_ent_coef * (log_prob + self.target_entropy).detach()).mean()
-                ent_coef_losses.append(ent_coef_loss.item())
             else:
                 ent_coef = self.ent_coef_tensor
 
             ent_coefs.append(ent_coef.item())
 
-            # Optimize entropy coefficient, also called
-            # entropy temperature or alpha in the paper
-            if ent_coef_loss is not None and self.ent_coef_optimizer is not None and update_actor_and_temperature:
-
-                self.ent_coef_optimizer.zero_grad()
-                ent_coef_loss.backward()
-                self.ent_coef_optimizer.step()
-
             with th.no_grad():
                 # Select action according to policy
+                # TODO: replace with more precise, set_training_mode_bn(), to allow the use of Dropout
                 self.actor.set_training_mode(False)
                 next_actions, next_log_prob = self.actor.action_log_prob(replay_data.next_observations)
-                self.actor.set_training_mode(False)
 
             # Joint forward pass of obs/next_obs and actions/next_state_actions to have only
             # one forward pass with shape (n_critics, 2 * batch_size, 1).
@@ -256,7 +236,7 @@ class CrossQ(OffPolicyAlgorithm):
             #    two sequential forward passes.
             all_obs = th.cat([replay_data.observations, replay_data.next_observations], dim=0)
             all_actions = th.cat([replay_data.actions, next_actions], dim=0)
-
+            # Update critic BN stats
             self.critic.set_training_mode(True)
             all_q_values = th.cat(self.critic(all_obs, all_actions), dim=1)
             self.critic.set_training_mode(False)
@@ -283,11 +263,25 @@ class CrossQ(OffPolicyAlgorithm):
             self.critic.optimizer.step()
 
             # Delayed policy updates
-            if update_actor_and_temperature:
+            if self._n_updates % self.policy_delay == 0:
+                # Sample action according to policy and update actor BN stats
+                self.actor.set_training_mode(True)
+                actions_pi, log_prob = self.actor.action_log_prob(replay_data.observations)
+                log_prob = log_prob.reshape(-1, 1)
+                self.actor.set_training_mode(False)
+
+                # Optimize entropy coefficient, also called entropy temperature or alpha in the paper
+                if self.ent_coef_optimizer is not None:
+                    ent_coef_loss = -(self.log_ent_coef * (log_prob + self.target_entropy).detach()).mean()
+                    ent_coef_losses.append(ent_coef_loss.item())
+
+                    self.ent_coef_optimizer.zero_grad()
+                    ent_coef_loss.backward()
+                    self.ent_coef_optimizer.step()
+
                 # Compute actor loss
                 self.critic.set_training_mode(False)
                 q_values_pi = th.cat(self.critic(replay_data.observations, actions_pi), dim=1)
-                self.critic.set_training_mode(False)
 
                 min_qf_pi, _ = th.min(q_values_pi, dim=1, keepdim=True)
                 actor_loss = (ent_coef * log_prob.reshape(-1, 1) - min_qf_pi).mean()
