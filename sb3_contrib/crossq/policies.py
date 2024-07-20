@@ -1,3 +1,4 @@
+from functools import partial
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import torch as th
@@ -91,24 +92,28 @@ class Actor(BasePolicy):
         self.clip_mean = clip_mean
 
         action_dim = get_action_dim(self.action_space)
-        latent_pi_net = create_mlp(features_dim, -1, net_arch, activation_fn)
 
-        batch_norm_params = {
-            "momentum": batch_norm_momentum,
-            "eps": batch_norm_eps,
-            "warmup_steps": renorm_warmup_steps,
-        }
-
-        # TODO(antonin): refactor once we can have batch norm/custom layers easily in SB3
+        pre_linear_modules = []
         if batch_norm:
-            # If batchnorm, then we want to add torch.nn.Batch_Norm layers before every linear layer
-            net: List[Union[nn.Module, BatchRenorm1d]] = []
-            for layer in latent_pi_net:
-                if isinstance(layer, nn.Linear):
-                    net.append(BatchRenorm1d(layer.in_features, **batch_norm_params))  # type: ignore[arg-type]
-                net.append(layer)
-            net.append(BatchRenorm1d(net_arch[-1], **batch_norm_params))  # type: ignore[arg-type]
-            latent_pi_net = net
+            pre_linear_modules = [
+                partial(
+                    BatchRenorm1d,
+                    momentum=batch_norm_momentum,
+                    eps=batch_norm_eps,
+                    warmup_steps=renorm_warmup_steps,
+                )
+            ]
+
+        latent_pi_net = create_mlp(
+            features_dim,
+            -1,
+            net_arch,
+            activation_fn,
+            pre_linear_modules=pre_linear_modules,  # type: ignore[arg-type]
+        )
+
+        if batch_norm and net_arch:
+            latent_pi_net.append(pre_linear_modules[0](net_arch[-1]))
 
         self.latent_pi = nn.Sequential(*latent_pi_net)
         last_layer_dim = net_arch[-1] if len(net_arch) > 0 else features_dim
@@ -269,28 +274,28 @@ class CrossQCritic(BaseModel):
         )
 
         action_dim = get_action_dim(self.action_space)
-        batch_norm_params = {
-            "momentum": batch_norm_momentum,
-            "eps": batch_norm_eps,
-            "warmup_steps": renorm_warmup_steps,
-        }
+        pre_linear_modules = []
+        if batch_norm:
+            pre_linear_modules = [
+                partial(
+                    BatchRenorm1d,
+                    momentum=batch_norm_momentum,
+                    eps=batch_norm_eps,
+                    warmup_steps=renorm_warmup_steps,
+                )
+            ]
 
         self.share_features_extractor = share_features_extractor
         self.n_critics = n_critics
         self.q_networks: List[nn.Module] = []
         for idx in range(n_critics):
-            q_net_list = create_mlp(features_dim + action_dim, 1, net_arch, activation_fn)
-
-            # TODO(antonin): refactor once we can have batch norm/custom layers easily in SB3
-            if batch_norm:
-                # If batchnorm, then we want to add torch.nn.Batch_Norm layers before every linear layer
-                net: List[Union[nn.Module, BatchRenorm1d]] = []
-                for layer in q_net_list:
-                    if isinstance(layer, nn.Linear):
-                        net.append(BatchRenorm1d(layer.in_features, **batch_norm_params))  # type: ignore[arg-type]
-                    net.append(layer)
-                q_net_list = net
-
+            q_net_list = create_mlp(
+                features_dim + action_dim,
+                1,
+                net_arch,
+                activation_fn,
+                pre_linear_modules=pre_linear_modules,  # type: ignore[arg-type]
+            )
             q_net = nn.Sequential(*q_net_list)
             self.add_module(f"qf{idx}", q_net)
             self.q_networks.append(q_net)
@@ -360,7 +365,7 @@ class CrossQPolicy(BasePolicy):
         net_arch: Optional[Union[List[int], Dict[str, List[int]]]] = None,
         activation_fn: Type[nn.Module] = nn.ReLU,
         batch_norm: bool = True,
-        batch_norm_momentum: float = 0.99,
+        batch_norm_momentum: float = 0.01,  # Note: Jax implementation is 1 - momentum = 0.99
         batch_norm_eps: float = 0.001,
         renorm_warmup_steps: int = 100_000,
         use_sde: bool = False,

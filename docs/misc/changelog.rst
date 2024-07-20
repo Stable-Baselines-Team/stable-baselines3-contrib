@@ -3,7 +3,7 @@
 Changelog
 ==========
 
-Release 2.4.0a5 (WIP)
+Release 2.4.0a6 (WIP)
 --------------------------
 
 Breaking Changes:
