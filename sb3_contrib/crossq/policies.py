@@ -365,6 +365,7 @@ class CrossQPolicy(BasePolicy):
         net_arch: Optional[Union[List[int], Dict[str, List[int]]]] = None,
         activation_fn: Type[nn.Module] = nn.ReLU,
         batch_norm: bool = True,
+        # TODO: double check the default value of batch_norm_momentum
         batch_norm_momentum: float = 0.01,  # Note: Jax implementation is 1 - momentum = 0.99
         batch_norm_eps: float = 0.001,
         renorm_warmup_steps: int = 100_000,
@@ -380,6 +381,14 @@ class CrossQPolicy(BasePolicy):
         n_critics: int = 2,
         share_features_extractor: bool = False,
     ):
+        if optimizer_kwargs is None:
+            # Note: the default value for b1 is 0.9 in Adam.
+            # b1=0.5 is used in the original CrossQ implementation
+            # but shows only little overall improvement.
+            optimizer_kwargs = {}
+            if optimizer_class in [th.optim.Adam, th.optim.AdamW]:
+                optimizer_kwargs["betas"] = (0.5, 0.999)
+
         super().__init__(
             observation_space,
             action_space,
