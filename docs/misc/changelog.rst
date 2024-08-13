@@ -4,7 +4,7 @@ Changelog
 ==========
 
 
-Release 2.4.0a4 (WIP)
+Release 2.4.0a8 (WIP)
 --------------------------
 
 Breaking Changes:
@@ -18,6 +18,7 @@ Bug Fixes:
 ^^^^^^^^^^
 - Updated QR-DQN optimizer input to only include quantile_net parameters (@corentinlger)
 - Updated QR-DQN paper link in docs (@corentinlger)
+- Fixed a warning with PyTorch 2.4 when loading a `RecurrentPPO` model (You are using torch.load with weights_only=False)
 
 Deprecations:
 ^^^^^^^^^^^^^

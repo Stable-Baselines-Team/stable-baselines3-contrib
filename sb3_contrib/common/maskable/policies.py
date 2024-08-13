@@ -304,7 +304,7 @@ class MaskableActorCriticPolicy(BasePolicy):
         with th.no_grad():
             actions = self._predict(obs_tensor, deterministic=deterministic, action_masks=action_masks)
             # Convert to numpy
-            actions = actions.cpu().numpy()
+            actions = actions.cpu().numpy()  # type: ignore[assignment]
 
         if isinstance(self.action_space, spaces.Box):
             if self.squash_output:

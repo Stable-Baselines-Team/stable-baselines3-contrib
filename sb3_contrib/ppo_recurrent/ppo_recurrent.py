@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import Any, ClassVar, Dict, Optional, Type, TypeVar, Union
+from typing import Any, ClassVar, Dict, List, Optional, Type, TypeVar, Union
 
 import numpy as np
 import torch as th
@@ -455,3 +455,6 @@ class RecurrentPPO(OnPolicyAlgorithm):
             reset_num_timesteps=reset_num_timesteps,
             progress_bar=progress_bar,
         )
+
+    def _excluded_save_params(self) -> List[str]:
+        return super()._excluded_save_params() + ["_last_lstm_states"]  # noqa: RUF005
