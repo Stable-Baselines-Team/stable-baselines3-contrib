@@ -54,3 +54,6 @@ exclude_lines = [
     "raise NotImplementedError()",
     "if typing.TYPE_CHECKING:",
 ]
+
+# [tool.pyright]
+# extraPaths = ["../torchy-baselines/"]

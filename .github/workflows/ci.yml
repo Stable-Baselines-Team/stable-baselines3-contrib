@@ -58,6 +58,8 @@ jobs:
       - name: Type check
         run: |
           make type
+        # Do not run for python 3.8 (mypy internal error)
+        if: matrix.python-version != '3.8'
       - name: Test with pytest
         run: |
           make pytest

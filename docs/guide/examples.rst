@@ -113,3 +113,16 @@ Train a PPO agent with a recurrent policy on the CartPole environment.
      obs, rewards, dones, info = vec_env.step(action)
      episode_starts = dones
      vec_env.render("human")
+
+CrossQ
+------
+
+Train a CrossQ agent on the Pendulum environment.
+
+.. code-block:: python
+
+ from sb3_contrib import CrossQ
+
+ model = CrossQ("MlpPolicy", "Pendulum-v1", verbose=1, policy_kwargs=dict(net_arch=dict(pi=[256, 256], qf=[1024, 1024])))
+ model.learn(total_timesteps=5_000, log_interval=4)
+ model.save("crossq_pendulum")
