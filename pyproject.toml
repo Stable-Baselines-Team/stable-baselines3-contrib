@@ -12,7 +12,7 @@ ignore = ["B028", "RUF013"]
 
 [tool.ruff.lint.per-file-ignores]
 # ClassVar, implicit optional check not needed for tests
-"./tests/*.py"= ["RUF012", "RUF013"]
+"./tests/*.py" = ["RUF012", "RUF013"]
 
 [tool.ruff.lint.mccabe]
 # Unlike Flake8, ruff default to a complexity level of 10.
@@ -35,17 +35,13 @@ exclude = """(?x)(
 
 [tool.pytest.ini_options]
 # Deterministic ordering for tests; useful for pytest-xdist.
-env = [
-	"PYTHONHASHSEED=0"
-]
+env = ["PYTHONHASHSEED=0"]
 
 filterwarnings = [
     # Tensorboard warnings
     "ignore::DeprecationWarning:tensorboard",
 ]
-markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')"
-]
+markers = ["slow: marks tests as slow (deselect with '-m \"not slow\"')"]
 
 [tool.coverage.run]
 disable_warnings = ["couldnt-parse"]
@@ -53,4 +49,8 @@ branch = false
 omit = ["tests/*", "setup.py"]
 
 [tool.coverage.report]
-exclude_lines = [ "pragma: no cover", "raise NotImplementedError()", "if typing.TYPE_CHECKING:"]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError()",
+    "if typing.TYPE_CHECKING:",
+]
