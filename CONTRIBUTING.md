@@ -152,13 +152,13 @@ To run tests with `pytest`:
 make pytest
 ```
 
-Type checking with `pytype` and `mypy`:
+Type checking with `mypy`:
 
 ```
 make type
 ```
 
-Codestyle check with `black`, `isort` and `flake8`:
+Codestyle check with `black` and `ruff`:
 
 ```
 make check-codestyle
