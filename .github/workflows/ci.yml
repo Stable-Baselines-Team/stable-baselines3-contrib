@@ -33,7 +33,8 @@ jobs:
           # Use uv for faster downloads
           pip install uv
           # cpu version of pytorch
-          uv pip install --system torch==2.1.1 --index-url https://download.pytorch.org/whl/cpu
+          # See https://github.com/astral-sh/uv/issues/1497
+          uv pip install --system torch==2.5.0.* --index https://download.pytorch.org/whl/cpu
 
           # Install Atari Roms
           uv pip install --system autorom
