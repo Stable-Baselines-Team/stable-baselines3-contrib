@@ -34,7 +34,7 @@ jobs:
           pip install uv
           # cpu version of pytorch
           # See https://github.com/astral-sh/uv/issues/1497
-          uv pip install --system torch==2.5.0+cpu --index https://download.pytorch.org/whl/cpu
+          uv pip install --system torch==2.4.1+cpu --index https://download.pytorch.org/whl/cpu
 
           # Install Atari Roms
           uv pip install --system autorom
