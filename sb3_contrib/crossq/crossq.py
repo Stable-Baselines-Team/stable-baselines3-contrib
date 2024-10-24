@@ -221,7 +221,7 @@ class CrossQ(OffPolicyAlgorithm):
                 next_actions, next_log_prob = self.actor.action_log_prob(replay_data.next_observations)
 
             # Joint forward pass of obs/next_obs and actions/next_state_actions to have only
-            # one forward pass with shape (n_critics, 2 * batch_size, 1).
+            # one forward pass.
             #
             # This has two reasons:
             # 1. According to the paper obs/actions and next_obs/next_state_actions are differently
@@ -241,6 +241,7 @@ class CrossQ(OffPolicyAlgorithm):
             self.critic.set_bn_training_mode(True)
             all_q_values = th.cat(self.critic(all_obs, all_actions), dim=1)
             self.critic.set_bn_training_mode(False)
+            # (2 * batch_size, n_critics) -> (batch_size, n_critics), (batch_size, n_critics)
             current_q_values, next_q_values = th.split(all_q_values, batch_size, dim=0)
             # (batch_size, n_critics) -> (n_critics, batch_size, 1)
             current_q_values = current_q_values.T[..., None]
