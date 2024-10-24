@@ -31,6 +31,7 @@ Others:
 ^^^^^^^
 - Updated PyTorch version on CI to 2.3.1
 - Remove unnecessary SDE noise resampling in PPO/TRPO update
+- Switched to uv to download packages on GitHub CI
 
 Documentation:
 ^^^^^^^^^^^^^^
