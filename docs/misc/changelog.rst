@@ -3,9 +3,10 @@
 Changelog
 ==========
 
-
-Release 2.4.0a9 (WIP)
+Release 2.4.0a10 (WIP)
 --------------------------
+
+**New algorithm: added CrossQ**
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
@@ -13,6 +14,8 @@ Breaking Changes:
 
 New Features:
 ^^^^^^^^^^^^^
+- Added ``CrossQ`` algorithm, from "Batch Normalization in Deep Reinforcement Learning" paper (@danielpalen)
+- Added ``BatchRenorm`` PyTorch layer used in ``CrossQ`` (@danielpalen)
 
 Bug Fixes:
 ^^^^^^^^^^
@@ -28,6 +31,7 @@ Others:
 ^^^^^^^
 - Updated PyTorch version on CI to 2.3.1
 - Remove unnecessary SDE noise resampling in PPO/TRPO update
+- Switched to uv to download packages on GitHub CI
 
 Documentation:
 ^^^^^^^^^^^^^^
@@ -584,4 +588,4 @@ Contributors:
 -------------
 
 @ku2482 @guyk1971 @minhlong94 @ayeright @kronion @glmcdona @cyprienc @sgillen @Gregwar @rnederstigt @qgallouedec
-@mlodel @CppMaster @burakdmb @honglu2875 @ZikangXiong @AlexPasqua @jonasreiher @icheered @Armandpl @corentinlger
+@mlodel @CppMaster @burakdmb @honglu2875 @ZikangXiong @AlexPasqua @jonasreiher @icheered @Armandpl @danielpalen @corentinlger

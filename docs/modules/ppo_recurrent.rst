@@ -109,7 +109,6 @@ Clone the repo for the experiment:
 
    git clone https://github.com/DLR-RM/rl-baselines3-zoo
    cd rl-baselines3-zoo
-   git checkout feat/recurrent-ppo
 
 
 Run the benchmark (replace ``$ENV_ID`` by the envs mentioned above):
