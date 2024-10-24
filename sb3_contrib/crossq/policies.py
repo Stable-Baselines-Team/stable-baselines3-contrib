@@ -160,7 +160,7 @@ class Actor(BasePolicy):
         but is slightly different when using ``expln`` function
         (cf StateDependentNoiseDistribution doc).
 
-        :return:
+        :return: Standard deviation of the action dist when available.
         """
         msg = "get_std() is only available when using gSDE"
         assert isinstance(self.action_dist, StateDependentNoiseDistribution), msg
@@ -224,7 +224,7 @@ class Actor(BasePolicy):
 class CrossQCritic(BaseModel):
     """
     Critic network(s) for CrossQ.
-    The differnce with standard critic networks used by SAC/TD3 is that it uses BatchRenorm layers.
+    The difference with standard critic networks used by SAC/TD3 is that it uses BatchRenorm layers.
 
     By default, it creates two critic networks used to reduce overestimation
     thanks to clipped Q-learning (cf TD3 paper).
@@ -365,7 +365,6 @@ class CrossQPolicy(BasePolicy):
         net_arch: Optional[Union[List[int], Dict[str, List[int]]]] = None,
         activation_fn: Type[nn.Module] = nn.ReLU,
         batch_norm: bool = True,
-        # TODO: double check the default value of batch_norm_momentum
         batch_norm_momentum: float = 0.01,  # Note: Jax implementation is 1 - momentum = 0.99
         batch_norm_eps: float = 0.001,
         renorm_warmup_steps: int = 100_000,

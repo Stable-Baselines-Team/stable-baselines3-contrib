@@ -10,9 +10,9 @@ Implementation of CrossQ proposed in:
 
 `Bhatt A.* & Palenicek D.* et al. Batch Normalization in Deep Reinforcement Learning for Greater Sample Efficiency and Simplicity. ICLR 2024.`
 
-CrossQ is a simple and efficient algorithm that uses batch normalization to improve the sample efficiency of off-policy deep reinforcement learning algorithms.
+CrossQ is an algorithm that uses batch normalization to improve the sample efficiency of off-policy deep reinforcement learning algorithms.
 It is based on the idea of carefully introducing batch normalization layers in the critic network and dropping target networks.
-This yield a simpler and more sample-efficient algorithm without requiring high update-to-data ratios.
+This results in a simpler and more sample-efficient algorithm without requiring high update-to-data ratios.
 
 .. rubric:: Available Policies
 
@@ -25,7 +25,6 @@ This yield a simpler and more sample-efficient algorithm without requiring high 
 
   Compared to the original implementation, the default network architecture for the q-value function is ``[1024, 1024]``
   instead of ``[2048, 2048]`` as it provides a good compromise between speed and performance.
-  We also use the default hyperparameters for Adam, since they have little impact on performance.
 
 .. note::
 
@@ -78,6 +77,9 @@ Performance evaluation of CrossQ on six MuJoCo environments, see `PR #243 <https
 Compared to results from the original paper as well as a version from `SBX <https://github.com/araffin/sbx>`_.
 
 .. image:: ../images/crossQ_performance.png
+
+
+Open RL benchmark report: https://wandb.ai/openrlbenchmark/sb3-contrib/reports/SB3-Contrib-CrossQ--Vmlldzo4NTE2MTEx
 
 
 How to replicate the results?

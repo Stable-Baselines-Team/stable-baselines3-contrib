@@ -19,6 +19,7 @@ class CrossQ(OffPolicyAlgorithm):
     """
     Implementation of Batch Normalization in Deep Reinforcement Learning (CrossQ).
     Paper: https://openreview.net/forum?id=PczQtTsTIX
+    Reference implementation: https://github.com/araffin/sbx
 
     :param policy: The policy model to use (MlpPolicy)
     :param env: The environment to learn from (if registered in Gym, can be str)

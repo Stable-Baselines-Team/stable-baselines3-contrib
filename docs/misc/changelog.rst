@@ -3,8 +3,10 @@
 Changelog
 ==========
 
-Release 2.4.0a9 (WIP)
+Release 2.4.0a10 (WIP)
 --------------------------
+
+**New algorithm: added CrossQ**
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
