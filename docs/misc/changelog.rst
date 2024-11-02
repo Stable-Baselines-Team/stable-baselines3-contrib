@@ -16,6 +16,7 @@ New Features:
 ^^^^^^^^^^^^^
 - Added ``CrossQ`` algorithm, from "Batch Normalization in Deep Reinforcement Learning" paper (@danielpalen)
 - Added ``BatchRenorm`` PyTorch layer used in ``CrossQ`` (@danielpalen)
+- Added support for Gymnasium v1.0
 
 Bug Fixes:
 ^^^^^^^^^^
