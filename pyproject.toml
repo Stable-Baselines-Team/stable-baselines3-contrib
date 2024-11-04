@@ -40,6 +40,8 @@ env = ["PYTHONHASHSEED=0"]
 filterwarnings = [
     # Tensorboard warnings
     "ignore::DeprecationWarning:tensorboard",
+    # tqdm warning about rich being experimental
+    "ignore:rich is experimental",
 ]
 markers = ["slow: marks tests as slow (deselect with '-m \"not slow\"')"]
 

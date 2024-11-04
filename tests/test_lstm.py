@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 from gymnasium import spaces
 from gymnasium.envs.classic_control import CartPoleEnv
-from gymnasium.wrappers.time_limit import TimeLimit
+from gymnasium.wrappers import TimeLimit
 from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.env_util import make_vec_env
@@ -43,7 +43,7 @@ class CartPoleNoVelEnv(CartPoleEnv):
                 self.x_threshold * 2,
                 self.theta_threshold_radians * 2,
             ]
-        )
+        ).astype(np.float32)
         self.observation_space = spaces.Box(-high, high, dtype=np.float32)
 
     @staticmethod

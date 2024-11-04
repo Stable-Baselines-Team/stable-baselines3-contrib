@@ -44,6 +44,7 @@ class TimeFeatureWrapper(gym.Wrapper[TimeFeatureObs, ActType, TimeFeatureObs, Ac
         low, high = obs_space.low, obs_space.high
         low, high = np.concatenate((low, [0.0])), np.concatenate((high, [1.0]))  # type: ignore[arg-type]
         self.dtype = obs_space.dtype
+        low, high = low.astype(self.dtype), high.astype(self.dtype)
 
         if isinstance(env.observation_space, spaces.Dict):
             env.observation_space.spaces["observation"] = spaces.Box(
