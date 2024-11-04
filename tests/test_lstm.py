@@ -43,7 +43,7 @@ class CartPoleNoVelEnv(CartPoleEnv):
                 self.x_threshold * 2,
                 self.theta_threshold_radians * 2,
             ]
-        )
+        ).astype(np.float32)
         self.observation_space = spaces.Box(-high, high, dtype=np.float32)
 
     @staticmethod
