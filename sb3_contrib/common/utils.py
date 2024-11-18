@@ -1,4 +1,5 @@
-from typing import Callable, Optional, Sequence
+from collections.abc import Sequence
+from typing import Callable, Optional
 
 import torch as th
 from torch import nn

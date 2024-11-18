@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import Optional
 
 import numpy as np
 from gymnasium import spaces
@@ -23,7 +23,7 @@ class InvalidActionEnvDiscrete(IdentityEnv[int]):
         space = spaces.Discrete(dim)
         self.n_invalid_actions = n_invalid_actions
         self.possible_actions = np.arange(space.n)
-        self.invalid_actions: List[int] = []
+        self.invalid_actions: list[int] = []
         super().__init__(space=space, ep_length=ep_length)
 
     def _choose_next_state(self) -> None:
@@ -32,7 +32,7 @@ class InvalidActionEnvDiscrete(IdentityEnv[int]):
         potential_invalid_actions = [i for i in self.possible_actions if i != self.state]
         self.invalid_actions = np.random.choice(potential_invalid_actions, self.n_invalid_actions, replace=False).tolist()
 
-    def action_masks(self) -> List[bool]:
+    def action_masks(self) -> list[bool]:
         return [action not in self.invalid_actions for action in self.possible_actions]
 
 
@@ -45,7 +45,7 @@ class InvalidActionEnvMultiDiscrete(IdentityEnv[np.ndarray]):
 
     def __init__(
         self,
-        dims: Optional[List[int]] = None,
+        dims: Optional[list[int]] = None,
         ep_length: int = 100,
         n_invalid_actions: int = 0,
     ):
@@ -58,13 +58,13 @@ class InvalidActionEnvMultiDiscrete(IdentityEnv[np.ndarray]):
         space = spaces.MultiDiscrete(dims)
         self.n_invalid_actions = n_invalid_actions
         self.possible_actions = np.arange(sum(dims))
-        self.invalid_actions: List[int] = []
+        self.invalid_actions: list[int] = []
         super().__init__(space=space, ep_length=ep_length)
 
     def _choose_next_state(self) -> None:
         self.state = self.action_space.sample()
 
-        converted_state: List[int] = []
+        converted_state: list[int] = []
         running_total = 0
         for i in range(len(self.action_space.nvec)):
             converted_state.append(running_total + self.state[i])
@@ -74,7 +74,7 @@ class InvalidActionEnvMultiDiscrete(IdentityEnv[np.ndarray]):
         potential_invalid_actions = [i for i in self.possible_actions if i not in converted_state]
         self.invalid_actions = np.random.choice(potential_invalid_actions, self.n_invalid_actions, replace=False).tolist()
 
-    def action_masks(self) -> List[bool]:
+    def action_masks(self) -> list[bool]:
         return [action not in self.invalid_actions for action in self.possible_actions]
 
 
@@ -99,13 +99,13 @@ class InvalidActionEnvMultiBinary(IdentityEnv[np.ndarray]):
         self.n_dims = dims
         self.n_invalid_actions = n_invalid_actions
         self.possible_actions = np.arange(2 * dims)
-        self.invalid_actions: List[int] = []
+        self.invalid_actions: list[int] = []
         super().__init__(space=space, ep_length=ep_length)
 
     def _choose_next_state(self) -> None:
         self.state = self.action_space.sample()
 
-        converted_state: List[int] = []
+        converted_state: list[int] = []
         running_total = 0
         for i in range(self.n_dims):
             converted_state.append(running_total + self.state[i])
@@ -115,5 +115,5 @@ class InvalidActionEnvMultiBinary(IdentityEnv[np.ndarray]):
         potential_invalid_actions = [i for i in self.possible_actions if i not in converted_state]
         self.invalid_actions = np.random.choice(potential_invalid_actions, self.n_invalid_actions, replace=False).tolist()
 
-    def action_masks(self) -> List[bool]:
+    def action_masks(self) -> list[bool]:
         return [action not in self.invalid_actions for action in self.possible_actions]

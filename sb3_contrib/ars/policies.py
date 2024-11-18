@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Optional
 
 import torch as th
 from gymnasium import spaces
@@ -26,8 +26,8 @@ class ARSPolicy(BasePolicy):
         self,
         observation_space: spaces.Space,
         action_space: spaces.Space,
-        net_arch: Optional[List[int]] = None,
-        activation_fn: Type[nn.Module] = nn.ReLU,
+        net_arch: Optional[list[int]] = None,
+        activation_fn: type[nn.Module] = nn.ReLU,
         with_bias: bool = True,
         squash_output: bool = True,
     ):
@@ -57,7 +57,7 @@ class ARSPolicy(BasePolicy):
 
         self.action_net = nn.Sequential(*actor_net)
 
-    def _get_constructor_parameters(self) -> Dict[str, Any]:
+    def _get_constructor_parameters(self) -> dict[str, Any]:
         # data = super()._get_constructor_parameters() this adds normalize_images, which we don't support...
         data = dict(
             observation_space=self.observation_space,

@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Optional
 
 import torch as th
 from gymnasium import spaces
@@ -36,8 +36,8 @@ class QuantileNetwork(BasePolicy):
         features_extractor: BaseFeaturesExtractor,
         features_dim: int,
         n_quantiles: int = 200,
-        net_arch: Optional[List[int]] = None,
-        activation_fn: Type[nn.Module] = nn.ReLU,
+        net_arch: Optional[list[int]] = None,
+        activation_fn: type[nn.Module] = nn.ReLU,
         normalize_images: bool = True,
     ):
         super().__init__(
@@ -74,7 +74,7 @@ class QuantileNetwork(BasePolicy):
         action = q_values.argmax(dim=1).reshape(-1)
         return action
 
-    def _get_constructor_parameters(self) -> Dict[str, Any]:
+    def _get_constructor_parameters(self) -> dict[str, Any]:
         data = super()._get_constructor_parameters()
 
         data.update(
@@ -119,13 +119,13 @@ class QRDQNPolicy(BasePolicy):
         action_space: spaces.Discrete,
         lr_schedule: Schedule,
         n_quantiles: int = 200,
-        net_arch: Optional[List[int]] = None,
-        activation_fn: Type[nn.Module] = nn.ReLU,
-        features_extractor_class: Type[BaseFeaturesExtractor] = FlattenExtractor,
-        features_extractor_kwargs: Optional[Dict[str, Any]] = None,
+        net_arch: Optional[list[int]] = None,
+        activation_fn: type[nn.Module] = nn.ReLU,
+        features_extractor_class: type[BaseFeaturesExtractor] = FlattenExtractor,
+        features_extractor_kwargs: Optional[dict[str, Any]] = None,
         normalize_images: bool = True,
-        optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
-        optimizer_kwargs: Optional[Dict[str, Any]] = None,
+        optimizer_class: type[th.optim.Optimizer] = th.optim.Adam,
+        optimizer_kwargs: Optional[dict[str, Any]] = None,
     ):
         super().__init__(
             observation_space,
@@ -187,7 +187,7 @@ class QRDQNPolicy(BasePolicy):
     def _predict(self, obs: PyTorchObs, deterministic: bool = True) -> th.Tensor:
         return self.quantile_net._predict(obs, deterministic=deterministic)
 
-    def _get_constructor_parameters(self) -> Dict[str, Any]:
+    def _get_constructor_parameters(self) -> dict[str, Any]:
         data = super()._get_constructor_parameters()
 
         data.update(
@@ -242,13 +242,13 @@ class CnnPolicy(QRDQNPolicy):
         action_space: spaces.Discrete,
         lr_schedule: Schedule,
         n_quantiles: int = 200,
-        net_arch: Optional[List[int]] = None,
-        activation_fn: Type[nn.Module] = nn.ReLU,
-        features_extractor_class: Type[BaseFeaturesExtractor] = NatureCNN,
-        features_extractor_kwargs: Optional[Dict[str, Any]] = None,
+        net_arch: Optional[list[int]] = None,
+        activation_fn: type[nn.Module] = nn.ReLU,
+        features_extractor_class: type[BaseFeaturesExtractor] = NatureCNN,
+        features_extractor_kwargs: Optional[dict[str, Any]] = None,
         normalize_images: bool = True,
-        optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
-        optimizer_kwargs: Optional[Dict[str, Any]] = None,
+        optimizer_class: type[th.optim.Optimizer] = th.optim.Adam,
+        optimizer_kwargs: Optional[dict[str, Any]] = None,
     ):
         super().__init__(
             observation_space,
@@ -290,13 +290,13 @@ class MultiInputPolicy(QRDQNPolicy):
         action_space: spaces.Discrete,
         lr_schedule: Schedule,
         n_quantiles: int = 200,
-        net_arch: Optional[List[int]] = None,
-        activation_fn: Type[nn.Module] = nn.ReLU,
-        features_extractor_class: Type[BaseFeaturesExtractor] = CombinedExtractor,
-        features_extractor_kwargs: Optional[Dict[str, Any]] = None,
+        net_arch: Optional[list[int]] = None,
+        activation_fn: type[nn.Module] = nn.ReLU,
+        features_extractor_class: type[BaseFeaturesExtractor] = CombinedExtractor,
+        features_extractor_kwargs: Optional[dict[str, Any]] = None,
         normalize_images: bool = True,
-        optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
-        optimizer_kwargs: Optional[Dict[str, Any]] = None,
+        optimizer_class: type[th.optim.Optimizer] = th.optim.Adam,
+        optimizer_kwargs: Optional[dict[str, Any]] = None,
     ):
         super().__init__(
             observation_space,

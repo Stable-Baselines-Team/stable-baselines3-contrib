@@ -1,5 +1,3 @@
-from typing import List
-
 import pytest
 from gymnasium import spaces
 from stable_baselines3.common.envs import IdentityEnv
@@ -19,12 +17,12 @@ class IdentityEnvDiscrete(IdentityEnv):
         self.useless_property = 1
         super().__init__(ep_length=ep_length, space=space)
 
-    def _action_masks(self) -> List[int]:
+    def _action_masks(self) -> list[int]:
         assert isinstance(self.action_space, spaces.Discrete)
         return [i == self.state for i in range(self.action_space.n)]
 
 
-def action_mask_fn(env: IdentityEnvDiscrete) -> List[int]:
+def action_mask_fn(env: IdentityEnvDiscrete) -> list[int]:
     assert isinstance(env.action_space, spaces.Discrete)
     return [i == env.state for i in range(env.action_space.n)]
 

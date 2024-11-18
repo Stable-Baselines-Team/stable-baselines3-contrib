@@ -1,6 +1,6 @@
 import multiprocessing as mp
 from collections import defaultdict
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Callable, Optional, Union
 
 import numpy as np
 import torch as th
@@ -103,7 +103,7 @@ class AsyncEval:
 
     def __init__(
         self,
-        envs_fn: List[Callable[[], VecEnv]],
+        envs_fn: list[Callable[[], VecEnv]],
         train_policy: BasePolicy,
         start_method: Optional[str] = None,
         n_eval_episodes: int = 1,
@@ -151,7 +151,7 @@ class AsyncEval:
             remote.send(("eval", jobs_per_worker[remote_idx]))
         self.waiting = True
 
-    def seed(self, seed: Optional[int] = None) -> List[Union[None, int]]:
+    def seed(self, seed: Optional[int] = None) -> list[Union[None, int]]:
         """
         Seed the environments.
 
@@ -166,7 +166,7 @@ class AsyncEval:
             remote.send(("seed", seed + idx))
         return [remote.recv() for remote in self.remotes]
 
-    def set_options(self, options: Optional[Union[List[Dict], Dict]] = None) -> List[Union[None, int]]:
+    def set_options(self, options: Optional[Union[list[dict], dict]] = None) -> list[Union[None, int]]:
         """
         Set environment options for all environments.
         If a dict is passed instead of a list, the same options will be used for all environments.
@@ -179,7 +179,7 @@ class AsyncEval:
             remote.send(("set_options", options))
         return [remote.recv() for remote in self.remotes]
 
-    def get_results(self) -> List[Tuple[int, Tuple[np.ndarray, np.ndarray]]]:
+    def get_results(self) -> list[tuple[int, tuple[np.ndarray, np.ndarray]]]:
         """
         Retreive episode rewards and lengths from each worker
         for all candidates (there might be multiple candidates per worker)
@@ -192,7 +192,7 @@ class AsyncEval:
         self.waiting = False
         return flat_results
 
-    def get_obs_rms(self) -> List[RunningMeanStd]:
+    def get_obs_rms(self) -> list[RunningMeanStd]:
         """
         Retrieve the observation filters (observation running mean std)
         of each process, they will be combined in the main process.

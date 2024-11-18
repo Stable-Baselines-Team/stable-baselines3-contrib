@@ -3,6 +3,31 @@
 Changelog
 ==========
 
+Release 2.5.0a0 (WIP)
+--------------------------
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Upgraded to PyTorch 2.3.0
+- Dropped Python 3.8 support
+
+New Features:
+^^^^^^^^^^^^^
+- Added Python 3.12 support
+- Added Numpy v2.0 support
+
+Bug Fixes:
+^^^^^^^^^^
+
+Deprecations:
+^^^^^^^^^^^^^
+
+Others:
+^^^^^^^
+
+Documentation:
+^^^^^^^^^^^^^^
+
 Release 2.4.0 (2024-11-18)
 --------------------------
 
