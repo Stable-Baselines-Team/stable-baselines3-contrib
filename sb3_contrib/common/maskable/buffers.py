@@ -1,4 +1,5 @@
-from typing import Generator, NamedTuple, Optional, Union
+from collections.abc import Generator
+from typing import NamedTuple, Optional, Union
 
 import numpy as np
 import torch as th

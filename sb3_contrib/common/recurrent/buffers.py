@@ -1,5 +1,6 @@
+from collections.abc import Generator
 from functools import partial
-from typing import Callable, Generator, Optional, Tuple, Union
+from typing import Callable, Optional, Union
 
 import numpy as np
 import torch as th
@@ -64,7 +65,7 @@ def create_sequencers(
     episode_starts: np.ndarray,
     env_change: np.ndarray,
     device: th.device,
-) -> Tuple[np.ndarray, Callable, Callable]:
+) -> tuple[np.ndarray, Callable, Callable]:
     """
     Create the utility function to chunk data into
     sequences and pad them to create fixed size tensors.
@@ -115,7 +116,7 @@ class RecurrentRolloutBuffer(RolloutBuffer):
         buffer_size: int,
         observation_space: spaces.Space,
         action_space: spaces.Space,
-        hidden_state_shape: Tuple[int, int, int, int],
+        hidden_state_shape: tuple[int, int, int, int],
         device: Union[th.device, str] = "auto",
         gae_lambda: float = 1,
         gamma: float = 0.99,
@@ -262,7 +263,7 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
         buffer_size: int,
         observation_space: spaces.Space,
         action_space: spaces.Space,
-        hidden_state_shape: Tuple[int, int, int, int],
+        hidden_state_shape: tuple[int, int, int, int],
         device: Union[th.device, str] = "auto",
         gae_lambda: float = 1,
         gamma: float = 0.99,

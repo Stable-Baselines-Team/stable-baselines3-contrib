@@ -3,7 +3,7 @@ import sys
 import time
 import warnings
 from functools import partial
-from typing import Any, ClassVar, Dict, Optional, Type, TypeVar, Union
+from typing import Any, ClassVar, Optional, TypeVar, Union
 
 import numpy as np
 import torch as th
@@ -50,14 +50,14 @@ class ARS(BaseAlgorithm):
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
 
-    policy_aliases: ClassVar[Dict[str, Type[BasePolicy]]] = {
+    policy_aliases: ClassVar[dict[str, type[BasePolicy]]] = {
         "MlpPolicy": MlpPolicy,
         "LinearPolicy": LinearPolicy,
     }
 
     def __init__(
         self,
-        policy: Union[str, Type[ARSPolicy]],
+        policy: Union[str, type[ARSPolicy]],
         env: Union[GymEnv, str],
         n_delta: int = 8,
         n_top: Optional[int] = None,
@@ -66,7 +66,7 @@ class ARS(BaseAlgorithm):
         zero_policy: bool = True,
         alive_bonus_offset: float = 0,
         n_eval_episodes: int = 1,
-        policy_kwargs: Optional[Dict[str, Any]] = None,
+        policy_kwargs: Optional[dict[str, Any]] = None,
         stats_window_size: int = 100,
         tensorboard_log: Optional[str] = None,
         seed: Optional[int] = None,
@@ -144,8 +144,8 @@ class ARS(BaseAlgorithm):
 
     def _trigger_callback(
         self,
-        _locals: Dict[str, Any],
-        _globals: Dict[str, Any],
+        _locals: dict[str, Any],
+        _globals: dict[str, Any],
         callback: BaseCallback,
         n_envs: int,
     ) -> None:
@@ -353,7 +353,7 @@ class ARS(BaseAlgorithm):
 
     def set_parameters(
         self,
-        load_path_or_dict: Union[str, Dict[str, Dict]],
+        load_path_or_dict: Union[str, dict[str, dict]],
         exact_match: bool = True,
         device: Union[th.device, str] = "auto",
     ) -> None:

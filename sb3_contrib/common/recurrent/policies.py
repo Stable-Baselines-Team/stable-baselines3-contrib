@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import torch as th
@@ -66,25 +66,25 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         observation_space: spaces.Space,
         action_space: spaces.Space,
         lr_schedule: Schedule,
-        net_arch: Optional[Union[List[int], Dict[str, List[int]]]] = None,
-        activation_fn: Type[nn.Module] = nn.Tanh,
+        net_arch: Optional[Union[list[int], dict[str, list[int]]]] = None,
+        activation_fn: type[nn.Module] = nn.Tanh,
         ortho_init: bool = True,
         use_sde: bool = False,
         log_std_init: float = 0.0,
         full_std: bool = True,
         use_expln: bool = False,
         squash_output: bool = False,
-        features_extractor_class: Type[BaseFeaturesExtractor] = FlattenExtractor,
-        features_extractor_kwargs: Optional[Dict[str, Any]] = None,
+        features_extractor_class: type[BaseFeaturesExtractor] = FlattenExtractor,
+        features_extractor_kwargs: Optional[dict[str, Any]] = None,
         share_features_extractor: bool = True,
         normalize_images: bool = True,
-        optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
-        optimizer_kwargs: Optional[Dict[str, Any]] = None,
+        optimizer_class: type[th.optim.Optimizer] = th.optim.Adam,
+        optimizer_kwargs: Optional[dict[str, Any]] = None,
         lstm_hidden_size: int = 256,
         n_lstm_layers: int = 1,
         shared_lstm: bool = False,
         enable_critic_lstm: bool = True,
-        lstm_kwargs: Optional[Dict[str, Any]] = None,
+        lstm_kwargs: Optional[dict[str, Any]] = None,
     ):
         self.lstm_output_dim = lstm_hidden_size
         super().__init__(
@@ -162,10 +162,10 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
     @staticmethod
     def _process_sequence(
         features: th.Tensor,
-        lstm_states: Tuple[th.Tensor, th.Tensor],
+        lstm_states: tuple[th.Tensor, th.Tensor],
         episode_starts: th.Tensor,
         lstm: nn.LSTM,
-    ) -> Tuple[th.Tensor, th.Tensor]:
+    ) -> tuple[th.Tensor, th.Tensor]:
         """
         Do a forward pass in the LSTM network.
 
@@ -216,7 +216,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         lstm_states: RNNStates,
         episode_starts: th.Tensor,
         deterministic: bool = False,
-    ) -> Tuple[th.Tensor, th.Tensor, th.Tensor, RNNStates]:
+    ) -> tuple[th.Tensor, th.Tensor, th.Tensor, RNNStates]:
         """
         Forward pass in all the networks (actor and critic)
 
@@ -259,9 +259,9 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
     def get_distribution(
         self,
         obs: th.Tensor,
-        lstm_states: Tuple[th.Tensor, th.Tensor],
+        lstm_states: tuple[th.Tensor, th.Tensor],
         episode_starts: th.Tensor,
-    ) -> Tuple[Distribution, Tuple[th.Tensor, ...]]:
+    ) -> tuple[Distribution, tuple[th.Tensor, ...]]:
         """
         Get the current policy distribution given the observations.
 
@@ -280,7 +280,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
     def predict_values(
         self,
         obs: th.Tensor,
-        lstm_states: Tuple[th.Tensor, th.Tensor],
+        lstm_states: tuple[th.Tensor, th.Tensor],
         episode_starts: th.Tensor,
     ) -> th.Tensor:
         """
@@ -309,7 +309,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
 
     def evaluate_actions(
         self, obs: th.Tensor, actions: th.Tensor, lstm_states: RNNStates, episode_starts: th.Tensor
-    ) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
+    ) -> tuple[th.Tensor, th.Tensor, th.Tensor]:
         """
         Evaluate actions according to the current policy,
         given the observations.
@@ -347,10 +347,10 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
     def _predict(
         self,
         observation: th.Tensor,
-        lstm_states: Tuple[th.Tensor, th.Tensor],
+        lstm_states: tuple[th.Tensor, th.Tensor],
         episode_starts: th.Tensor,
         deterministic: bool = False,
-    ) -> Tuple[th.Tensor, Tuple[th.Tensor, ...]]:
+    ) -> tuple[th.Tensor, tuple[th.Tensor, ...]]:
         """
         Get the action according to the policy for a given observation.
 
@@ -366,11 +366,11 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
 
     def predict(
         self,
-        observation: Union[np.ndarray, Dict[str, np.ndarray]],
-        state: Optional[Tuple[np.ndarray, ...]] = None,
+        observation: Union[np.ndarray, dict[str, np.ndarray]],
+        state: Optional[tuple[np.ndarray, ...]] = None,
         episode_start: Optional[np.ndarray] = None,
         deterministic: bool = False,
-    ) -> Tuple[np.ndarray, Optional[Tuple[np.ndarray, ...]]]:
+    ) -> tuple[np.ndarray, Optional[tuple[np.ndarray, ...]]]:
         """
         Get the policy action from an observation (and optional hidden state).
         Includes sugar-coating to handle different observations (e.g. normalizing images).
@@ -475,25 +475,25 @@ class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
         observation_space: spaces.Space,
         action_space: spaces.Space,
         lr_schedule: Schedule,
-        net_arch: Optional[Union[List[int], Dict[str, List[int]]]] = None,
-        activation_fn: Type[nn.Module] = nn.Tanh,
+        net_arch: Optional[Union[list[int], dict[str, list[int]]]] = None,
+        activation_fn: type[nn.Module] = nn.Tanh,
         ortho_init: bool = True,
         use_sde: bool = False,
         log_std_init: float = 0.0,
         full_std: bool = True,
         use_expln: bool = False,
         squash_output: bool = False,
-        features_extractor_class: Type[BaseFeaturesExtractor] = NatureCNN,
-        features_extractor_kwargs: Optional[Dict[str, Any]] = None,
+        features_extractor_class: type[BaseFeaturesExtractor] = NatureCNN,
+        features_extractor_kwargs: Optional[dict[str, Any]] = None,
         share_features_extractor: bool = True,
         normalize_images: bool = True,
-        optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
-        optimizer_kwargs: Optional[Dict[str, Any]] = None,
+        optimizer_class: type[th.optim.Optimizer] = th.optim.Adam,
+        optimizer_kwargs: Optional[dict[str, Any]] = None,
         lstm_hidden_size: int = 256,
         n_lstm_layers: int = 1,
         shared_lstm: bool = False,
         enable_critic_lstm: bool = True,
-        lstm_kwargs: Optional[Dict[str, Any]] = None,
+        lstm_kwargs: Optional[dict[str, Any]] = None,
     ):
         super().__init__(
             observation_space,
@@ -565,25 +565,25 @@ class RecurrentMultiInputActorCriticPolicy(RecurrentActorCriticPolicy):
         observation_space: spaces.Space,
         action_space: spaces.Space,
         lr_schedule: Schedule,
-        net_arch: Optional[Union[List[int], Dict[str, List[int]]]] = None,
-        activation_fn: Type[nn.Module] = nn.Tanh,
+        net_arch: Optional[Union[list[int], dict[str, list[int]]]] = None,
+        activation_fn: type[nn.Module] = nn.Tanh,
         ortho_init: bool = True,
         use_sde: bool = False,
         log_std_init: float = 0.0,
         full_std: bool = True,
         use_expln: bool = False,
         squash_output: bool = False,
-        features_extractor_class: Type[BaseFeaturesExtractor] = CombinedExtractor,
-        features_extractor_kwargs: Optional[Dict[str, Any]] = None,
+        features_extractor_class: type[BaseFeaturesExtractor] = CombinedExtractor,
+        features_extractor_kwargs: Optional[dict[str, Any]] = None,
         share_features_extractor: bool = True,
         normalize_images: bool = True,
-        optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
-        optimizer_kwargs: Optional[Dict[str, Any]] = None,
+        optimizer_class: type[th.optim.Optimizer] = th.optim.Adam,
+        optimizer_kwargs: Optional[dict[str, Any]] = None,
         lstm_hidden_size: int = 256,
         n_lstm_layers: int = 1,
         shared_lstm: bool = False,
         enable_critic_lstm: bool = True,
-        lstm_kwargs: Optional[Dict[str, Any]] = None,
+        lstm_kwargs: Optional[dict[str, Any]] = None,
     ):
         super().__init__(
             observation_space,

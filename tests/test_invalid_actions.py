@@ -1,5 +1,4 @@
 import random
-from typing import Dict, Tuple
 
 import gymnasium as gym
 import numpy as np
@@ -32,7 +31,7 @@ class ToDictWrapper(gym.Wrapper):
         super().__init__(env)
         self.observation_space = spaces.Dict({"obs": self.env.observation_space})
 
-    def reset(self, **kwargs) -> Tuple[Dict[str, np.ndarray], Dict]:
+    def reset(self, **kwargs) -> tuple[dict[str, np.ndarray], dict]:
         return {"obs": self.env.reset(seed=kwargs.get("seed", 0))[0]}, {}  # type: ignore[dict-item]
 
     def step(self, action):

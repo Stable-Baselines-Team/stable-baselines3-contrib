@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import Any, ClassVar, Dict, List, Optional, Type, TypeVar, Union
+from typing import Any, ClassVar, Optional, TypeVar, Union
 
 import numpy as np
 import torch as th
@@ -65,7 +65,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
 
-    policy_aliases: ClassVar[Dict[str, Type[BasePolicy]]] = {
+    policy_aliases: ClassVar[dict[str, type[BasePolicy]]] = {
         "MlpLstmPolicy": MlpLstmPolicy,
         "CnnLstmPolicy": CnnLstmPolicy,
         "MultiInputLstmPolicy": MultiInputLstmPolicy,
@@ -73,7 +73,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
 
     def __init__(
         self,
-        policy: Union[str, Type[RecurrentActorCriticPolicy]],
+        policy: Union[str, type[RecurrentActorCriticPolicy]],
         env: Union[GymEnv, str],
         learning_rate: Union[float, Schedule] = 3e-4,
         n_steps: int = 128,
@@ -92,7 +92,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
         target_kl: Optional[float] = None,
         stats_window_size: int = 100,
         tensorboard_log: Optional[str] = None,
-        policy_kwargs: Optional[Dict[str, Any]] = None,
+        policy_kwargs: Optional[dict[str, Any]] = None,
         verbose: int = 0,
         seed: Optional[int] = None,
         device: Union[th.device, str] = "auto",
@@ -456,5 +456,5 @@ class RecurrentPPO(OnPolicyAlgorithm):
             progress_bar=progress_bar,
         )
 
-    def _excluded_save_params(self) -> List[str]:
+    def _excluded_save_params(self) -> list[str]:
         return super()._excluded_save_params() + ["_last_lstm_states"]  # noqa: RUF005
