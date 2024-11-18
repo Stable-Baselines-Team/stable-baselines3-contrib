@@ -3,10 +3,10 @@
 Changelog
 ==========
 
-Release 2.4.0a11 (WIP)
+Release 2.4.0 (2024-11-18)
 --------------------------
 
-**New algorithm: added CrossQ**
+**New algorithm: added CrossQ, Gymnasium v1.0 support**
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
