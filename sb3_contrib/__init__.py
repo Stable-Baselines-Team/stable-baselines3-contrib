@@ -4,6 +4,7 @@ from sb3_contrib.ars import ARS
 from sb3_contrib.crossq import CrossQ
 from sb3_contrib.ppo_mask import MaskablePPO
 from sb3_contrib.ppo_recurrent import RecurrentPPO
+from sb3_contrib.ppo_attention import AttentionPPO
 from sb3_contrib.qrdqn import QRDQN
 from sb3_contrib.tqc import TQC
 from sb3_contrib.trpo import TRPO
@@ -18,6 +19,7 @@ __all__ = [
     "CrossQ",
     "MaskablePPO",
     "RecurrentPPO",
+    "AttentionPPO",
     "QRDQN",
     "TQC",
     "TRPO",
