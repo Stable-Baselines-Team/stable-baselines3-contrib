@@ -14,6 +14,7 @@ Breaking Changes:
 New Features:
 ^^^^^^^^^^^^^
 - Added Python 3.12 support
+- Added Numpy v2.0 support
 
 Bug Fixes:
 ^^^^^^^^^^
