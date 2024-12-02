@@ -1,6 +1,6 @@
 import torch
 
-__all__ = ["BatchRenorm1d", "BatchRenorm"]
+__all__ = ["BatchRenorm", "BatchRenorm1d"]
 
 
 class BatchRenorm(torch.nn.Module):
