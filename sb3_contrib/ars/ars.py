@@ -40,7 +40,7 @@ class ARS(BaseAlgorithm):
     :param zero_policy: Boolean determining if the passed policy should have it's weights zeroed before training.
     :param alive_bonus_offset: Constant added to the reward at each step, used to cancel out alive bonuses.
     :param n_eval_episodes: Number of episodes to evaluate each candidate.
-    :param policy_kwargs: Keyword arguments to pass to the policy on creation
+    :param policy_kwargs: Keyword arguments to pass to the policy on creation. See :ref:`ars_policies`
     :param stats_window_size: Window size for the rollout logging, specifying the number of episodes to average
         the reported success rate, mean episode length, and mean reward over
     :param tensorboard_log: String with the directory to put tensorboard logs:
