@@ -245,6 +245,7 @@ Parameters
   :members:
   :inherited-members:
 
+.. _ppo_mask_policies:
 
 MaskablePPO Policies
 --------------------

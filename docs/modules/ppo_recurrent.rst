@@ -125,6 +125,7 @@ Parameters
   :members:
   :inherited-members:
 
+.. _ppo_recurrent_policies:
 
 RecurrentPPO Policies
 ---------------------
