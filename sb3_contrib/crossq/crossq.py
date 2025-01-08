@@ -10,7 +10,7 @@ from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
 from torch.nn import functional as F
 
-from sb3_contrib.crossq.policies import Actor, CrossQCritic, CrossQPolicy, MlpPolicy
+from sb3_contrib.crossq.policies import Actor, CrossQCritic, CrossQPolicy, MlpPolicy, MultiInputPolicy
 
 SelfCrossQ = TypeVar("SelfCrossQ", bound="CrossQ")
 
@@ -67,6 +67,7 @@ class CrossQ(OffPolicyAlgorithm):
 
     policy_aliases: ClassVar[dict[str, type[BasePolicy]]] = {
         "MlpPolicy": MlpPolicy,
+        "MultiInputPolicy": MultiInputPolicy,
         # TODO: Implement CnnPolicy and MultiInputPolicy
     }
     policy: CrossQPolicy
@@ -235,7 +236,14 @@ class CrossQ(OffPolicyAlgorithm):
             #
             # 2. From a computational perspective a single forward pass is simply more efficient than
             #    two sequential forward passes.
-            all_obs = th.cat([replay_data.observations, replay_data.next_observations], dim=0)
+
+            if isinstance(replay_data.observations, dict):
+                all_obs = {
+                    key: th.cat([replay_data.observations[key], replay_data.next_observations[key]], dim=0)
+                    for key in replay_data.observations.keys()
+                }
+            else:
+                all_obs = th.cat([replay_data.observations, replay_data.next_observations], dim=0)
             all_actions = th.cat([replay_data.actions, next_actions], dim=0)
             # Update critic BN stats
             self.critic.set_bn_training_mode(True)
@@ -331,3 +339,4 @@ class CrossQ(OffPolicyAlgorithm):
         else:
             saved_pytorch_variables = ["ent_coef_tensor"]
         return state_dicts, saved_pytorch_variables
+
