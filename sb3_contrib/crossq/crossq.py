@@ -68,7 +68,7 @@ class CrossQ(OffPolicyAlgorithm):
     policy_aliases: ClassVar[dict[str, type[BasePolicy]]] = {
         "MlpPolicy": MlpPolicy,
         "MultiInputPolicy": MultiInputPolicy,
-        # TODO: Implement CnnPolicy and MultiInputPolicy
+        # TODO: Implement CnnPolicy
     }
     policy: CrossQPolicy
     actor: Actor
