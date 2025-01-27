@@ -84,7 +84,7 @@ class MaskableEvalCallback(EvalCallback):
                     timesteps=self.evaluations_timesteps,
                     results=self.evaluations_results,
                     ep_lengths=self.evaluations_length,
-                    **kwargs,
+                    **kwargs,  # type: ignore[arg-type]
                 )
 
             mean_reward, std_reward = np.mean(episode_rewards), np.std(episode_rewards)
