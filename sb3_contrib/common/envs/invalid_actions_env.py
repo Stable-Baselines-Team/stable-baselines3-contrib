@@ -22,7 +22,7 @@ class InvalidActionEnvDiscrete(IdentityEnv[int]):
 
         space = spaces.Discrete(dim)
         self.n_invalid_actions = n_invalid_actions
-        self.possible_actions = np.arange(space.n)
+        self.possible_actions = np.arange(space.n, dtype=int)
         self.invalid_actions: list[int] = []
         super().__init__(space=space, ep_length=ep_length)
 
@@ -30,7 +30,9 @@ class InvalidActionEnvDiscrete(IdentityEnv[int]):
         self.state = self.action_space.sample()
         # Randomly choose invalid actions that are not the current state
         potential_invalid_actions = [i for i in self.possible_actions if i != self.state]
-        self.invalid_actions = np.random.choice(potential_invalid_actions, self.n_invalid_actions, replace=False).tolist()
+        self.invalid_actions = np.random.choice(  # type: ignore[assignment]
+            potential_invalid_actions, self.n_invalid_actions, replace=False
+        ).tolist()
 
     def action_masks(self) -> list[bool]:
         return [action not in self.invalid_actions for action in self.possible_actions]
@@ -72,7 +74,9 @@ class InvalidActionEnvMultiDiscrete(IdentityEnv[np.ndarray]):
 
         # Randomly choose invalid actions that are not the current state
         potential_invalid_actions = [i for i in self.possible_actions if i not in converted_state]
-        self.invalid_actions = np.random.choice(potential_invalid_actions, self.n_invalid_actions, replace=False).tolist()
+        self.invalid_actions = np.random.choice(  # type: ignore[assignment]
+            potential_invalid_actions, self.n_invalid_actions, replace=False
+        ).tolist()
 
     def action_masks(self) -> list[bool]:
         return [action not in self.invalid_actions for action in self.possible_actions]
@@ -113,7 +117,9 @@ class InvalidActionEnvMultiBinary(IdentityEnv[np.ndarray]):
 
         # Randomly choose invalid actions that are not the current state
         potential_invalid_actions = [i for i in self.possible_actions if i not in converted_state]
-        self.invalid_actions = np.random.choice(potential_invalid_actions, self.n_invalid_actions, replace=False).tolist()
+        self.invalid_actions = np.random.choice(  # type: ignore[assignment]
+            potential_invalid_actions, self.n_invalid_actions, replace=False
+        ).tolist()
 
     def action_masks(self) -> list[bool]:
         return [action not in self.invalid_actions for action in self.possible_actions]
