@@ -3,13 +3,14 @@
 Changelog
 ==========
 
-Release 2.5.0a0 (WIP)
+Release 2.5.0 (2025-01-27)
 --------------------------
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
 - Upgraded to PyTorch 2.3.0
 - Dropped Python 3.8 support
+- Upgraded to Stable-Baselines3 >= 2.5.0
 
 New Features:
 ^^^^^^^^^^^^^
