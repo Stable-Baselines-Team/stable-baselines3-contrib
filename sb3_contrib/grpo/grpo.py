@@ -9,6 +9,7 @@ from stable_baselines3.common.policies import (ActorCriticCnnPolicy,
                                                MultiInputActorCriticPolicy)
 from stable_baselines3.common.type_aliases import (GymEnv, MaybeCallback,
                                                    RolloutReturn, Schedule)
+from stable_baselines3.common.utils import get_schedule_fn
 from stable_baselines3.ppo.ppo import PPO
 
 SelfGRPO = TypeVar("SelfGRPO", bound="GRPO")
@@ -16,38 +17,38 @@ SelfGRPO = TypeVar("SelfGRPO", bound="GRPO")
 
 class GRPO(PPO):
     """
-    Generalized Policy Reward Optimization (GPRO) implementation,
-    extending PPO with sub-sampling per step and a customizable
-    reward scaling function.
+    A custom implementation of PPO (Proximal Policy Optimization) that integrates
+    GRPO-like sampling and reward scaling.
 
     :param policy: The policy model to use (MlpPolicy, CnnPolicy, ...)
-    :param env: The environment to learn from
-    :param learning_rate: The learning rate (constant or schedule function)
-    :param n_steps: The number of "macro" steps per update
-    :param batch_size: Minibatch size for training
-    :param n_epochs: Number of training epochs per update
-    :param gamma: Discount factor for future rewards
-    :param gae_lambda: Generalized Advantage Estimator parameter
-    :param clip_range: Clipping range for policy updates
-    :param clip_range_vf: Clipping range for value function updates
-    :param normalize_advantage: Whether to normalize advantages
-    :param ent_coef: Entropy coefficient (exploration regularization)
-    :param vf_coef: Value function loss coefficient
-    :param max_grad_norm: Max gradient norm for clipping
-    :param use_sde: Whether to use generalized State-Dependent Exploration
-    :param sde_sample_freq: Frequency of sampling new noise matrix for gSDE
-    :param rollout_buffer_class: Rollout buffer class (default: RolloutBuffer)
-    :param rollout_buffer_kwargs: Additional arguments for the rollout buffer
-    :param target_kl: Maximum KL divergence threshold (None to disable)
-    :param stats_window_size: Window size for logging statistics
-    :param tensorboard_log: TensorBoard log directory (None to disable logging)
-    :param policy_kwargs: Additional arguments for policy instantiation
-    :param verbose: Verbosity level (0: no output, 1: info, 2: debug)
-    :param seed: Random seed for reproducibility
-    :param device: Device for computation ('cpu', 'cuda', or 'auto')
-    :param _init_setup_model: Whether to build the network on instantiation
-    :param samples_per_time_step: Number of sub-samples per macro step
-    :param reward_scaling_fn: Custom reward scaling function (default is tanh)
+    :param env: The environment to learn from (if registered in Gym, can be str)
+    :param learning_rate: The learning rate, it can be a function of the current progress remaining (from 1 to 0)
+    :param n_steps: The number of "macro" steps to run for each environment per update
+    :param batch_size: Minibatch size
+    :param n_epochs: Number of epochs when optimizing the surrogate loss
+    :param gamma: Discount factor
+    :param gae_lambda: Factor for trade-off of bias vs variance for Generalized Advantage Estimator
+    :param clip_range: Clipping parameter, it can be a function of the current progress remaining (from 1 to 0)
+    :param clip_range_vf: Clipping parameter for the value function, can be a function or constant
+    :param normalize_advantage: Whether to normalize the advantage
+    :param ent_coef: Entropy coefficient for the loss calculation
+    :param vf_coef: Value function coefficient for the loss calculation
+    :param max_grad_norm: The maximum value for the gradient clipping
+    :param use_sde: Whether to use generalized State Dependent Exploration (gSDE) instead of action noise exploration
+    :param sde_sample_freq: Frequency of sampling new noise matrix when using gSDE
+    :param rollout_buffer_class: Rollout buffer class to use. If ``None``, it will be automatically selected.
+    :param rollout_buffer_kwargs: Keyword arguments to pass to the rollout buffer on creation
+    :param target_kl: Limit the KL divergence between updates
+    :param stats_window_size: Window size for rollout logging
+    :param tensorboard_log: The log location for TensorBoard (if None, no logging)
+    :param policy_kwargs: Additional arguments to be passed to the policy on creation
+    :param verbose: Verbosity level (0 for no output, 1 for info messages, 2 for debug messages)
+    :param seed: Seed for the pseudo-random generators
+    :param device: Device to run on ('cpu', 'cuda', or 'auto')
+    :param _init_setup_model: Whether to build the network at the creation of the instance
+    :param samples_per_time_step: Number of sub-steps (samples) per macro step
+    :param reward_scaling_fn: A callable that accepts a NumPy array of rewards and
+        returns a NumPy array of scaled rewards. If ``None``, the default scaling is used.
     """
 
     policy_aliases: ClassVar[Dict[str, Type[BasePolicy]]] = {
@@ -67,7 +68,7 @@ class GRPO(PPO):
         gamma: float = 0.99,
         gae_lambda: float = 0.95,
         clip_range: Union[float, Schedule] = 0.2,
-        clip_range_vf: Optional[Union[float, Schedule]] = None,
+        clip_range_vf: Union[None, float, Schedule] = None,
         normalize_advantage: bool = True,
         ent_coef: float = 0.0,
         vf_coef: float = 0.5,
@@ -110,7 +111,7 @@ class GRPO(PPO):
             use_sde=use_sde,
             sde_sample_freq=sde_sample_freq,
             rollout_buffer_class=rollout_buffer_class,
-            rollout_buffer_kwargs=rollout_buffer_kwargs,
+            rollout_buffer_kwargs={},  # Pass an empty dict to avoid conflicts
             target_kl=target_kl,
             stats_window_size=stats_window_size,
             tensorboard_log=tensorboard_log,
@@ -122,10 +123,53 @@ class GRPO(PPO):
         )
 
         self.samples_per_time_step = samples_per_time_step
-        self.reward_scaling_fn = reward_scaling_fn or self._grpo_scale_rewards
+        self.my_rollout_buffer_kwargs = rollout_buffer_kwargs
+
+        # If no scaling function is provided, use the default
+        if reward_scaling_fn is None:
+            self.reward_scaling_fn = self._default_reward_scaling_fn
+        else:
+            self.reward_scaling_fn = reward_scaling_fn
 
         if _init_setup_model:
             self._setup_model()
+
+    def _setup_model(self) -> None:
+        """
+        Initializes the model components, including:
+        - Learning rate schedule
+        - Random seed configuration
+        - Policy instantiation
+        - Clipping range schedule setup
+        - Rollout buffer creation
+
+        This method ensures that all essential model elements are properly configured
+        before training begins.
+        """
+        self._setup_lr_schedule()
+        self.set_random_seed(self.seed)
+        self.policy = self.policy_class(
+            self.observation_space, self.action_space, self.lr_schedule, use_sde=self.use_sde, **self.policy_kwargs
+        ).to(self.device)
+
+        # Initialize schedules for clipping ranges
+        self.clip_range = get_schedule_fn(self.clip_range)
+        if self.clip_range_vf is not None:
+            self.clip_range_vf = get_schedule_fn(self.clip_range_vf)
+
+        # Create a rollout buffer with a size accounting for samples per step
+        n_envs = self.env.num_envs
+        buffer_size = self.n_steps * self.samples_per_time_step * n_envs
+        self.rollout_buffer = self.rollout_buffer_class(
+            buffer_size,
+            self.observation_space,
+            self.action_space,
+            device=self.device,
+            gae_lambda=self.gae_lambda,
+            gamma=self.gamma,
+            n_envs=n_envs,
+            **self.my_rollout_buffer_kwargs,
+        )
 
     def collect_rollouts(
         self,
@@ -135,17 +179,14 @@ class GRPO(PPO):
         n_rollout_steps: int,
     ) -> RolloutReturn:
         """
-        Collect experiences over `n_rollout_steps`,
-        performing multiple sub-samples per state.
+        Collect experiences for `n_rollout_steps`, applying multiple policy samples
+        per state before executing an action.
 
-        Each environment step is sampled `self.samples_per_time_step`
-        times before advancing.
-
-        :param env: The training environment
-        :param callback: Callback function for logging and stopping conditions
-        :param rollout_buffer: Buffer to store collected rollouts
-        :param n_rollout_steps: Number of macro steps to collect
-        :return: Rollout return object containing rewards and episode states
+        :param env: The environment instance.
+        :param callback: Callback function for logging and monitoring.
+        :param rollout_buffer: Buffer for storing experience rollouts.
+        :param n_rollout_steps: Number of macro steps to collect per iteration.
+        :return: Rollout return object containing processed rewards and episode states.
         """
         self.policy.set_training_mode(False)
         obs = self._last_obs
@@ -154,9 +195,11 @@ class GRPO(PPO):
         for step in range(n_rollout_steps):
             self.num_timesteps += env.num_envs
 
-            obs_tensor = th.as_tensor(obs, device=self.device, dtype=th.float32)
-            sub_actions, sub_values, sub_log_probs = [], [], []
+            sub_actions = []
+            sub_values = []
+            sub_log_probs = []
 
+            obs_tensor = th.as_tensor(obs, device=self.device, dtype=th.float32)
             for _ in range(self.samples_per_time_step):
                 with th.no_grad():
                     actions, values, log_probs = self.policy.forward(obs_tensor)
@@ -171,19 +214,38 @@ class GRPO(PPO):
             repeated_rewards = np.tile(rewards, (self.samples_per_time_step, 1))
 
             for i in range(self.samples_per_time_step):
-                rollout_buffer.add(obs, sub_actions[i], repeated_rewards[i], dones, sub_values[i], sub_log_probs[i])
+                rollout_buffer.add(
+                    obs,
+                    sub_actions[i],
+                    repeated_rewards[i],
+                    dones,
+                    sub_values[i],
+                    sub_log_probs[i],
+                )
 
             obs = new_obs
 
             if callback.on_step() is False:
                 break
 
-        rollout_buffer.rewards[:] = self.reward_scaling_fn(rollout_buffer.rewards)
+        scaled_rewards = self.reward_scaling_fn(rollout_buffer.rewards)
+        rollout_buffer.rewards[:] = scaled_rewards
+
+        obs_tensor = th.as_tensor(obs, device=self.device, dtype=th.float32)
+        with th.no_grad():
+            _, last_values, _ = self.policy.forward(obs_tensor)
+
+        rollout_buffer.compute_returns_and_advantage(last_values.flatten(), dones)
+        self._last_obs = obs
 
         return RolloutReturn(rollout_buffer.rewards, rollout_buffer.episode_starts, np.array([False]))
 
-    def _grpo_scale_rewards(self, rewards: np.ndarray) -> np.ndarray:
-        """Normalize rewards using tanh-based scaling."""
+    def _default_reward_scaling_fn(self, rewards: np.ndarray) -> np.ndarray:
+        """
+        The default reward-scaling method. This is used if no custom function is passed at init.
+        Scales rewards by standardizing them, then squashing via tanh.
+        """
         r_mean = rewards.mean()
         r_std = rewards.std() + 1e-8
-        return np.tanh((rewards - r_mean) / r_std)
+        scaled_rewards = np.tanh((rewards - r_mean) / r_std)
+        return scaled_rewards
