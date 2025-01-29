@@ -1,21 +1,14 @@
-import warnings
-from typing import Any, ClassVar, Dict, Optional, Type, TypeVar, Union, Callable
+from typing import (Any, Callable, ClassVar, Dict, Optional, Type, TypeVar,
+                    Union)
 
 import numpy as np
 import torch as th
-from gymnasium import spaces
-
 from stable_baselines3.common.buffers import RolloutBuffer
-from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
-from stable_baselines3.common.type_aliases import RolloutReturn
-from stable_baselines3.common.policies import (
-    ActorCriticCnnPolicy,
-    ActorCriticPolicy,
-    BasePolicy,
-    MultiInputActorCriticPolicy,
-)
-from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
-from stable_baselines3.common.utils import explained_variance, get_schedule_fn
+from stable_baselines3.common.policies import (ActorCriticCnnPolicy,
+                                               ActorCriticPolicy, BasePolicy,
+                                               MultiInputActorCriticPolicy)
+from stable_baselines3.common.type_aliases import (GymEnv, MaybeCallback,
+                                                   RolloutReturn, Schedule)
 from stable_baselines3.ppo.ppo import PPO
 
 SelfGRPO = TypeVar("SelfGRPO", bound="GRPO")
@@ -24,11 +17,11 @@ SelfGRPO = TypeVar("SelfGRPO", bound="GRPO")
 class GRPO(PPO):
     """
     Generalized Policy Reward Optimization (GPRO) implementation,
-    extending Proximal Policy Optimization (PPO) with sub-sampling
-    per time step and a customizable reward scaling function.
+    extending PPO with sub-sampling per step and a customizable
+    reward scaling function.
 
     :param policy: The policy model to use (MlpPolicy, CnnPolicy, ...)
-    :param env: The environment to learn from (if registered in Gym, can be str)
+    :param env: The environment to learn from
     :param learning_rate: The learning rate (constant or schedule function)
     :param n_steps: The number of "macro" steps per update
     :param batch_size: Minibatch size for training
@@ -41,7 +34,7 @@ class GRPO(PPO):
     :param ent_coef: Entropy coefficient (exploration regularization)
     :param vf_coef: Value function loss coefficient
     :param max_grad_norm: Max gradient norm for clipping
-    :param use_sde: Whether to use generalized State-Dependent Exploration (gSDE)
+    :param use_sde: Whether to use generalized State-Dependent Exploration
     :param sde_sample_freq: Frequency of sampling new noise matrix for gSDE
     :param rollout_buffer_class: Rollout buffer class (default: RolloutBuffer)
     :param rollout_buffer_kwargs: Additional arguments for the rollout buffer
@@ -54,7 +47,7 @@ class GRPO(PPO):
     :param device: Device for computation ('cpu', 'cuda', or 'auto')
     :param _init_setup_model: Whether to build the network on instantiation
     :param samples_per_time_step: Number of sub-samples per macro step
-    :param reward_scaling_fn: Custom reward scaling function (defaults to tanh normalization)
+    :param reward_scaling_fn: Custom reward scaling function (default is tanh)
     """
 
     policy_aliases: ClassVar[Dict[str, Type[BasePolicy]]] = {
@@ -142,9 +135,11 @@ class GRPO(PPO):
         n_rollout_steps: int,
     ) -> RolloutReturn:
         """
-        Collect experiences over `n_rollout_steps`, performing multiple sub-samples per state.
+        Collect experiences over `n_rollout_steps`,
+        performing multiple sub-samples per state.
 
-        Each environment step is sampled `self.samples_per_time_step` times before advancing.
+        Each environment step is sampled `self.samples_per_time_step`
+        times before advancing.
 
         :param env: The training environment
         :param callback: Callback function for logging and stopping conditions
@@ -162,7 +157,6 @@ class GRPO(PPO):
             obs_tensor = th.as_tensor(obs, device=self.device, dtype=th.float32)
             sub_actions, sub_values, sub_log_probs = [], [], []
 
-            # Sample multiple actions per step
             for _ in range(self.samples_per_time_step):
                 with th.no_grad():
                     actions, values, log_probs = self.policy.forward(obs_tensor)
@@ -176,7 +170,6 @@ class GRPO(PPO):
 
             repeated_rewards = np.tile(rewards, (self.samples_per_time_step, 1))
 
-            # Store sub-sampled data
             for i in range(self.samples_per_time_step):
                 rollout_buffer.add(obs, sub_actions[i], repeated_rewards[i], dones, sub_values[i], sub_log_probs[i])
 

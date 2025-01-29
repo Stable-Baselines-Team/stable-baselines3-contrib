@@ -2,7 +2,7 @@ import pytest
 import gymnasium as gym
 import numpy as np
 from sb3_contrib.grpo import GRPO
-from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3.common.vec_env import DummyVecEnv # THIS TEST FOLDER NEEDS TO BE EDITED ACCORDING TO DOCUMENTATION
 
 def custom_reward_scaling(rewards: np.ndarray) -> np.ndarray:
     """
