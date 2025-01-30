@@ -47,6 +47,7 @@ class GRPO(PPO):
     :param device: Device to run on ('cpu', 'cuda', or 'auto')
     :param _init_setup_model: Whether to build the network at the creation of the instance
     :param samples_per_time_step: Number of sub-steps (samples) per macro step
+    :param reward_function: The reward function that is required to recompute sampled rewards (env.reward_func)
     :param reward_scaling_fn: A callable that accepts a NumPy array of rewards and
         returns a NumPy array of scaled rewards. If ``None``, the default scaling is used.
     """
@@ -86,6 +87,7 @@ class GRPO(PPO):
         device: Union[th.device, str] = "auto",
         _init_setup_model: bool = True,
         samples_per_time_step: int = 5,
+        reward_function: Optional[Callable[[np.ndarray, np.ndarray], float]] = None,
         reward_scaling_fn: Optional[Callable[[np.ndarray], np.ndarray]] = None,
     ):
         if rollout_buffer_kwargs is None:
@@ -123,6 +125,7 @@ class GRPO(PPO):
         )
 
         self.samples_per_time_step = samples_per_time_step
+        self.reward_function = reward_function 
         self.my_rollout_buffer_kwargs = rollout_buffer_kwargs
 
         # If no scaling function is provided, use the default
@@ -198,8 +201,10 @@ class GRPO(PPO):
             sub_actions = []
             sub_values = []
             sub_log_probs = []
+            sampled_rewards = []  
 
             obs_tensor = th.as_tensor(obs, device=self.device, dtype=th.float32)
+
             for _ in range(self.samples_per_time_step):
                 with th.no_grad():
                     actions, values, log_probs = self.policy.forward(obs_tensor)
@@ -208,16 +213,25 @@ class GRPO(PPO):
                 sub_values.append(values)
                 sub_log_probs.append(log_probs)
 
-            final_action = sub_actions[-1]
+            final_action = sub_actions[-1]  # The last sampled action is used for stepping
             new_obs, rewards, dones, infos = env.step(final_action)
 
-            repeated_rewards = np.tile(rewards, (self.samples_per_time_step, 1))
+            for i in range(self.samples_per_time_step):
+                if self.reward_function is not None:
+                    new_reward = self.reward_function(obs, sub_actions[i])
+                else:
+                    raise TypeError("Your reward function must be passed for recomputing rewards ")
+                
+                sampled_rewards.append(new_reward)
 
+            sampled_rewards = np.array(sampled_rewards)
+
+            # Store the recomputed rewards and actions in the rollout buffer
             for i in range(self.samples_per_time_step):
                 rollout_buffer.add(
                     obs,
                     sub_actions[i],
-                    repeated_rewards[i],
+                    sampled_rewards[i],
                     dones,
                     sub_values[i],
                     sub_log_probs[i],
@@ -228,6 +242,7 @@ class GRPO(PPO):
             if callback.on_step() is False:
                 break
 
+        # Scale rewards before returning
         scaled_rewards = self.reward_scaling_fn(rollout_buffer.rewards)
         rollout_buffer.rewards[:] = scaled_rewards
 
