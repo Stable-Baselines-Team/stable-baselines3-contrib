@@ -3,6 +3,29 @@
 Changelog
 ==========
 
+
+Release 2.6.0a0 (WIP)
+--------------------------
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Upgraded to Stable-Baselines3 >= 2.6.0
+
+New Features:
+^^^^^^^^^^^^^
+
+Bug Fixes:
+^^^^^^^^^^
+
+Deprecations:
+^^^^^^^^^^^^^
+
+Others:
+^^^^^^^
+
+Documentation:
+^^^^^^^^^^^^^^
+
 Release 2.5.0 (2025-01-27)
 --------------------------
 
@@ -16,18 +39,6 @@ New Features:
 ^^^^^^^^^^^^^
 - Added Python 3.12 support
 - Added Numpy v2.0 support
-
-Bug Fixes:
-^^^^^^^^^^
-
-Deprecations:
-^^^^^^^^^^^^^
-
-Others:
-^^^^^^^
-
-Documentation:
-^^^^^^^^^^^^^^
 
 Release 2.4.0 (2024-11-18)
 --------------------------
@@ -51,17 +62,11 @@ Bug Fixes:
 - Fixed a warning with PyTorch 2.4 when loading a `RecurrentPPO` model (You are using torch.load with weights_only=False)
 - Fixed loading QRDQN changes `target_update_interval` (@jak3122)
 
-Deprecations:
-^^^^^^^^^^^^^
-
 Others:
 ^^^^^^^
 - Updated PyTorch version on CI to 2.3.1
 - Remove unnecessary SDE noise resampling in PPO/TRPO update
 - Switched to uv to download packages on GitHub CI
-
-Documentation:
-^^^^^^^^^^^^^^
 
 
 Release 2.3.0 (2024-03-31)
@@ -87,13 +92,6 @@ New Features:
 ^^^^^^^^^^^^^
 - Added ``rollout_buffer_class`` and ``rollout_buffer_kwargs`` arguments to MaskablePPO
 - Log success rate ``rollout/success_rate`` when available for on policy algorithms
-
-
-Bug Fixes:
-^^^^^^^^^^
-
-Deprecations:
-^^^^^^^^^^^^^
 
 Others:
 ^^^^^^^
@@ -121,19 +119,10 @@ New Features:
 - Added ``set_options`` for ``AsyncEval``
 - Added ``rollout_buffer_class`` and ``rollout_buffer_kwargs`` arguments to TRPO
 
-Bug Fixes:
-^^^^^^^^^^
-
-Deprecations:
-^^^^^^^^^^^^^
-
 Others:
 ^^^^^^^
 - Fixed ``ActorCriticPolicy.extract_features()`` signature by adding an optional ``features_extractor`` argument
 - Update dependencies (accept newer Shimmy/Sphinx version and remove ``sphinx_autodoc_typehints``)
-
-Documentation:
-^^^^^^^^^^^^^^
 
 
 Release 2.1.0 (2023-08-17)
@@ -153,14 +142,6 @@ Bug Fixes:
 ^^^^^^^^^^
 - Fixed MaskablePPO ignoring ``stats_window_size`` argument
 
-Deprecations:
-^^^^^^^^^^^^^
-
-Others:
-^^^^^^^
-
-Documentation:
-^^^^^^^^^^^^^^
 
 
 Release 2.0.0 (2023-06-22)
@@ -179,15 +160,11 @@ Breaking Changes:
 - Switched to Gymnasium as primary backend, Gym 0.21 and 0.26 are still supported via the ``shimmy`` package (@carlosluis, @arjun-kg, @tlpss)
 - Upgraded to Stable-Baselines3 >= 2.0.0
 
-New Features:
-^^^^^^^^^^^^^
 
 Bug Fixes:
 ^^^^^^^^^^
 - Fixed QRDQN update interval for multi envs
 
-Deprecations:
-^^^^^^^^^^^^^
 
 Others:
 ^^^^^^^
@@ -220,11 +197,6 @@ New Features:
 ^^^^^^^^^^^^^
 - Added ``stats_window_size`` argument to control smoothing in rollout logging (@jonasreiher)
 
-Bug Fixes:
-^^^^^^^^^^
-
-Deprecations:
-^^^^^^^^^^^^^
 
 Others:
 ^^^^^^^
@@ -299,9 +271,6 @@ Breaking Changes:
 New Features:
 ^^^^^^^^^^^^^
 - Added ``progress_bar`` argument in the ``learn()`` method, displayed using TQDM and rich packages
-
-Bug Fixes:
-^^^^^^^^^^
 
 Deprecations:
 ^^^^^^^^^^^^^
