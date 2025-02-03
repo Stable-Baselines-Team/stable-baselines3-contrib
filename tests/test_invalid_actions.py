@@ -9,6 +9,7 @@ from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.envs import FakeImageEnv, IdentityEnv, IdentityEnvBox
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.policies import ActorCriticPolicy
+from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 
 from sb3_contrib import MaskablePPO
 from sb3_contrib.common.envs import InvalidActionEnvDiscrete, InvalidActionEnvMultiBinary, InvalidActionEnvMultiDiscrete
@@ -151,18 +152,19 @@ def test_masked_evaluation():
     assert masked_avg_rew > unmasked_avg_rew
 
 
-def test_supports_multi_envs():
+@pytest.mark.parametrize("vec_env_cls", [SubprocVecEnv, DummyVecEnv])
+def test_supports_multi_envs(vec_env_cls):
     """
     Learning and evaluation works with VecEnvs
     """
 
-    env = make_vec_env(make_env, n_envs=2)
+    env = make_vec_env(make_env, n_envs=2, vec_env_cls=vec_env_cls)
     assert is_masking_supported(env)
     model = MaskablePPO("MlpPolicy", env, n_steps=256, gamma=0.4, seed=32, verbose=1)
     model.learn(100)
     evaluate_policy(model, env, warn=False)
 
-    env = make_vec_env(IdentityEnv, n_envs=2, env_kwargs={"dim": 2})
+    env = make_vec_env(IdentityEnv, n_envs=2, env_kwargs={"dim": 2}, vec_env_cls=vec_env_cls)
     assert not is_masking_supported(env)
     model = MaskablePPO("MlpPolicy", env, n_steps=256, gamma=0.4, seed=32, verbose=1)
     with pytest.raises(ValueError):
@@ -224,7 +226,7 @@ def test_discrete_action_space_required():
     """
 
     env = IdentityEnvBox()
-    with pytest.raises(AssertionError):
+    with pytest.raises(AssertionError, match="The algorithm only supports"):
         MaskablePPO("MlpPolicy", env)
 
 
