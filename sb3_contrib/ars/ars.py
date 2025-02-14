@@ -243,7 +243,7 @@ class ARS(BaseAlgorithm):
 
         return candidate_returns
 
-    def _log_and_dump(self) -> None:
+    def dump_logs(self) -> None:
         """
         Dump information to the logger.
         """
@@ -342,7 +342,7 @@ class ARS(BaseAlgorithm):
             self._update_current_progress_remaining(self.num_timesteps, total_timesteps)
             self._do_one_update(callback, async_eval)
             if log_interval is not None and self._n_updates % log_interval == 0:
-                self._log_and_dump()
+                self.dump_logs()
 
         if async_eval is not None:
             async_eval.close()
