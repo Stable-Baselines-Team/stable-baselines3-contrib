@@ -4,12 +4,13 @@ Changelog
 ==========
 
 
-Release 2.6.0a0 (WIP)
+Release 2.6.0a1 (WIP)
 --------------------------
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
 - Upgraded to Stable-Baselines3 >= 2.6.0
+- Renamed ``_dump_logs()`` to ``dump_logs()``
 
 New Features:
 ^^^^^^^^^^^^^

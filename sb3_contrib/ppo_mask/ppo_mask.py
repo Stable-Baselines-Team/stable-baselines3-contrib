@@ -461,7 +461,7 @@ class MaskablePPO(OnPolicyAlgorithm):
 
             # Display training infos
             if log_interval is not None and iteration % log_interval == 0:
-                self._dump_logs(iteration)
+                self.dump_logs(iteration)
 
             self.train()
 
