@@ -4,7 +4,7 @@ Changelog
 ==========
 
 
-Release 2.6.0a1 (WIP)
+Release 2.6.0a2 (WIP)
 --------------------------
 
 Breaking Changes:
@@ -14,6 +14,7 @@ Breaking Changes:
 
 New Features:
 ^^^^^^^^^^^^^
+- Added support for Gymnasium v1.1.0
 
 Bug Fixes:
 ^^^^^^^^^^
