@@ -4,7 +4,7 @@ Changelog
 ==========
 
 
-Release 2.6.0a2 (WIP)
+Release 2.6.0 (2025-03-24)
 --------------------------
 
 Breaking Changes:
