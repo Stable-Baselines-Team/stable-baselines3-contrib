@@ -14,6 +14,8 @@ from stable_baselines3.ppo.ppo import PPO
 
 SelfGRPO = TypeVar("SelfGRPO", bound="GRPO")
 
+# Fixes to make - env reset being called twice
+# Fix Step Counting - Implement fix into env
 
 class GRPO(PPO):
     """
@@ -134,6 +136,22 @@ class GRPO(PPO):
         else:
             self.reward_scaling_fn = reward_scaling_fn
 
+        # ---- NEW: Wrap the reward function to correct the step count ----
+        if self.reward_function is not None:
+            original_reward_function = self.reward_function
+            def wrapped_reward_function(obs, actions):
+                # Temporarily adjust the environment's step count by halving it.
+                env_instance = self.env
+                if hasattr(env_instance, 'current_step'):
+                    orig_step = env_instance.current_step
+                    env_instance.current_step = orig_step // 2
+                    rew = original_reward_function(obs, actions)
+                    env_instance.current_step = orig_step
+                else:
+                    rew = original_reward_function(obs, actions)
+                return rew
+            self.reward_function = wrapped_reward_function
+
         if _init_setup_model:
             self._setup_model()
 
@@ -160,9 +178,10 @@ class GRPO(PPO):
         if self.clip_range_vf is not None:
             self.clip_range_vf = get_schedule_fn(self.clip_range_vf)
 
-        # Create a rollout buffer with a size accounting for samples per step
+        # Compute effective steps (macro steps) as n_steps divided by samples_per_time_step.
         n_envs = self.env.num_envs
-        buffer_size = self.n_steps * self.samples_per_time_step * n_envs
+        effective_steps = self.n_steps // self.samples_per_time_step
+        buffer_size = effective_steps * n_envs
         self.rollout_buffer = self.rollout_buffer_class(
             buffer_size,
             self.observation_space,
@@ -175,86 +194,129 @@ class GRPO(PPO):
         )
 
     def collect_rollouts(
-        self,
-        env,
-        callback: MaybeCallback,
-        rollout_buffer: RolloutBuffer,
-        n_rollout_steps: int,
-    ) -> RolloutReturn:
-        """
-        Collect experiences for `n_rollout_steps`, applying multiple policy samples
-        per state before executing an action.
-
-        :param env: The environment instance.
-        :param callback: Callback function for logging and monitoring.
-        :param rollout_buffer: Buffer for storing experience rollouts.
-        :param n_rollout_steps: Number of macro steps to collect per iteration.
-        :return: Rollout return object containing processed rewards and episode states.
-        """
-        self.policy.set_training_mode(False)
-        obs = self._last_obs
-        rollout_buffer.reset()
-
-        for step in range(n_rollout_steps):
-            self.num_timesteps += env.num_envs
-
-            sub_actions = []
-            sub_values = []
-            sub_log_probs = []
-            sampled_rewards = []  
-
-            obs_tensor = th.as_tensor(obs, device=self.device, dtype=th.float32)
-
-            for _ in range(self.samples_per_time_step):
-                with th.no_grad():
-                    actions, values, log_probs = self.policy.forward(obs_tensor)
-
-                sub_actions.append(actions.cpu().numpy())
-                sub_values.append(values)
-                sub_log_probs.append(log_probs)
-
-            final_action = sub_actions[-1]  # The last sampled action is used for stepping
-            new_obs, rewards, dones, infos = env.step(final_action)
-
-            for i in range(self.samples_per_time_step):
-                if self.reward_function is not None:
-                    new_reward = self.reward_function(obs, sub_actions[i])
+            self,
+            env,
+            callback: MaybeCallback,
+            rollout_buffer: RolloutBuffer,
+            n_rollout_steps: int,
+        ) -> RolloutReturn:
+            """
+            Collect experiences for n_rollout_steps (macro steps) using multiple action samples per macro step.
+            For each macro step, several samples are generated to compute a transformed reward and advantage.
+            Only one representative transition (using, e.g., the last sample) is stored in the rollout buffer.
+            """
+            # Helper function to safely call env.reset() and ensure it returns (obs, info)
+            def safe_reset(env):
+                result = env.reset()
+                if isinstance(result, tuple):
+                    return result
                 else:
-                    raise TypeError("Your reward function must be passed for recomputing rewards ")
-                
-                sampled_rewards.append(new_reward)
+                    return result, {}
+            self.policy.set_training_mode(False)
+            obs = self._last_obs
+            rollout_buffer.reset()
 
-            sampled_rewards = np.array(sampled_rewards)
+            last_transition = None
+            # Iterate for exactly n_rollout_steps macro-steps
+            macro_steps = self.n_steps // self.samples_per_time_step
+            for step in range(macro_steps):
+                self.num_timesteps += env.num_envs
 
-            # Store the recomputed rewards and actions in the rollout buffer
-            for i in range(self.samples_per_time_step):
+                sample_actions = []
+                sample_values = []
+                sample_log_probs = []
+                sample_rewards = []
+
+                obs_tensor = th.as_tensor(obs, device=self.device, dtype=th.float32)
+                # Collect multiple samples at the current state for advantage estimation
+                for _ in range(self.samples_per_time_step):
+                    with th.no_grad():
+                        actions, values, log_probs = self.policy.forward(obs_tensor)
+                    actions_np = actions.cpu().numpy()
+                    sample_actions.append(actions_np)
+                    # Keep values and log_probs as tensors (detach to avoid gradients)
+                    sample_values.append(values.detach())
+                    sample_log_probs.append(log_probs.detach())
+                    if self.reward_function is not None:
+                        sample_r = self.reward_function(obs, actions_np)
+                    else:
+                        raise TypeError("Your reward function must be passed for recomputing rewards")
+                    sample_rewards.append(sample_r)
+
+                # Step the environment using one chosen sample (e.g. the last sample)
+                final_action = sample_actions[-1]
+                reset_done = False
+                try:
+                    new_obs, _, dones, truncated, infos = env.step(final_action)
+                except ValueError:
+                    new_obs, _, dones, infos = env.step(final_action)
+                    truncated = np.zeros_like(dones)
+                if (np.any(dones) or np.any(truncated)) and (not reset_done):
+                    new_obs, _ = safe_reset(env)
+                    reset_done = True
+
+                # Compute the bootstrapped value for the next state
+                obs_tensor_next = th.as_tensor(new_obs, device=self.device, dtype=th.float32)
+                with th.no_grad():
+                    _, last_values, _ = self.policy.forward(obs_tensor_next)
+                V_next = last_values.cpu().numpy().flatten()
+
+                # Compute V(s) for the current state using the last sample's value estimate,
+                # converting the tensor to numpy for arithmetic.
+                V_current = sample_values[-1].flatten().cpu().numpy()
+
+                # Compute advantages for each sample
+                sample_advantages = []
+                for r in sample_rewards:
+                    transformed_r = np.tanh(r)  # Reward transformation (e.g., tanh)
+                    A_t = transformed_r + self.gamma * V_next - V_current
+                    sample_advantages.append(A_t)
+
+                # Adjust advantages locally: subtract the mean over samples
+                adv_mean = np.mean(sample_advantages, axis=0)
+                adjusted_advantages = [A_t - adv_mean for A_t in sample_advantages]
+
+                # Choose a representative sample transition (here, we pick the final sample)
+                rep_action = sample_actions[-1]
+                rep_value = sample_values[-1]
+                rep_log_prob = sample_log_probs[-1]
+                rep_advantage = adjusted_advantages[-1]
+
+                # Store this single transition in the rollout buffer
                 rollout_buffer.add(
                     obs,
-                    sub_actions[i],
-                    sampled_rewards[i],
+                    rep_action,
+                    rep_advantage,
                     dones,
-                    sub_values[i],
-                    sub_log_probs[i],
+                    rep_value,
+                    rep_log_prob,
                 )
+                last_transition = (obs, rep_action, rep_advantage, dones, rep_value, rep_log_prob)
 
-            obs = new_obs
+                obs = new_obs
 
-            if callback.on_step() is False:
-                break
+            # If the rollout buffer is not full, fill the remaining slots with the last transition
+            if not rollout_buffer.full and last_transition is not None:
+                while not rollout_buffer.full:
+                    rollout_buffer.add(*last_transition)
+                    
+            # Force the buffer to be full if needed
+            if rollout_buffer.pos < rollout_buffer.buffer_size:
+                rollout_buffer.full = True
+            
+            # Apply reward scaling if provided
+            scaled_rewards = self.reward_scaling_fn(rollout_buffer.rewards)
+            rollout_buffer.rewards[:] = scaled_rewards
 
-        # Scale rewards before returning
-        scaled_rewards = self.reward_scaling_fn(rollout_buffer.rewards)
-        rollout_buffer.rewards[:] = scaled_rewards
+            obs_tensor = th.as_tensor(obs, device=self.device, dtype=th.float32)
+            with th.no_grad():
+                _, last_values, _ = self.policy.forward(obs_tensor)
 
-        obs_tensor = th.as_tensor(obs, device=self.device, dtype=th.float32)
-        with th.no_grad():
-            _, last_values, _ = self.policy.forward(obs_tensor)
+            rollout_buffer.compute_returns_and_advantage(last_values.flatten(), dones)
+            self._last_obs = obs
 
-        rollout_buffer.compute_returns_and_advantage(last_values.flatten(), dones)
-        self._last_obs = obs
-
-        return RolloutReturn(rollout_buffer.rewards, rollout_buffer.episode_starts, np.array([False]))
-
+            return RolloutReturn(rollout_buffer.rewards, rollout_buffer.episode_starts, np.array([False]))
+    
     def _default_reward_scaling_fn(self, rewards: np.ndarray) -> np.ndarray:
         """
         The default reward-scaling method. This is used if no custom function is passed at init.
