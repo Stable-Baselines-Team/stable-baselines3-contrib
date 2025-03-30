@@ -14,13 +14,11 @@ from stable_baselines3.ppo.ppo import PPO
 
 SelfGRPO = TypeVar("SelfGRPO", bound="GRPO")
 
-# Fixes to make - env reset being called twice
-# Fix Step Counting - Implement fix into env
-
 class GRPO(PPO):
     """
     A custom implementation of PPO (Proximal Policy Optimization) that integrates
-    GRPO-like sampling and reward scaling.
+    GRPO-like sampling and reward scaling named hybrid GRPO
+    More information can be found here - https://arxiv.org/abs/2502.01652
 
     :param policy: The policy model to use (MlpPolicy, CnnPolicy, ...)
     :param env: The environment to learn from (if registered in Gym, can be str)
@@ -321,6 +319,8 @@ class GRPO(PPO):
         """
         The default reward-scaling method. This is used if no custom function is passed at init.
         Scales rewards by standardizing them, then squashing via tanh.
+        :param rewards: A numpy array of all the sampled rewards across the macro time step
+        :returns a numpy array of the modified rewards
         """
         r_mean = rewards.mean()
         r_std = rewards.std() + 1e-8
