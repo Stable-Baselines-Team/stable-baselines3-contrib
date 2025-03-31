@@ -47,7 +47,6 @@ class BatchRenorm(torch.nn.Module):
 
         self.affine = affine
         self.eps = eps
-        self.step = 0
         self.momentum = momentum
         self.num_features = num_features
         # Clip scale and bias of the affine transform

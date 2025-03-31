@@ -274,7 +274,7 @@ class CrossQ(OffPolicyAlgorithm):
 
                 # Optimize entropy coefficient, also called entropy temperature or alpha in the paper
                 if self.ent_coef_optimizer is not None:
-                    ent_coef_loss = -(self.log_ent_coef * (log_prob + self.target_entropy).detach()).mean()
+                    ent_coef_loss = -(self.log_ent_coef * (log_prob + self.target_entropy).detach()).mean()  # type: ignore[operator]
                     ent_coef_losses.append(ent_coef_loss.item())
 
                     self.ent_coef_optimizer.zero_grad()
