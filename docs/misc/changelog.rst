@@ -2,6 +2,7 @@
 
 Changelog
 ==========
+- Use the FloatSchedule and LinearSchedule classes from stable-baselines3 in the ARS, PPO, and QRDQN implementations to improve model portability across different operating systems
 
 
 Release 2.6.0 (2025-03-24)
