@@ -15,7 +15,7 @@ from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.save_util import load_from_zip_file
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
-from stable_baselines3.common.utils import get_schedule_fn, safe_mean
+from stable_baselines3.common.utils import FloatSchedule, safe_mean
 
 from sb3_contrib.ars.policies import ARSPolicy, LinearPolicy, MlpPolicy
 from sb3_contrib.common.vec_env.async_eval import AsyncEval
@@ -90,7 +90,7 @@ class ARS(BaseAlgorithm):
 
         self.n_delta = n_delta
         self.pop_size = 2 * n_delta
-        self.delta_std_schedule = get_schedule_fn(delta_std)
+        self.delta_std_schedule = FloatSchedule(delta_std)
         self.n_eval_episodes = n_eval_episodes
 
         if n_top is None:
