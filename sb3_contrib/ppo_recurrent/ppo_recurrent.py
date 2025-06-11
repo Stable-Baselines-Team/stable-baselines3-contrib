@@ -286,11 +286,17 @@ class RecurrentPPO(OnPolicyAlgorithm):
                 ):
                     terminal_obs = self.policy.obs_to_tensor(infos[idx]["terminal_observation"])[0]
                     with th.no_grad():
-                        terminal_lstm_state = (
-                            lstm_states.vf[0][:, idx : idx + 1, :].contiguous(),
-                            lstm_states.vf[1][:, idx : idx + 1, :].contiguous(),
-                        )
-                        # terminal_lstm_state = None
+                        # Handle both LSTM and RNN states
+                        if self.policy.recurrent_layer_type == "lstm":
+                            # LSTM case: (hidden, cell) tuple
+                            terminal_lstm_state = (
+                                lstm_states.vf[0][:, idx : idx + 1, :].contiguous(),
+                                lstm_states.vf[1][:, idx : idx + 1, :].contiguous(),
+                            )
+                        else:
+                            # RNN case: single tensor
+                            terminal_lstm_state = lstm_states.vf[:, idx : idx + 1, :].contiguous()
+                        
                         episode_starts = th.tensor([False], dtype=th.float32, device=self.device)
                         terminal_value = self.policy.predict_values(terminal_obs, terminal_lstm_state, episode_starts)[0]
                     rewards[idx] += self.gamma * terminal_value

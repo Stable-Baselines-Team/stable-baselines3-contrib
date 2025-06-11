@@ -140,10 +140,25 @@ class RecurrentRolloutBuffer(RolloutBuffer):
         """
         :param hidden_states: LSTM cell and hidden state
         """
-        self.hidden_states_pi[self.pos] = np.array(lstm_states.pi[0].cpu().numpy())
-        self.cell_states_pi[self.pos] = np.array(lstm_states.pi[1].cpu().numpy())
-        self.hidden_states_vf[self.pos] = np.array(lstm_states.vf[0].cpu().numpy())
-        self.cell_states_vf[self.pos] = np.array(lstm_states.vf[1].cpu().numpy())
+        # Actor states
+        if self.recurrent_layer_type == "lstm":
+            # LSTM case: (hidden, cell) tuple
+            self.hidden_states_pi[self.pos] = np.array(lstm_states.pi[0].cpu().numpy())
+            self.cell_states_pi[self.pos] = np.array(lstm_states.pi[1].cpu().numpy())
+        else:
+            # RNN case: single hidden state tensor
+            self.hidden_states_pi[self.pos] = np.array(lstm_states.pi.cpu().numpy())
+            self.cell_states_pi[self.pos] = np.zeros_like(self.hidden_states_pi[self.pos])
+
+        # Critic states
+        if self.recurrent_layer_type == "lstm":
+            # LSTM case: (hidden, cell) tuple
+            self.hidden_states_vf[self.pos] = np.array(lstm_states.vf[0].cpu().numpy())
+            self.cell_states_vf[self.pos] = np.array(lstm_states.vf[1].cpu().numpy())
+        else:
+            # RNN case: single hidden state tensor
+            self.hidden_states_vf[self.pos] = np.array(lstm_states.vf.cpu().numpy())
+            self.cell_states_vf[self.pos] = np.zeros_like(self.hidden_states_vf[self.pos])
 
         super().add(*args, **kwargs)
 
@@ -312,7 +327,7 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
             self.cell_states_vf[self.pos] = np.array(lstm_states.vf[1].cpu().numpy())
         else:
             self.hidden_states_vf[self.pos] = np.array(lstm_states.vf.cpu().numpy())
-            self.cell_states_vf[self.pos] = 0.0
+            self.cell_states_vf[self.pos] = np.zeros_like(self.hidden_states_vf[self.pos])
 
         super().add(*args, **kwargs)
 
