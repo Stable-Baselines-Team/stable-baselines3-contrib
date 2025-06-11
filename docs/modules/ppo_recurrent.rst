@@ -86,6 +86,36 @@ Example
       vec_env.render("human")
 
 
+.. note::
+
+  You can also use a recurrent policy based on vanilla RNNs rather than LSTMs.
+
+
+.. code-block:: python
+
+ import numpy as np
+
+ from sb3_contrib import RecurrentPPO
+
+ policy_kwargs = {"recurrent_layer_type": "rnn"} # The default is "lstm"
+
+ model = RecurrentPPO("MlpLstmPolicy", "CartPole-v1", policy_kwargs=policy_kwargs, verbose=1)
+ model.learn(5000)
+
+ vec_env = model.get_env()
+ obs = vec_env.reset()
+ # Hidden state of the RNN
+ state = None
+ num_envs = 1
+ # Episode start signals are used to reset the rnn state
+ episode_starts = np.ones((num_envs,), dtype=bool)
+ while True:
+     action, state = model.predict(obs, state=state, episode_start=episode_starts, deterministic=True)
+     # Note: vectorized environment resets automatically
+     obs, rewards, dones, info = vec_env.step(action)
+     episode_starts = dones
+     vec_env.render("human")
+
 
 Results
 -------
