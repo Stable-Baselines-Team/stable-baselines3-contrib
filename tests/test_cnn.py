@@ -166,11 +166,15 @@ def test_feature_extractor_target_net(model_class, share_features_extractor):
 
 @pytest.mark.parametrize("model_class", [TRPO, MaskablePPO, RecurrentPPO, QRDQN, TQC])
 @pytest.mark.parametrize("normalize_images", [True, False])
-def test_image_like_input(model_class, normalize_images):
+@pytest.mark.parametrize("recurrent_layer_type", ["lstm", "rnn"])
+def test_image_like_input(model_class, normalize_images, recurrent_layer_type):
     """
     Check that we can handle image-like input (3D tensor)
     when normalize_images=False
     """
+    # Skip RNN test for non-recurrent models
+    if model_class != RecurrentPPO and recurrent_layer_type == "rnn":
+        pytest.skip("RNN only applicable to RecurrentPPO")
     # Fake grayscale with frameskip
     # Atari after preprocessing: 84x84x1, here we are using lower resolution
     # to check that the network handle it automatically
@@ -199,6 +203,11 @@ def test_image_like_input(model_class, normalize_images):
         ),
         seed=1,
     )
+
+    # Add recurrent layer type for RecurrentPPO
+    if model_class == RecurrentPPO:
+        kwargs["policy_kwargs"]["recurrent_layer_type"] = recurrent_layer_type
+
     policy = "CnnLstmPolicy" if model_class == RecurrentPPO else "CnnPolicy"
 
     if model_class in {TRPO, MaskablePPO, RecurrentPPO}:

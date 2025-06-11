@@ -109,6 +109,7 @@ class RecurrentRolloutBuffer(RolloutBuffer):
         Equivalent to classic advantage when set to 1.
     :param gamma: Discount factor
     :param n_envs: Number of parallel environments
+    :param recurrent_layer_type: Type of recurrent layer ("lstm" or "rnn")
     """
 
     def __init__(
@@ -121,9 +122,11 @@ class RecurrentRolloutBuffer(RolloutBuffer):
         gae_lambda: float = 1,
         gamma: float = 0.99,
         n_envs: int = 1,
+        recurrent_layer_type: str = "lstm",
     ):
         self.hidden_state_shape = hidden_state_shape
         self.seq_start_indices, self.seq_end_indices = None, None
+        self.recurrent_layer_type = recurrent_layer_type.lower()
         super().__init__(buffer_size, observation_space, action_space, device, gae_lambda, gamma, n_envs)
 
     def reset(self):
@@ -137,10 +140,25 @@ class RecurrentRolloutBuffer(RolloutBuffer):
         """
         :param hidden_states: LSTM cell and hidden state
         """
-        self.hidden_states_pi[self.pos] = np.array(lstm_states.pi[0].cpu().numpy())
-        self.cell_states_pi[self.pos] = np.array(lstm_states.pi[1].cpu().numpy())
-        self.hidden_states_vf[self.pos] = np.array(lstm_states.vf[0].cpu().numpy())
-        self.cell_states_vf[self.pos] = np.array(lstm_states.vf[1].cpu().numpy())
+        # Actor states
+        if self.recurrent_layer_type == "lstm":
+            # LSTM case: (hidden, cell) tuple
+            self.hidden_states_pi[self.pos] = np.array(lstm_states.pi[0].cpu().numpy())
+            self.cell_states_pi[self.pos] = np.array(lstm_states.pi[1].cpu().numpy())
+        else:
+            # RNN case: single hidden state tensor
+            self.hidden_states_pi[self.pos] = np.array(lstm_states.pi.cpu().numpy())
+            self.cell_states_pi[self.pos] = np.zeros_like(self.hidden_states_pi[self.pos])
+
+        # Critic states
+        if self.recurrent_layer_type == "lstm":
+            # LSTM case: (hidden, cell) tuple
+            self.hidden_states_vf[self.pos] = np.array(lstm_states.vf[0].cpu().numpy())
+            self.cell_states_vf[self.pos] = np.array(lstm_states.vf[1].cpu().numpy())
+        else:
+            # RNN case: single hidden state tensor
+            self.hidden_states_vf[self.pos] = np.array(lstm_states.vf.cpu().numpy())
+            self.cell_states_vf[self.pos] = np.zeros_like(self.hidden_states_vf[self.pos])
 
         super().add(*args, **kwargs)
 
@@ -211,22 +229,30 @@ class RecurrentRolloutBuffer(RolloutBuffer):
         n_seq = len(self.seq_start_indices)
         max_length = self.pad(self.actions[batch_inds]).shape[1]
         padded_batch_size = n_seq * max_length
-        # We retrieve the lstm hidden states that will allow
-        # to properly initialize the LSTM at the beginning of each sequence
-        lstm_states_pi = (
-            # 1. (n_envs * n_steps, n_layers, dim) -> (batch_size, n_layers, dim)
-            # 2. (batch_size, n_layers, dim)  -> (n_seq, n_layers, dim)
-            # 3. (n_seq, n_layers, dim) -> (n_layers, n_seq, dim)
-            self.hidden_states_pi[batch_inds][self.seq_start_indices].swapaxes(0, 1),
-            self.cell_states_pi[batch_inds][self.seq_start_indices].swapaxes(0, 1),
-        )
-        lstm_states_vf = (
-            # (n_envs * n_steps, n_layers, dim) -> (n_layers, n_seq, dim)
-            self.hidden_states_vf[batch_inds][self.seq_start_indices].swapaxes(0, 1),
-            self.cell_states_vf[batch_inds][self.seq_start_indices].swapaxes(0, 1),
-        )
-        lstm_states_pi = (self.to_torch(lstm_states_pi[0]).contiguous(), self.to_torch(lstm_states_pi[1]).contiguous())
-        lstm_states_vf = (self.to_torch(lstm_states_vf[0]).contiguous(), self.to_torch(lstm_states_vf[1]).contiguous())
+
+        # Use the stored recurrent layer type to determine state structure
+        if self.recurrent_layer_type == "lstm":
+            # LSTM case: return tuples
+            lstm_states_pi = (
+                # 1. (n_envs * n_steps, n_layers, dim) -> (batch_size, n_layers, dim)
+                # 2. (batch_size, n_layers, dim)  -> (n_seq, n_layers, dim)
+                # 3. (n_seq, n_layers, dim) -> (n_layers, n_seq, dim)
+                self.hidden_states_pi[batch_inds][self.seq_start_indices].swapaxes(0, 1),
+                self.cell_states_pi[batch_inds][self.seq_start_indices].swapaxes(0, 1),
+            )
+            lstm_states_vf = (
+                # (n_envs * n_steps, n_layers, dim) -> (n_layers, n_seq, dim)
+                self.hidden_states_vf[batch_inds][self.seq_start_indices].swapaxes(0, 1),
+                self.cell_states_vf[batch_inds][self.seq_start_indices].swapaxes(0, 1),
+            )
+            lstm_states_pi = (self.to_torch(lstm_states_pi[0]).contiguous(), self.to_torch(lstm_states_pi[1]).contiguous())
+            lstm_states_vf = (self.to_torch(lstm_states_vf[0]).contiguous(), self.to_torch(lstm_states_vf[1]).contiguous())
+        else:
+            # RNN case: return single tensors (only hidden states, no cell states)
+            lstm_states_pi = self.hidden_states_pi[batch_inds][self.seq_start_indices].swapaxes(0, 1)
+            lstm_states_vf = self.hidden_states_vf[batch_inds][self.seq_start_indices].swapaxes(0, 1)
+            lstm_states_pi = self.to_torch(lstm_states_pi).contiguous()
+            lstm_states_vf = self.to_torch(lstm_states_vf).contiguous()
 
         return RecurrentRolloutBufferSamples(
             # (batch_size, obs_dim) -> (n_seq, max_length, obs_dim) -> (n_seq * max_length, obs_dim)
@@ -256,6 +282,7 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
         Equivalent to classic advantage when set to 1.
     :param gamma: Discount factor
     :param n_envs: Number of parallel environments
+    :param recurrent_layer_type: Type of recurrent layer ("lstm" or "rnn")
     """
 
     def __init__(
@@ -268,9 +295,11 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
         gae_lambda: float = 1,
         gamma: float = 0.99,
         n_envs: int = 1,
+        recurrent_layer_type: str = "lstm",
     ):
         self.hidden_state_shape = hidden_state_shape
         self.seq_start_indices, self.seq_end_indices = None, None
+        self.recurrent_layer_type = recurrent_layer_type.lower()
         super().__init__(buffer_size, observation_space, action_space, device, gae_lambda, gamma, n_envs=n_envs)
 
     def reset(self):
@@ -284,10 +313,21 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
         """
         :param hidden_states: LSTM cell and hidden state
         """
-        self.hidden_states_pi[self.pos] = np.array(lstm_states.pi[0].cpu().numpy())
-        self.cell_states_pi[self.pos] = np.array(lstm_states.pi[1].cpu().numpy())
-        self.hidden_states_vf[self.pos] = np.array(lstm_states.vf[0].cpu().numpy())
-        self.cell_states_vf[self.pos] = np.array(lstm_states.vf[1].cpu().numpy())
+        # Actor
+        if self.recurrent_layer_type == "lstm":
+            self.hidden_states_pi[self.pos] = np.array(lstm_states.pi[0].cpu().numpy())
+            self.cell_states_pi[self.pos] = np.array(lstm_states.pi[1].cpu().numpy())
+        else:
+            self.hidden_states_pi[self.pos] = np.array(lstm_states.pi.cpu().numpy())
+            self.cell_states_pi[self.pos] = np.zeros_like(self.hidden_states_pi[self.pos])
+
+        # Critic
+        if self.recurrent_layer_type == "lstm":
+            self.hidden_states_vf[self.pos] = np.array(lstm_states.vf[0].cpu().numpy())
+            self.cell_states_vf[self.pos] = np.array(lstm_states.vf[1].cpu().numpy())
+        else:
+            self.hidden_states_vf[self.pos] = np.array(lstm_states.vf.cpu().numpy())
+            self.cell_states_vf[self.pos] = np.zeros_like(self.hidden_states_vf[self.pos])
 
         super().add(*args, **kwargs)
 
@@ -354,20 +394,28 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
         n_seq = len(self.seq_start_indices)
         max_length = self.pad(self.actions[batch_inds]).shape[1]
         padded_batch_size = n_seq * max_length
-        # We retrieve the lstm hidden states that will allow
-        # to properly initialize the LSTM at the beginning of each sequence
-        lstm_states_pi = (
-            # (n_envs * n_steps, n_layers, dim) -> (n_layers, n_seq, dim)
-            self.hidden_states_pi[batch_inds][self.seq_start_indices].swapaxes(0, 1),
-            self.cell_states_pi[batch_inds][self.seq_start_indices].swapaxes(0, 1),
-        )
-        lstm_states_vf = (
-            # (n_envs * n_steps, n_layers, dim) -> (n_layers, n_seq, dim)
-            self.hidden_states_vf[batch_inds][self.seq_start_indices].swapaxes(0, 1),
-            self.cell_states_vf[batch_inds][self.seq_start_indices].swapaxes(0, 1),
-        )
-        lstm_states_pi = (self.to_torch(lstm_states_pi[0]).contiguous(), self.to_torch(lstm_states_pi[1]).contiguous())
-        lstm_states_vf = (self.to_torch(lstm_states_vf[0]).contiguous(), self.to_torch(lstm_states_vf[1]).contiguous())
+
+        # Use the stored recurrent layer type to determine state structure
+        if self.recurrent_layer_type == "lstm":
+            # LSTM case: return tuples
+            lstm_states_pi = (
+                # (n_envs * n_steps, n_layers, dim) -> (n_layers, n_seq, dim)
+                self.hidden_states_pi[batch_inds][self.seq_start_indices].swapaxes(0, 1),
+                self.cell_states_pi[batch_inds][self.seq_start_indices].swapaxes(0, 1),
+            )
+            lstm_states_vf = (
+                # (n_envs * n_steps, n_layers, dim) -> (n_layers, n_seq, dim)
+                self.hidden_states_vf[batch_inds][self.seq_start_indices].swapaxes(0, 1),
+                self.cell_states_vf[batch_inds][self.seq_start_indices].swapaxes(0, 1),
+            )
+            lstm_states_pi = (self.to_torch(lstm_states_pi[0]).contiguous(), self.to_torch(lstm_states_pi[1]).contiguous())
+            lstm_states_vf = (self.to_torch(lstm_states_vf[0]).contiguous(), self.to_torch(lstm_states_vf[1]).contiguous())
+        else:
+            # RNN case: return single tensors (only hidden states, no cell states)
+            lstm_states_pi = self.hidden_states_pi[batch_inds][self.seq_start_indices].swapaxes(0, 1)
+            lstm_states_vf = self.hidden_states_vf[batch_inds][self.seq_start_indices].swapaxes(0, 1)
+            lstm_states_pi = self.to_torch(lstm_states_pi).contiguous()
+            lstm_states_vf = self.to_torch(lstm_states_vf).contiguous()
 
         observations = {key: self.pad(obs[batch_inds]) for (key, obs) in self.observations.items()}
         observations = {key: obs.reshape((padded_batch_size,) + self.obs_shape[key]) for (key, obs) in observations.items()}

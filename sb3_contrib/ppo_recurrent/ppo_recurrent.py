@@ -159,17 +159,27 @@ class RecurrentPPO(OnPolicyAlgorithm):
             raise ValueError("Policy must subclass RecurrentActorCriticPolicy")
 
         single_hidden_state_shape = (lstm.num_layers, self.n_envs, lstm.hidden_size)
-        # hidden and cell states for actor and critic
-        self._last_lstm_states = RNNStates(
-            (
+
+        recurrent_layer_type = self.policy_kwargs.get("recurrent_layer_type", "lstm").lower()
+
+        if recurrent_layer_type == "lstm":
+            # LSTM: (hidden_state, cell_state) tuples
+            self._last_lstm_states = RNNStates(
+                (
+                    th.zeros(single_hidden_state_shape, device=self.device),
+                    th.zeros(single_hidden_state_shape, device=self.device),
+                ),
+                (
+                    th.zeros(single_hidden_state_shape, device=self.device),
+                    th.zeros(single_hidden_state_shape, device=self.device),
+                ),
+            )
+        else:
+            # RNN: single hidden state tensors
+            self._last_lstm_states = RNNStates(
                 th.zeros(single_hidden_state_shape, device=self.device),
                 th.zeros(single_hidden_state_shape, device=self.device),
-            ),
-            (
-                th.zeros(single_hidden_state_shape, device=self.device),
-                th.zeros(single_hidden_state_shape, device=self.device),
-            ),
-        )
+            )
 
         hidden_state_buffer_shape = (self.n_steps, lstm.num_layers, self.n_envs, lstm.hidden_size)
 
@@ -182,6 +192,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
             gamma=self.gamma,
             gae_lambda=self.gae_lambda,
             n_envs=self.n_envs,
+            recurrent_layer_type=recurrent_layer_type,
         )
 
         # Initialize schedules for policy/value clipping
@@ -275,11 +286,17 @@ class RecurrentPPO(OnPolicyAlgorithm):
                 ):
                     terminal_obs = self.policy.obs_to_tensor(infos[idx]["terminal_observation"])[0]
                     with th.no_grad():
-                        terminal_lstm_state = (
-                            lstm_states.vf[0][:, idx : idx + 1, :].contiguous(),
-                            lstm_states.vf[1][:, idx : idx + 1, :].contiguous(),
-                        )
-                        # terminal_lstm_state = None
+                        # Handle both LSTM and RNN states
+                        if self.policy.recurrent_layer_type == "lstm":
+                            # LSTM case: (hidden, cell) tuple
+                            terminal_lstm_state = (
+                                lstm_states.vf[0][:, idx : idx + 1, :].contiguous(),
+                                lstm_states.vf[1][:, idx : idx + 1, :].contiguous(),
+                            )
+                        else:
+                            # RNN case: single tensor
+                            terminal_lstm_state = lstm_states.vf[:, idx : idx + 1, :].contiguous()
+
                         episode_starts = th.tensor([False], dtype=th.float32, device=self.device)
                         terminal_value = self.policy.predict_values(terminal_obs, terminal_lstm_state, episode_starts)[0]
                     rewards[idx] += self.gamma * terminal_value

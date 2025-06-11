@@ -3,6 +3,13 @@
 Changelog
 ==========
 
+TBD (2025-06-11)
+--------------------------
+
+New Features:
+^^^^^^^^^^^^^
+- Added support for vanilla RNNs in RecurrentPPO via `recurrent_layer_type` policy_kwargs argument (@gcroci2)
+
 Release 2.6.1a1 (WIP)
 --------------------------
 

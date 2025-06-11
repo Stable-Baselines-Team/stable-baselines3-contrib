@@ -87,6 +87,9 @@ def test_env():
             lstm_hidden_size=4,
             share_features_extractor=False,
         ),
+        dict(recurrent_layer_type="rnn"),
+        dict(recurrent_layer_type="rnn", lstm_hidden_size=8),
+        dict(recurrent_layer_type="rnn", enable_critic_lstm=False),
     ],
 )
 def test_cnn(policy_kwargs):
@@ -119,6 +122,8 @@ def test_cnn(policy_kwargs):
             lstm_kwargs=dict(dropout=0.5),
             n_lstm_layers=2,
         ),
+        dict(recurrent_layer_type="rnn"),
+        dict(recurrent_layer_type="rnn", lstm_hidden_size=8, n_lstm_layers=2),
     ],
 )
 def test_policy_kwargs(policy_kwargs):
@@ -198,6 +203,8 @@ def test_run_sde():
             lstm_kwargs=dict(dropout=0.5),
             n_lstm_layers=2,
         ),
+        dict(recurrent_layer_type="rnn"),
+        dict(recurrent_layer_type="rnn", lstm_hidden_size=8),
     ],
 )
 def test_dict_obs(policy_kwargs):
