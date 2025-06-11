@@ -52,6 +52,8 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
     :param optimizer_kwargs: Additional keyword arguments,
         excluding the learning rate, to pass to the optimizer
     :param lstm_hidden_size: Number of hidden units for each LSTM layer.
+    :param recurrent_layer_type: Type of recurrent layer to use (LSTM or vanilla RNN).
+        By default, LSTM is used.
     :param n_lstm_layers: Number of LSTM layers.
     :param shared_lstm: Whether the LSTM is shared between the actor and the critic
         (in that case, only the actor gradient is used)
@@ -80,6 +82,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         normalize_images: bool = True,
         optimizer_class: type[th.optim.Optimizer] = th.optim.Adam,
         optimizer_kwargs: Optional[dict[str, Any]] = None,
+        recurrent_layer_type: str = "lstm",
         lstm_hidden_size: int = 256,
         n_lstm_layers: int = 1,
         shared_lstm: bool = False,
@@ -107,10 +110,15 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             optimizer_kwargs,
         )
 
+        self.recurrent_layer_type = recurrent_layer_type.lower()
+        assert self.recurrent_layer_type in ["lstm", "rnn"], "Invalid recurrent_layer_type"
+
+        rnn_class = nn.LSTM if self.recurrent_layer_type == "lstm" else nn.RNN
+
         self.lstm_kwargs = lstm_kwargs or {}
         self.shared_lstm = shared_lstm
         self.enable_critic_lstm = enable_critic_lstm
-        self.lstm_actor = nn.LSTM(
+        self.lstm_actor = rnn_class(
             self.features_dim,
             lstm_hidden_size,
             num_layers=n_lstm_layers,
@@ -137,7 +145,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
 
         # Use a separate LSTM for the critic
         if self.enable_critic_lstm:
-            self.lstm_critic = nn.LSTM(
+            self.lstm_critic = rnn_class(
                 self.features_dim,
                 lstm_hidden_size,
                 num_layers=n_lstm_layers,
@@ -162,10 +170,10 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
     @staticmethod
     def _process_sequence(
         features: th.Tensor,
-        lstm_states: tuple[th.Tensor, th.Tensor],
+        lstm_states: Union[tuple[th.Tensor, th.Tensor], th.Tensor],
         episode_starts: th.Tensor,
-        lstm: nn.LSTM,
-    ) -> tuple[th.Tensor, th.Tensor]:
+        lstm: Union[nn.LSTM, nn.RNN],
+    ) -> tuple[th.Tensor, Union[tuple[th.Tensor, th.Tensor], th.Tensor]]:
         """
         Do a forward pass in the LSTM network.
 
@@ -179,7 +187,8 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         # LSTM logic
         # (sequence length, batch size, features dim)
         # (batch size = n_envs for data collection or n_seq when doing gradient update)
-        n_seq = lstm_states[0].shape[1]
+        is_lstm = isinstance(lstm, nn.LSTM)
+        n_seq = lstm_states[0].shape[1] if is_lstm else lstm_states.shape[1]
         # Batch to sequence
         # (padded batch size, features_dim) -> (n_seq, max length, features_dim) -> (max length, n_seq, features_dim)
         # note: max length (max sequence length) is always 1 during data collection
@@ -196,14 +205,23 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         lstm_output = []
         # Iterate over the sequence
         for features, episode_start in zip_strict(features_sequence, episode_starts):
-            hidden, lstm_states = lstm(
-                features.unsqueeze(dim=0),
-                (
-                    # Reset the states at the beginning of a new episode
-                    (1.0 - episode_start).view(1, n_seq, 1) * lstm_states[0],
-                    (1.0 - episode_start).view(1, n_seq, 1) * lstm_states[1],
-                ),
-            )
+            if is_lstm:
+                hidden, lstm_states = lstm(
+                    features.unsqueeze(dim=0),
+                    (
+                        # Reset the states at the beginning of a new episode
+                        (1.0 - episode_start).view(1, n_seq, 1) * lstm_states[0],
+                        (1.0 - episode_start).view(1, n_seq, 1) * lstm_states[1],
+                    ),
+                )
+            else:
+                hidden, lstm_states = lstm(
+                    features.unsqueeze(dim=0),
+                    (
+                        # Reset the states at the beginning of a new episode
+                        (1.0 - episode_start).view(1, n_seq, 1) * lstm_states
+                    ),
+                )
             lstm_output += [hidden]
         # Sequence to batch
         # (sequence length, n_seq, lstm_out_dim) -> (batch_size, lstm_out_dim)
@@ -230,7 +248,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         # Preprocess the observation if needed
         features = self.extract_features(obs)
         if self.share_features_extractor:
-            pi_features = vf_features = features  # alis
+            pi_features = vf_features = features  # alias
         else:
             pi_features, vf_features = features
         # latent_pi, latent_vf = self.mlp_extractor(features)
@@ -240,7 +258,10 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         elif self.shared_lstm:
             # Re-use LSTM features but do not backpropagate
             latent_vf = latent_pi.detach()
-            lstm_states_vf = (lstm_states_pi[0].detach(), lstm_states_pi[1].detach())
+            if self.recurrent_layer_type == "lstm":
+                lstm_states_vf = (lstm_states_pi[0].detach(), lstm_states_pi[1].detach())
+            else:
+                lstm_states_vf = lstm_states_pi.detach()
         else:
             # Critic only has a feedforward network
             latent_vf = self.critic(vf_features)
@@ -259,7 +280,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
     def get_distribution(
         self,
         obs: th.Tensor,
-        lstm_states: tuple[th.Tensor, th.Tensor],
+        lstm_states: Union[tuple[th.Tensor, th.Tensor], th.Tensor],
         episode_starts: th.Tensor,
     ) -> tuple[Distribution, tuple[th.Tensor, ...]]:
         """
@@ -280,7 +301,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
     def predict_values(
         self,
         obs: th.Tensor,
-        lstm_states: tuple[th.Tensor, th.Tensor],
+        lstm_states: Union[tuple[th.Tensor, th.Tensor], th.Tensor],
         episode_starts: th.Tensor,
     ) -> th.Tensor:
         """
@@ -347,7 +368,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
     def _predict(
         self,
         observation: th.Tensor,
-        lstm_states: tuple[th.Tensor, th.Tensor],
+        lstm_states: Union[tuple[th.Tensor, th.Tensor], th.Tensor],
         episode_starts: th.Tensor,
         deterministic: bool = False,
     ) -> tuple[th.Tensor, tuple[th.Tensor, ...]]:
@@ -392,25 +413,47 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             n_envs = observation[next(iter(observation.keys()))].shape[0]
         else:
             n_envs = observation.shape[0]
-        # state : (n_layers, n_envs, dim)
+        
+        # state : (n_layers, n_envs, dim) for both LSTM and RNN
+        # For LSTM: state is a tuple (hidden_state, cell_state)
+        # For RNN: state is just the hidden_state
         if state is None:
             # Initialize hidden states to zeros
-            state = np.concatenate([np.zeros(self.lstm_hidden_state_shape) for _ in range(n_envs)], axis=1)
-            state = (state, state)
+            if self.recurrent_layer_type == "lstm":
+                # LSTM needs both hidden and cell states
+                single_state = np.concatenate([np.zeros(self.lstm_hidden_state_shape) for _ in range(n_envs)], axis=1)
+                state = (single_state, single_state)
+            else:
+                # RNN only needs hidden state
+                state = np.concatenate([np.zeros(self.lstm_hidden_state_shape) for _ in range(n_envs)], axis=1)
 
         if episode_start is None:
             episode_start = np.array([False for _ in range(n_envs)])
 
         with th.no_grad():
             # Convert to PyTorch tensors
-            states = th.tensor(state[0], dtype=th.float32, device=self.device), th.tensor(
-                state[1], dtype=th.float32, device=self.device
-            )
+            if self.recurrent_layer_type == "lstm":
+                # LSTM: convert tuple of states
+                lstm_states = (
+                    th.tensor(state[0], dtype=th.float32, device=self.device), 
+                    th.tensor(state[1], dtype=th.float32, device=self.device)
+                )
+            else:
+                # RNN: convert single state tensor
+                lstm_states = th.tensor(state, dtype=th.float32, device=self.device)
+            
             episode_starts = th.tensor(episode_start, dtype=th.float32, device=self.device)
-            actions, states = self._predict(
-                observation, lstm_states=states, episode_starts=episode_starts, deterministic=deterministic
+            actions, lstm_states = self._predict(
+                observation, lstm_states=lstm_states, episode_starts=episode_starts, deterministic=deterministic
             )
-            states = (states[0].cpu().numpy(), states[1].cpu().numpy())
+            
+            # Convert states back to numpy
+            if self.recurrent_layer_type == "lstm":
+                # LSTM: convert tuple back to numpy
+                lstm_states = (lstm_states[0].cpu().numpy(), lstm_states[1].cpu().numpy())
+            else:
+                # RNN: convert single tensor back to numpy
+                lstm_states = lstm_states.cpu().numpy()
 
         # Convert to numpy
         actions = actions.cpu().numpy()
@@ -428,7 +471,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         if not vectorized_env:
             actions = actions.squeeze(axis=0)
 
-        return actions, states
+        return actions, lstm_states
 
 
 class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
@@ -462,6 +505,8 @@ class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
     :param optimizer_kwargs: Additional keyword arguments,
         excluding the learning rate, to pass to the optimizer
     :param lstm_hidden_size: Number of hidden units for each LSTM layer.
+    :param recurrent_layer_type: Type of recurrent layer to use (LSTM or vanilla RNN).
+        By default, LSTM is used.
     :param n_lstm_layers: Number of LSTM layers.
     :param shared_lstm: Whether the LSTM is shared between the actor and the critic.
         By default, only the actor has a recurrent network.
@@ -489,6 +534,7 @@ class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
         normalize_images: bool = True,
         optimizer_class: type[th.optim.Optimizer] = th.optim.Adam,
         optimizer_kwargs: Optional[dict[str, Any]] = None,
+        recurrent_layer_type: str = "lstm",
         lstm_hidden_size: int = 256,
         n_lstm_layers: int = 1,
         shared_lstm: bool = False,
@@ -513,6 +559,7 @@ class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
             normalize_images,
             optimizer_class,
             optimizer_kwargs,
+            recurrent_layer_type,
             lstm_hidden_size,
             n_lstm_layers,
             shared_lstm,
@@ -552,6 +599,8 @@ class RecurrentMultiInputActorCriticPolicy(RecurrentActorCriticPolicy):
     :param optimizer_kwargs: Additional keyword arguments,
         excluding the learning rate, to pass to the optimizer
     :param lstm_hidden_size: Number of hidden units for each LSTM layer.
+    :param recurrent_layer_type: Type of recurrent layer to use (LSTM or vanilla RNN).
+        By default, LSTM is used.
     :param n_lstm_layers: Number of LSTM layers.
     :param shared_lstm: Whether the LSTM is shared between the actor and the critic.
         By default, only the actor has a recurrent network.
@@ -579,6 +628,7 @@ class RecurrentMultiInputActorCriticPolicy(RecurrentActorCriticPolicy):
         normalize_images: bool = True,
         optimizer_class: type[th.optim.Optimizer] = th.optim.Adam,
         optimizer_kwargs: Optional[dict[str, Any]] = None,
+        recurrent_layer_type: str = "lstm",
         lstm_hidden_size: int = 256,
         n_lstm_layers: int = 1,
         shared_lstm: bool = False,
@@ -603,6 +653,7 @@ class RecurrentMultiInputActorCriticPolicy(RecurrentActorCriticPolicy):
             normalize_images,
             optimizer_class,
             optimizer_kwargs,
+            recurrent_layer_type,
             lstm_hidden_size,
             n_lstm_layers,
             shared_lstm,

@@ -5,8 +5,8 @@ from stable_baselines3.common.type_aliases import TensorDict
 
 
 class RNNStates(NamedTuple):
-    pi: tuple[th.Tensor, ...]
-    vf: tuple[th.Tensor, ...]
+    pi: tuple[th.Tensor, ...] | th.Tensor
+    vf: tuple[th.Tensor, ...] | th.Tensor
 
 
 class RecurrentRolloutBufferSamples(NamedTuple):

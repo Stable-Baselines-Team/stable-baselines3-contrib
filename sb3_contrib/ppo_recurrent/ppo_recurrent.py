@@ -159,17 +159,27 @@ class RecurrentPPO(OnPolicyAlgorithm):
             raise ValueError("Policy must subclass RecurrentActorCriticPolicy")
 
         single_hidden_state_shape = (lstm.num_layers, self.n_envs, lstm.hidden_size)
-        # hidden and cell states for actor and critic
-        self._last_lstm_states = RNNStates(
-            (
+
+        recurrent_layer_type = self.policy_kwargs.get("recurrent_layer_type", "lstm").lower()
+
+        if recurrent_layer_type == "lstm":
+            # LSTM: (hidden_state, cell_state) tuples
+            self._last_lstm_states = RNNStates(
+                (
+                    th.zeros(single_hidden_state_shape, device=self.device),
+                    th.zeros(single_hidden_state_shape, device=self.device),
+                ),
+                (
+                    th.zeros(single_hidden_state_shape, device=self.device),
+                    th.zeros(single_hidden_state_shape, device=self.device),
+                ),
+            )
+        else:
+            # RNN: single hidden state tensors
+            self._last_lstm_states = RNNStates(
                 th.zeros(single_hidden_state_shape, device=self.device),
                 th.zeros(single_hidden_state_shape, device=self.device),
-            ),
-            (
-                th.zeros(single_hidden_state_shape, device=self.device),
-                th.zeros(single_hidden_state_shape, device=self.device),
-            ),
-        )
+    )
 
         hidden_state_buffer_shape = (self.n_steps, lstm.num_layers, self.n_envs, lstm.hidden_size)
 
@@ -182,6 +192,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
             gamma=self.gamma,
             gae_lambda=self.gae_lambda,
             n_envs=self.n_envs,
+            recurrent_layer_type=recurrent_layer_type,
         )
 
         # Initialize schedules for policy/value clipping
