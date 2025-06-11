@@ -229,7 +229,7 @@ class RecurrentRolloutBuffer(RolloutBuffer):
         n_seq = len(self.seq_start_indices)
         max_length = self.pad(self.actions[batch_inds]).shape[1]
         padded_batch_size = n_seq * max_length
-        
+
         # Use the stored recurrent layer type to determine state structure
         if self.recurrent_layer_type == "lstm":
             # LSTM case: return tuples
@@ -299,7 +299,7 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
     ):
         self.hidden_state_shape = hidden_state_shape
         self.seq_start_indices, self.seq_end_indices = None, None
-        self.recurrent_layer_type = recurrent_layer_type.lower() 
+        self.recurrent_layer_type = recurrent_layer_type.lower()
         super().__init__(buffer_size, observation_space, action_space, device, gae_lambda, gamma, n_envs=n_envs)
 
     def reset(self):
@@ -394,7 +394,7 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
         n_seq = len(self.seq_start_indices)
         max_length = self.pad(self.actions[batch_inds]).shape[1]
         padded_batch_size = n_seq * max_length
-        
+
         # Use the stored recurrent layer type to determine state structure
         if self.recurrent_layer_type == "lstm":
             # LSTM case: return tuples

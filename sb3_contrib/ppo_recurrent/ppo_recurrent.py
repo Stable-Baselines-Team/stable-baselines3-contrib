@@ -179,7 +179,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
             self._last_lstm_states = RNNStates(
                 th.zeros(single_hidden_state_shape, device=self.device),
                 th.zeros(single_hidden_state_shape, device=self.device),
-    )
+            )
 
         hidden_state_buffer_shape = (self.n_steps, lstm.num_layers, self.n_envs, lstm.hidden_size)
 
@@ -296,7 +296,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
                         else:
                             # RNN case: single tensor
                             terminal_lstm_state = lstm_states.vf[:, idx : idx + 1, :].contiguous()
-                        
+
                         episode_starts = th.tensor([False], dtype=th.float32, device=self.device)
                         terminal_value = self.policy.predict_values(terminal_obs, terminal_lstm_state, episode_starts)[0]
                     rewards[idx] += self.gamma * terminal_value

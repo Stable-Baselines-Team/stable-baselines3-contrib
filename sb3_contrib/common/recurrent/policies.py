@@ -219,7 +219,8 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
                     features.unsqueeze(dim=0),
                     (
                         # Reset the states at the beginning of a new episode
-                        (1.0 - episode_start).view(1, n_seq, 1) * lstm_states
+                        (1.0 - episode_start).view(1, n_seq, 1)
+                        * lstm_states
                     ),
                 )
             lstm_output += [hidden]
@@ -413,7 +414,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             n_envs = observation[next(iter(observation.keys()))].shape[0]
         else:
             n_envs = observation.shape[0]
-        
+
         # state : (n_layers, n_envs, dim) for both LSTM and RNN
         # For LSTM: state is a tuple (hidden_state, cell_state)
         # For RNN: state is just the hidden_state
@@ -435,18 +436,18 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
             if self.recurrent_layer_type == "lstm":
                 # LSTM: convert tuple of states
                 lstm_states = (
-                    th.tensor(state[0], dtype=th.float32, device=self.device), 
-                    th.tensor(state[1], dtype=th.float32, device=self.device)
+                    th.tensor(state[0], dtype=th.float32, device=self.device),
+                    th.tensor(state[1], dtype=th.float32, device=self.device),
                 )
             else:
                 # RNN: convert single state tensor
                 lstm_states = th.tensor(state, dtype=th.float32, device=self.device)
-            
+
             episode_starts = th.tensor(episode_start, dtype=th.float32, device=self.device)
             actions, lstm_states = self._predict(
                 observation, lstm_states=lstm_states, episode_starts=episode_starts, deterministic=deterministic
             )
-            
+
             # Convert states back to numpy
             if self.recurrent_layer_type == "lstm":
                 # LSTM: convert tuple back to numpy
