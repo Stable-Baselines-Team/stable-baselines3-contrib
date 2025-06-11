@@ -10,6 +10,30 @@ New Features:
 ^^^^^^^^^^^^^
 - Added support for vanilla RNNs in RecurrentPPO via `recurrent_layer_type` policy_kwargs argument (@gcroci2)
 
+Release 2.6.1a1 (WIP)
+--------------------------
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Upgraded to Stable-Baselines3 >= 2.6.1
+
+New Features:
+^^^^^^^^^^^^^
+
+Bug Fixes:
+^^^^^^^^^^
+- Use the ``FloatSchedule`` and ``LinearSchedule`` classes instead of lambdas in the ARS, PPO, and QRDQN implementations to improve model portability across different operating systems
+
+Deprecations:
+^^^^^^^^^^^^^
+
+Others:
+^^^^^^^
+
+Documentation:
+^^^^^^^^^^^^^^
+
+
 Release 2.6.0 (2025-03-24)
 --------------------------
 
@@ -25,15 +49,6 @@ New Features:
 Bug Fixes:
 ^^^^^^^^^^
 - Fixed issues with ``SubprocVecEnv`` and ``MaskablePPO`` by using ``vec_env.has_attr()`` (pickling issues, mask function not present)
-
-Deprecations:
-^^^^^^^^^^^^^
-
-Others:
-^^^^^^^
-
-Documentation:
-^^^^^^^^^^^^^^
 
 Release 2.5.0 (2025-01-27)
 --------------------------

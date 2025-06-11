@@ -47,7 +47,6 @@ class BatchRenorm(torch.nn.Module):
 
         self.affine = affine
         self.eps = eps
-        self.step = 0
         self.momentum = momentum
         self.num_features = num_features
         # Clip scale and bias of the affine transform
@@ -76,14 +75,14 @@ class BatchRenorm(torch.nn.Module):
             # Note: in the original paper, after some warmup phase (batch norm phase of 5k steps)
             # the constraints are linearly relaxed to r_max/d_max over 40k steps
             # Here we only have a warmup phase
-            if self.steps > self.warmup_steps:
+            if self.steps > self.warmup_steps:  # type: ignore[operator]
 
-                running_std = (self.ra_var + self.eps).sqrt()
+                running_std = (self.ra_var + self.eps).sqrt()  # type: ignore[operator, union-attr]
                 # scale
                 r = (batch_std / running_std).detach()
                 r = r.clamp(1 / self.rmax, self.rmax)
                 # bias
-                d = ((batch_mean - self.ra_mean) / running_std).detach()
+                d = ((batch_mean - self.ra_mean) / running_std).detach()  # type: ignore[operator]
                 d = d.clamp(-self.dmax, self.dmax)
 
                 # BatchNorm normalization, using minibatch stats and running average stats
@@ -94,13 +93,13 @@ class BatchRenorm(torch.nn.Module):
                 custom_mean, custom_var = batch_mean, batch_var
 
             # Update Running Statistics
-            self.ra_mean += self.momentum * (batch_mean.detach() - self.ra_mean)
-            self.ra_var += self.momentum * (batch_var.detach() - self.ra_var)
-            self.steps += 1
+            self.ra_mean += self.momentum * (batch_mean.detach() - self.ra_mean)  # type: ignore[operator]
+            self.ra_var += self.momentum * (batch_var.detach() - self.ra_var)  # type: ignore[operator]
+            self.steps += 1  # type: ignore[operator, assignment]
 
         else:
             # Use running statistics during evaluation mode
-            custom_mean, custom_var = self.ra_mean, self.ra_var
+            custom_mean, custom_var = self.ra_mean, self.ra_var  # type: ignore[assignment]
 
         # Normalize
         x = (x - custom_mean[None]) / (custom_var[None] + self.eps).sqrt()

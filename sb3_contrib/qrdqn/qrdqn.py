@@ -8,7 +8,7 @@ from stable_baselines3.common.buffers import ReplayBuffer
 from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
-from stable_baselines3.common.utils import get_linear_fn, get_parameters_by_name, polyak_update
+from stable_baselines3.common.utils import LinearSchedule, get_parameters_by_name, polyak_update
 
 from sb3_contrib.common.utils import quantile_huber_loss
 from sb3_contrib.qrdqn.policies import CnnPolicy, MlpPolicy, MultiInputPolicy, QRDQNPolicy, QuantileNetwork
@@ -150,7 +150,7 @@ class QRDQN(OffPolicyAlgorithm):
         # Copy running stats, see https://github.com/DLR-RM/stable-baselines3/issues/996
         self.batch_norm_stats = get_parameters_by_name(self.quantile_net, ["running_"])
         self.batch_norm_stats_target = get_parameters_by_name(self.quantile_net_target, ["running_"])
-        self.exploration_schedule = get_linear_fn(
+        self.exploration_schedule = LinearSchedule(
             self.exploration_initial_eps, self.exploration_final_eps, self.exploration_fraction
         )
 
