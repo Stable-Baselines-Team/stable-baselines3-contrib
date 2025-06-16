@@ -13,6 +13,7 @@ def test_crossq():
         "MlpPolicy",
         "Pendulum-v1",
         learning_starts=100,
+        n_steps=3,
         verbose=1,
         policy_kwargs=dict(net_arch=[32], renorm_warmup_steps=1),
     )
