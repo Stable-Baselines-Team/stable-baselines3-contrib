@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Optional, TypeVar, Union, List, Tuple
+from typing import Optional, TypeVar, Union
 
 import numpy as np
 import torch as th
@@ -19,7 +19,7 @@ MaybeMasks = Union[th.Tensor, np.ndarray, None]
 def _mask_logits(logits: th.Tensor, mask: MaybeMasks, neg_inf: float) -> th.Tensor:
     """
     Eliminate chosen categorical outcomes by setting their logits to `neg_inf`.
-    
+
     :param logits: A tensor of unnormalized log probabilities (logits) for the categorical distribution.
         The shape should be compatible with the mask.
 
@@ -27,9 +27,9 @@ def _mask_logits(logits: th.Tensor, mask: MaybeMasks, neg_inf: float) -> th.Tens
         If True, the corresponding choice's logit value is preserved. If False, it is set
         to a large negative value, resulting in near 0 probability. If mask is None, any
         previously applied masking is removed, and the original logits are restored.
-    
+
     :param neg_inf: The value to use for masked logits, typically negative infinity
-        to ensure the masked actions have zero (or near-zero) probability when passed 
+        to ensure the masked actions have zero (or near-zero) probability when passed
         through a softmax or categorical distribution.
     """
 
@@ -65,17 +65,15 @@ class MaskableCategorical(Categorical):
         # Validate that exactly one of probs or logits is provided
         if (probs is None) == (logits is None):
             raise ValueError("Specify exactly one of probs or logits but not both.")
-        
+
         # If probs provided, convert it to logits
-        if probs is not None:
+        if logits is None:
             logits = probs_to_logits(probs)
-        
+
         # Save pristine logits for later masking
         self._original_logits = logits.detach().clone()
         self._neg_inf = float("-inf")
-        self.masks = None if masks is None else th.as_tensor(masks, dtype=th.bool, device=logits.device).reshape(
-            logits.shape
-        )
+        self.masks = None if masks is None else th.as_tensor(masks, dtype=th.bool, device=logits.device).reshape(logits.shape)
         masked_logits = _mask_logits(logits, self.masks, self._neg_inf)
         super().__init__(logits=masked_logits, validate_args=validate_args)
 
@@ -103,6 +101,7 @@ class MaskableCategorical(Categorical):
         logits = logits - logits.logsumexp(-1, keepdim=True)
         probs = logits.exp()
         return -(logits * probs).sum(-1)
+
 
 class MaskableDistribution(Distribution, ABC):
     @abstractmethod
@@ -178,7 +177,7 @@ class MaskableCategoricalDistribution(MaskableDistribution):
         self.proba_distribution(action_logits)
         return self.get_actions(deterministic=deterministic)
 
-    def log_prob_from_params(self, action_logits: th.Tensor) -> Tuple[th.Tensor, th.Tensor]:
+    def log_prob_from_params(self, action_logits: th.Tensor) -> tuple[th.Tensor, th.Tensor]:
         actions = self.actions_from_params(action_logits)
         log_prob = self.log_prob(actions)
         return actions, log_prob
@@ -195,9 +194,9 @@ class MaskableMultiCategoricalDistribution(MaskableDistribution):
     :param action_dims: List of sizes of discrete action spaces
     """
 
-    def __init__(self, action_dims: List[int]):
+    def __init__(self, action_dims: list[int]):
         super().__init__()
-        self.distributions: List[MaskableCategorical] = []
+        self.distributions: list[MaskableCategorical] = []
         self.action_dims = action_dims
 
     def proba_distribution_net(self, latent_dim: int) -> nn.Module:
@@ -253,7 +252,7 @@ class MaskableMultiCategoricalDistribution(MaskableDistribution):
         self.proba_distribution(action_logits)
         return self.get_actions(deterministic=deterministic)
 
-    def log_prob_from_params(self, action_logits: th.Tensor) -> Tuple[th.Tensor, th.Tensor]:
+    def log_prob_from_params(self, action_logits: th.Tensor) -> tuple[th.Tensor, th.Tensor]:
         actions = self.actions_from_params(action_logits)
         log_prob = self.log_prob(actions)
         return actions, log_prob
