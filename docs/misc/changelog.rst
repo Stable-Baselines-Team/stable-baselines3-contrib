@@ -3,7 +3,7 @@
 Changelog
 ==========
 
-Release 2.7.0a0 (WIP)
+Release 2.7.0 (2025-07-25)
 --------------------------
 
 Breaking Changes:
