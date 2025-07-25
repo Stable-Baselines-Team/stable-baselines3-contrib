@@ -59,7 +59,7 @@ class MaskableRolloutBuffer(RolloutBuffer):
 
     def reset(self) -> None:
         if isinstance(self.action_space, spaces.Discrete):
-            mask_dims = self.action_space.n
+            mask_dims = int(self.action_space.n)
         elif isinstance(self.action_space, spaces.MultiDiscrete):
             mask_dims = sum(self.action_space.nvec)
         elif isinstance(self.action_space, spaces.MultiBinary):
@@ -165,7 +165,7 @@ class MaskableDictRolloutBuffer(DictRolloutBuffer):
 
     def reset(self) -> None:
         if isinstance(self.action_space, spaces.Discrete):
-            mask_dims = self.action_space.n
+            mask_dims = int(self.action_space.n)
         elif isinstance(self.action_space, spaces.MultiDiscrete):
             mask_dims = sum(self.action_space.nvec)
         elif isinstance(self.action_space, spaces.MultiBinary):
