@@ -27,7 +27,6 @@ follow_imports = "silent"
 show_error_codes = true
 exclude = """(?x)(
 	sb3_contrib/ppo_recurrent/ppo_recurrent.py$
-	| sb3_contrib/ars/ars.py$
 	| sb3_contrib/common/recurrent/policies.py$
 	| sb3_contrib/common/recurrent/buffers.py$
 	| tests/test_train_eval_mode.py$

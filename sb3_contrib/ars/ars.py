@@ -46,6 +46,7 @@ class ARS(PopulationBasedAlgorithm):
         "MlpPolicy": ESPolicy,
         "LinearPolicy": ESLinearPolicy,
     }
+    weights: th.Tensor  # Need to call init model to initialize weights
 
     def __init__(
         self,
@@ -96,7 +97,6 @@ class ARS(PopulationBasedAlgorithm):
         self.n_top = n_top
 
         self.zero_policy = zero_policy
-        self.weights = None  # Need to call init model to initialize weight
 
         if _init_setup_model:
             self._setup_model()
