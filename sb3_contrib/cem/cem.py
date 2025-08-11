@@ -153,7 +153,7 @@ class CEM(PopulationBasedAlgorithm):
             # Sample using the full covariance matrix (+ extra noise)
             sample_cov = self.centroid_cov + th.diag(self.extra_variance)
             param_noise_distribution = MultivariateNormal(th.zeros_like(self.weights), covariance_matrix=sample_cov)
-            policy_deltas = param_noise_distribution.sample((self.pop_size,))
+            policy_deltas = param_noise_distribution.sample((self.pop_size,))  # type: ignore[arg-type]
 
         candidate_weights = self.weights + policy_deltas
 

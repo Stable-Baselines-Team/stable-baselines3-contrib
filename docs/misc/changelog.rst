@@ -14,6 +14,7 @@ Breaking Changes:
 New Features:
 ^^^^^^^^^^^^^
 - Added support for n-step returns for off-policy algorithms via the `n_steps` parameter
+- Added noisy Cross Entropy Method (CEM)
 
 Bug Fixes:
 ^^^^^^^^^^
@@ -312,7 +313,6 @@ Breaking Changes:
 
 New Features:
 ^^^^^^^^^^^^^
-- Added noisy Cross Entropy Method (CEM)
 
 Bug Fixes:
 ^^^^^^^^^^
