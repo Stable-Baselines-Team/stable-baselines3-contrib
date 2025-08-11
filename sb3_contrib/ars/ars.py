@@ -1,20 +1,14 @@
 import warnings
-from functools import partial
 from typing import Any, ClassVar, Optional, TypeVar, Union
 
-import numpy as np
 import torch as th
-import torch.nn.utils
 from gymnasium import spaces
-from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback
-from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.policies import BasePolicy
-from stable_baselines3.common.save_util import load_from_zip_file
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
-from stable_baselines3.common.utils import FloatSchedule, safe_mean
+from stable_baselines3.common.utils import FloatSchedule
 
-from sb3_contrib.common.policies import ESPolicy
+from sb3_contrib.common.policies import ESLinearPolicy, ESPolicy
 from sb3_contrib.common.population_based_algorithm import PopulationBasedAlgorithm
 from sb3_contrib.common.vec_env.async_eval import AsyncEval
 
@@ -49,8 +43,8 @@ class ARS(PopulationBasedAlgorithm):
     """
 
     policy_aliases: ClassVar[dict[str, type[BasePolicy]]] = {
-        "MlpPolicy": MlpPolicy,
-        "LinearPolicy": LinearPolicy,
+        "MlpPolicy": ESPolicy,
+        "LinearPolicy": ESLinearPolicy,
     }
 
     def __init__(
@@ -85,7 +79,6 @@ class ARS(PopulationBasedAlgorithm):
             verbose=verbose,
             device=device,
             supported_action_spaces=(spaces.Box, spaces.Discrete),
-            support_multi_env=True,
             seed=seed,
         )
 
@@ -119,7 +112,7 @@ class ARS(PopulationBasedAlgorithm):
 
         if self.zero_policy:
             self.weights = th.zeros_like(self.weights, requires_grad=False)
-            self.policy.load_from_vector(self.weights.cpu())
+            self.policy.load_from_vector(self.weights.cpu().numpy())
 
     def _do_one_update(self, callback: BaseCallback, async_eval: Optional[AsyncEval]) -> None:
         """
@@ -159,7 +152,7 @@ class ARS(PopulationBasedAlgorithm):
         step_size = learning_rate / (self.n_top * return_std + 1e-6)
         # Approximate gradient step
         self.weights = self.weights + step_size * ((plus_returns - minus_returns) @ deltas)
-        self.policy.load_from_vector(self.weights.cpu())
+        self.policy.load_from_vector(self.weights.cpu().numpy())
 
         self.logger.record("train/iterations", self._n_updates, exclude="tensorboard")
         self.logger.record("train/delta_std", delta_std)
@@ -169,7 +162,7 @@ class ARS(PopulationBasedAlgorithm):
 
         self._n_updates += 1
 
-    def learn(
+    def learn(  # type: ignore[override]
         self: SelfARS,
         total_timesteps: int,
         callback: MaybeCallback = None,

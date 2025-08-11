@@ -3,7 +3,7 @@ import pytest
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecNormalize
 
-from sb3_contrib import ARS, CEM, QRDQN, TQC, TRPO, MaskablePPO, CrossQ
+from sb3_contrib import ARS, CEM, QRDQN, TQC, TRPO, CrossQ, MaskablePPO
 from sb3_contrib.common.envs import InvalidActionEnvDiscrete
 from sb3_contrib.common.vec_env import AsyncEval
 
@@ -107,7 +107,7 @@ def test_ars(policy_str, env_id):
 @pytest.mark.parametrize("policy_str", ["LinearPolicy", "MlpPolicy"])
 def test_cem(policy_str, env_id):
     model = CEM(policy_str, env_id, pop_size=2, verbose=1, seed=0)
-    model.learn(total_timesteps=500, log_interval=1, eval_freq=250)
+    model.learn(total_timesteps=500, log_interval=1)
 
 
 @pytest.mark.parametrize("model_class", [ARS, CEM])

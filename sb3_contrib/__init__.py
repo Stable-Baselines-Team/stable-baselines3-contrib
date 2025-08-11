@@ -16,6 +16,7 @@ with open(version_file) as file_handler:
 
 __all__ = [
     "ARS",
+    "CEM",
     "QRDQN",
     "TQC",
     "TRPO",

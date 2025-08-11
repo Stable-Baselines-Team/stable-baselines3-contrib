@@ -1,18 +1,18 @@
 import warnings
-from typing import Any, Dict, Optional, Type, TypeVar, Union
+from typing import Any, ClassVar, Optional, TypeVar, Union
 
-import gym
 import torch as th
-import torch.nn.utils
+from gymnasium import spaces
 from stable_baselines3.common.callbacks import BaseCallback
+from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback
 from torch.distributions.multivariate_normal import MultivariateNormal
 
-from sb3_contrib.common.policies import ESPolicy
+from sb3_contrib.common.policies import ESLinearPolicy, ESPolicy
 from sb3_contrib.common.population_based_algorithm import PopulationBasedAlgorithm
 from sb3_contrib.common.vec_env.async_eval import AsyncEval
 
-CEMSelf = TypeVar("CEMSelf", bound="CEM")
+SelfCEM = TypeVar("SelfCEM", bound="CEM")
 
 
 class CEM(PopulationBasedAlgorithm):
@@ -39,6 +39,8 @@ class CEM(PopulationBasedAlgorithm):
     :param alive_bonus_offset: Constant added to the reward at each step, used to cancel out alive bonuses.
     :param n_eval_episodes: Number of episodes to evaluate each candidate.
     :param policy_kwargs: Keyword arguments to pass to the policy on creation
+    :param stats_window_size: Window size for the rollout logging, specifying the number of episodes to average
+        the reported success rate, mean episode length, and mean reward over
     :param tensorboard_log: String with the directory to put tensorboard logs:
     :param seed: Random seed for the training
     :param verbose: Verbosity level: 0 no output, 1 info, 2 debug
@@ -46,9 +48,17 @@ class CEM(PopulationBasedAlgorithm):
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
 
+    policy_aliases: ClassVar[dict[str, type[BasePolicy]]] = {
+        "MlpPolicy": ESPolicy,
+        "LinearPolicy": ESLinearPolicy,
+    }
+    weights: th.Tensor  # Need to call init model to initialize weights
+    centroid_cov: th.Tensor
+    extra_variance: th.Tensor
+
     def __init__(
         self,
-        policy: Union[str, Type[ESPolicy]],
+        policy: Union[str, type[ESPolicy]],
         env: Union[GymEnv, str],
         pop_size: int = 16,
         n_top: Optional[int] = None,
@@ -59,7 +69,8 @@ class CEM(PopulationBasedAlgorithm):
         use_diagonal_covariance: bool = False,
         alive_bonus_offset: float = 0,
         n_eval_episodes: int = 1,
-        policy_kwargs: Optional[Dict[str, Any]] = None,
+        policy_kwargs: Optional[dict[str, Any]] = None,
+        stats_window_size: int = 100,
         tensorboard_log: Optional[str] = None,
         seed: Optional[int] = None,
         verbose: int = 0,
@@ -74,11 +85,12 @@ class CEM(PopulationBasedAlgorithm):
             pop_size=pop_size,
             alive_bonus_offset=alive_bonus_offset,
             n_eval_episodes=n_eval_episodes,
+            stats_window_size=stats_window_size,
             tensorboard_log=tensorboard_log,
             policy_kwargs=policy_kwargs,
             verbose=verbose,
             device=device,
-            supported_action_spaces=(gym.spaces.Box, gym.spaces.Discrete),
+            supported_action_spaces=(spaces.Box, spaces.Discrete),
             seed=seed,
         )
 
@@ -96,10 +108,7 @@ class CEM(PopulationBasedAlgorithm):
 
         self.n_top = n_top
         self.zero_policy = zero_policy
-        self.weights = None  # Need to call init model to initialize weights
-        self.centroid_cov = None
         self.use_diagonal_covariance = use_diagonal_covariance
-        self.extra_variance = None
 
         if _init_setup_model:
             self._setup_model()
@@ -126,7 +135,7 @@ class CEM(PopulationBasedAlgorithm):
 
         if self.zero_policy:
             self.weights = th.zeros_like(self.weights, requires_grad=False)
-            self.policy.load_from_vector(self.weights.cpu())
+            self.policy.load_from_vector(self.weights.cpu().numpy())
 
     def _do_one_update(self, callback: BaseCallback, async_eval: Optional[AsyncEval]) -> None:
         """
@@ -168,7 +177,7 @@ class CEM(PopulationBasedAlgorithm):
         self.extra_variance = th.ones_like(self.weights, requires_grad=False) * self.extra_noise_std**2
 
         # Current policy is the centroid of the best candidates
-        self.policy.load_from_vector(self.weights.cpu())
+        self.policy.load_from_vector(self.weights.cpu().numpy())
 
         self.logger.record("rollout/return_std", candidate_returns.std().item())
         self.logger.record("train/iterations", self._n_updates, exclude="tensorboard")
@@ -180,8 +189,8 @@ class CEM(PopulationBasedAlgorithm):
 
         self._n_updates += 1
 
-    def learn(
-        self: CEMSelf,
+    def learn(  # type: ignore[override]
+        self: SelfCEM,
         total_timesteps: int,
         callback: MaybeCallback = None,
         log_interval: int = 1,
@@ -189,7 +198,7 @@ class CEM(PopulationBasedAlgorithm):
         reset_num_timesteps: bool = True,
         async_eval: Optional[AsyncEval] = None,
         progress_bar: bool = False,
-    ) -> CEMSelf:
+    ) -> SelfCEM:
         """
         Return a trained model.
 
