@@ -26,6 +26,7 @@ See documentation for the full list of included features.
 
 **RL Algorithms**:
 - [Augmented Random Search (ARS)](https://arxiv.org/abs/1803.07055)
+- [Noisy Cross Entropy Method (CEM)](http://dx.doi.org/10.1162/neco.2006.18.12.2936)
 - [Quantile Regression DQN (QR-DQN)](https://arxiv.org/abs/1710.10044)
 - [PPO with invalid action masking (MaskablePPO)](https://arxiv.org/abs/2006.14171)
 - [PPO with recurrent policy (RecurrentPPO aka PPO LSTM)](https://ppo-details.cleanrl.dev//2021/11/05/ppo-implementation-details/)
