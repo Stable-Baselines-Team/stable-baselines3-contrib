@@ -52,29 +52,29 @@ Example
 
 .. code-block:: python
 
-  import gym
+  import gymnasium as gym
   import numpy as np
 
   from sb3_contrib import TQC
 
-  env = gym.make("Pendulum-v1")
+  env = gym.make("Pendulum-v1", render_mode="human")
 
   policy_kwargs = dict(n_critics=2, n_quantiles=25)
   model = TQC("MlpPolicy", env, top_quantiles_to_drop_per_net=2, verbose=1, policy_kwargs=policy_kwargs)
-  model.learn(total_timesteps=10000, log_interval=4)
+  model.learn(total_timesteps=10_000, log_interval=4)
   model.save("tqc_pendulum")
 
   del model # remove to demonstrate saving and loading
 
   model = TQC.load("tqc_pendulum")
 
-  obs = env.reset()
+  obs, _ = env.reset()
   while True:
       action, _states = model.predict(obs, deterministic=True)
-      obs, reward, done, info = env.step(action)
+      obs, reward, terminated, truncated, info = env.step(action)
       env.render()
-      if done:
-        obs = env.reset()
+      if terminated or truncated:
+        obs, _ = env.reset()
 
 
 Results

@@ -12,7 +12,7 @@ DIM = 4
 @pytest.mark.parametrize("model_class", [QRDQN, TRPO])
 @pytest.mark.parametrize("env", [IdentityEnv(DIM), IdentityEnvMultiDiscrete(DIM), IdentityEnvMultiBinary(DIM)])
 def test_discrete(model_class, env):
-    env_ = DummyVecEnv([lambda: env])
+    vec_env = DummyVecEnv([lambda: env])
     kwargs = {}
     n_steps = 1500
     if model_class == QRDQN:
@@ -30,9 +30,9 @@ def test_discrete(model_class, env):
     elif n_steps == TRPO:
         kwargs = dict(n_steps=256, cg_max_steps=5)
 
-    model = model_class("MlpPolicy", env_, learning_rate=1e-3, gamma=0.4, seed=1, **kwargs).learn(n_steps)
+    model = model_class("MlpPolicy", vec_env, learning_rate=1e-3, gamma=0.4, seed=0, **kwargs).learn(n_steps)
 
-    evaluate_policy(model, env_, n_eval_episodes=20, reward_threshold=90, warn=False)
-    obs = env.reset()
+    evaluate_policy(model, vec_env, n_eval_episodes=20, reward_threshold=90, warn=False)
+    obs = vec_env.reset()
 
     assert np.shape(model.predict(obs)[0]) == np.shape(obs)

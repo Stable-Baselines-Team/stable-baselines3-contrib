@@ -3,18 +3,26 @@ import pathlib
 from collections import OrderedDict
 from copy import deepcopy
 
-import gym
+import gymnasium as gym
 import numpy as np
 import pytest
 import torch as th
 from stable_baselines3.common.base_class import BaseAlgorithm
+from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.envs import FakeImageEnv, IdentityEnv, IdentityEnvBox
 from stable_baselines3.common.utils import get_device
 from stable_baselines3.common.vec_env import DummyVecEnv
 
-from sb3_contrib import ARS, QRDQN, TQC, TRPO
+from sb3_contrib import ARS, QRDQN, TQC, TRPO, CrossQ
 
-MODEL_LIST = [ARS, QRDQN, TQC, TRPO]
+MODEL_LIST = [ARS, QRDQN, TQC, TRPO, CrossQ]
+
+
+def rand_like(tensor: th.Tensor) -> th.Tensor:
+    if th.is_floating_point(tensor):
+        return th.rand_like(tensor)
+    # int tensor
+    return th.randint_like(tensor, high=10)
 
 
 def select_env(model_class: BaseAlgorithm) -> gym.Env:
@@ -24,7 +32,7 @@ def select_env(model_class: BaseAlgorithm) -> gym.Env:
     if model_class == QRDQN:
         return IdentityEnv(10)
     else:
-        return IdentityEnvBox(10)
+        return IdentityEnvBox(-10, 10)
 
 
 @pytest.mark.parametrize("model_class", MODEL_LIST)
@@ -93,7 +101,7 @@ def test_save_load(tmp_path, model_class):
         else:
             # Again, skip the last item in state-dict
             random_params[object_name] = OrderedDict(
-                (param_name, th.rand_like(param)) for param_name, param in list(params.items())[:-1]
+                (param_name, rand_like(param)) for param_name, param in list(params.items())[:-1]
             )
 
     # Update model parameters with the new random values
@@ -267,8 +275,8 @@ def test_save_load_policy(tmp_path, model_class, policy_str):
     """
     kwargs = dict(policy_kwargs=dict(net_arch=[16]))
 
-    if policy_str == "CnnPolicy" and model_class is ARS:
-        pytest.skip("ARS does not support CnnPolicy")
+    if policy_str == "CnnPolicy" and model_class in [ARS, CrossQ]:
+        pytest.skip(f"{model_class.__name__} does not support CnnPolicy")
 
     if policy_str == "MlpPolicy":
         env = select_env(model_class)
@@ -312,7 +320,7 @@ def test_save_load_policy(tmp_path, model_class, policy_str):
     params = deepcopy(policy.state_dict())
 
     # Modify all parameters to be random values
-    random_params = {param_name: th.rand_like(param) for param_name, param in params.items()}
+    random_params = {param_name: rand_like(param) for param_name, param in params.items()}
 
     # Update model parameters with the new random values
     policy.load_state_dict(random_params)
@@ -409,7 +417,7 @@ def test_save_load_q_net(tmp_path, model_class, policy_str):
     params = deepcopy(q_net.state_dict())
 
     # Modify all parameters to be random values
-    random_params = {param_name: th.rand_like(param) for param_name, param in params.items()}
+    random_params = {param_name: rand_like(param) for param_name, param in params.items()}
 
     # Update model parameters with the new random values
     q_net.load_state_dict(random_params)
@@ -481,3 +489,14 @@ def test_save_load_pytorch_var(tmp_path):
     assert model.log_ent_coef is None
     # Check that the entropy coefficient is still the same
     assert th.allclose(ent_coef_before, ent_coef_after)
+
+
+def test_dqn_target_update_interval(tmp_path):
+    # `target_update_interval` should not change when reloading the model. See GH Issue #258.
+    env = make_vec_env(env_id="CartPole-v1", n_envs=2)
+    model = QRDQN("MlpPolicy", env, verbose=1, target_update_interval=100)
+    model.save(tmp_path / "dqn_cartpole")
+    del model
+    model = QRDQN.load(tmp_path / "dqn_cartpole")
+    os.remove(tmp_path / "dqn_cartpole.zip")
+    assert model.target_update_interval == 100

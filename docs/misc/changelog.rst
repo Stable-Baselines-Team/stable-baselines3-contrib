@@ -3,21 +3,21 @@
 Changelog
 ==========
 
-Release 1.7.0a0 (WIP)
+Release 2.7.0 (2025-07-25)
 --------------------------
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
-- Removed deprecated ``create_eval_env``, ``eval_env``, ``eval_log_path``, ``n_eval_episodes`` and ``eval_freq`` parameters,
-  please use an ``EvalCallback`` instead
-- Removed deprecated ``sde_net_arch`` parameter
+- Upgraded to Stable-Baselines3 >= 2.7.0
 - Changed default policy architecture for ARS/CEM to ``[32]`` instead of ``[64, 64]``
 
 New Features:
 ^^^^^^^^^^^^^
+- Added support for n-step returns for off-policy algorithms via the `n_steps` parameter
 
 Bug Fixes:
 ^^^^^^^^^^
+- Use the ``FloatSchedule`` and ``LinearSchedule`` classes instead of lambdas in the ARS, PPO, and QRDQN implementations to improve model portability across different operating systems
 
 Deprecations:
 ^^^^^^^^^^^^^
@@ -25,6 +25,258 @@ Deprecations:
 Others:
 ^^^^^^^
 
+Documentation:
+^^^^^^^^^^^^^^
+
+
+Release 2.6.0 (2025-03-24)
+--------------------------
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Upgraded to Stable-Baselines3 >= 2.6.0
+- Renamed ``_dump_logs()`` to ``dump_logs()``
+
+New Features:
+^^^^^^^^^^^^^
+- Added support for Gymnasium v1.1.0
+
+Bug Fixes:
+^^^^^^^^^^
+- Fixed issues with ``SubprocVecEnv`` and ``MaskablePPO`` by using ``vec_env.has_attr()`` (pickling issues, mask function not present)
+
+Release 2.5.0 (2025-01-27)
+--------------------------
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Upgraded to PyTorch 2.3.0
+- Dropped Python 3.8 support
+- Upgraded to Stable-Baselines3 >= 2.5.0
+
+New Features:
+^^^^^^^^^^^^^
+- Added Python 3.12 support
+- Added Numpy v2.0 support
+
+Release 2.4.0 (2024-11-18)
+--------------------------
+
+**New algorithm: added CrossQ, Gymnasium v1.0 support**
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Upgraded to Stable-Baselines3 >= 2.4.0
+
+New Features:
+^^^^^^^^^^^^^
+- Added ``CrossQ`` algorithm, from "Batch Normalization in Deep Reinforcement Learning" paper (@danielpalen)
+- Added ``BatchRenorm`` PyTorch layer used in ``CrossQ`` (@danielpalen)
+- Added support for Gymnasium v1.0
+
+Bug Fixes:
+^^^^^^^^^^
+- Updated QR-DQN optimizer input to only include quantile_net parameters (@corentinlger)
+- Updated QR-DQN paper link in docs (@corentinlger)
+- Fixed a warning with PyTorch 2.4 when loading a `RecurrentPPO` model (You are using torch.load with weights_only=False)
+- Fixed loading QRDQN changes `target_update_interval` (@jak3122)
+
+Others:
+^^^^^^^
+- Updated PyTorch version on CI to 2.3.1
+- Remove unnecessary SDE noise resampling in PPO/TRPO update
+- Switched to uv to download packages on GitHub CI
+
+
+Release 2.3.0 (2024-03-31)
+--------------------------
+
+**New defaults hyperparameters for QR-DQN**
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Upgraded to Stable-Baselines3 >= 2.3.0
+- The default ``learning_starts`` parameter of ``QRDQN`` have been changed to be consistent with the other offpolicy algorithms
+
+
+.. code-block:: python
+
+  # SB3 < 2.3.0 default hyperparameters, 50_000 corresponded to Atari defaults hyperparameters
+  # model = QRDQN("MlpPolicy", env, learning_starts=50_000)
+  # SB3 >= 2.3.0:
+  model = QRDQN("MlpPolicy", env, learning_starts=100)
+
+
+New Features:
+^^^^^^^^^^^^^
+- Added ``rollout_buffer_class`` and ``rollout_buffer_kwargs`` arguments to MaskablePPO
+- Log success rate ``rollout/success_rate`` when available for on policy algorithms
+
+Others:
+^^^^^^^
+- Fixed ``train_freq`` type annotation for tqc and qrdqn (@Armandpl)
+- Fixed ``sb3_contrib/common/maskable/*.py`` type annotations
+- Fixed ``sb3_contrib/ppo_mask/ppo_mask.py`` type annotations
+- Fixed ``sb3_contrib/common/vec_env/async_eval.py`` type annotations
+
+Documentation:
+^^^^^^^^^^^^^^
+- Add some additional notes about ``MaskablePPO`` (evaluation and multi-process) (@icheered)
+
+
+Release 2.2.1 (2023-11-17)
+--------------------------
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Upgraded to Stable-Baselines3 >= 2.2.1
+- Switched to ``ruff`` for sorting imports (isort is no longer needed), black and ruff version now require a minimum version
+- Dropped ``x is False`` in favor of ``not x``, which means that callbacks that wrongly returned None (instead of a boolean) will cause the training to stop (@iwishiwasaneagle)
+
+New Features:
+^^^^^^^^^^^^^
+- Added ``set_options`` for ``AsyncEval``
+- Added ``rollout_buffer_class`` and ``rollout_buffer_kwargs`` arguments to TRPO
+
+Others:
+^^^^^^^
+- Fixed ``ActorCriticPolicy.extract_features()`` signature by adding an optional ``features_extractor`` argument
+- Update dependencies (accept newer Shimmy/Sphinx version and remove ``sphinx_autodoc_typehints``)
+
+
+Release 2.1.0 (2023-08-17)
+--------------------------
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Removed Python 3.7 support
+- SB3 now requires PyTorch > 1.13
+- Upgraded to Stable-Baselines3 >= 2.1.0
+
+New Features:
+^^^^^^^^^^^^^
+- Added Python 3.11 support
+
+Bug Fixes:
+^^^^^^^^^^
+- Fixed MaskablePPO ignoring ``stats_window_size`` argument
+
+
+
+Release 2.0.0 (2023-06-22)
+--------------------------
+
+**Gymnasium support**
+
+.. warning::
+
+  Stable-Baselines3 (SB3) v2.0 will be the last one supporting python 3.7 (end of life in June 2023).
+  We highly recommended you to upgrade to Python >= 3.8.
+
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Switched to Gymnasium as primary backend, Gym 0.21 and 0.26 are still supported via the ``shimmy`` package (@carlosluis, @arjun-kg, @tlpss)
+- Upgraded to Stable-Baselines3 >= 2.0.0
+
+
+Bug Fixes:
+^^^^^^^^^^
+- Fixed QRDQN update interval for multi envs
+
+
+Others:
+^^^^^^^
+- Fixed ``sb3_contrib/tqc/*.py`` type hints
+- Fixed ``sb3_contrib/trpo/*.py`` type hints
+- Fixed ``sb3_contrib/common/envs/invalid_actions_env.py`` type hints
+
+
+Documentation:
+^^^^^^^^^^^^^^
+- Update documentation, switch from Gym to Gymnasium
+
+Release 1.8.0 (2023-04-07)
+--------------------------
+
+.. warning::
+
+  Stable-Baselines3 (SB3) v1.8.0 will be the last one to use Gym as a backend.
+  Starting with v2.0.0, Gymnasium will be the default backend (though SB3 will have compatibility layers for Gym envs).
+  You can find a migration guide here: https://gymnasium.farama.org/content/migration-guide/.
+  If you want to try the SB3 v2.0 alpha version, you can take a look at `PR #1327 <https://github.com/DLR-RM/stable-baselines3/pull/1327>`_.
+
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Removed shared layers in ``mlp_extractor`` (@AlexPasqua)
+- Upgraded to Stable-Baselines3 >= 1.8.0
+
+New Features:
+^^^^^^^^^^^^^
+- Added ``stats_window_size`` argument to control smoothing in rollout logging (@jonasreiher)
+
+
+Others:
+^^^^^^^
+- Moved to pyproject.toml
+- Added github issue forms
+- Fixed Atari Roms download in CI
+- Fixed ``sb3_contrib/qrdqn/*.py`` type hints
+- Switched from ``flake8`` to ``ruff``
+
+Documentation:
+^^^^^^^^^^^^^^
+- Added warning about potential crashes caused by ``check_env`` in the ``MaskablePPO`` docs (@AlexPasqua)
+
+
+Release 1.7.0 (2023-01-10)
+--------------------------
+
+.. warning::
+
+  Shared layers in MLP policy (``mlp_extractor``) are now deprecated for PPO, A2C and TRPO.
+  This feature will be removed in SB3 v1.8.0 and the behavior of ``net_arch=[64, 64]``
+  will create **separate** networks with the same architecture, to be consistent with the off-policy algorithms.
+
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Removed deprecated ``create_eval_env``, ``eval_env``, ``eval_log_path``, ``n_eval_episodes`` and ``eval_freq`` parameters,
+  please use an ``EvalCallback`` instead
+- Removed deprecated ``sde_net_arch`` parameter
+- Upgraded to Stable-Baselines3 >= 1.7.0
+
+New Features:
+^^^^^^^^^^^^^
+- Introduced mypy type checking
+- Added support for Python 3.10
+- Added ``with_bias`` parameter to ``ARSPolicy``
+- Added option to have non-shared features extractor between actor and critic in on-policy algorithms (@AlexPasqua)
+- Features extractors now properly support unnormalized image-like observations (3D tensor)
+  when passing ``normalize_images=False``
+
+Bug Fixes:
+^^^^^^^^^^
+- Fixed a bug in ``RecurrentPPO`` where the lstm states where incorrectly reshaped for ``n_lstm_layers > 1`` (thanks @kolbytn)
+- Fixed ``RuntimeError: rnn: hx is not contiguous`` while predicting terminal values for ``RecurrentPPO`` when ``n_lstm_layers > 1``
+
+Deprecations:
+^^^^^^^^^^^^^
+- You should now explicitely pass a ``features_extractor`` parameter when calling ``extract_features()``
+- Deprecated shared layers in ``MlpExtractor`` (@AlexPasqua)
+
+Others:
+^^^^^^^
+- Fixed flake8 config
+- Fixed ``sb3_contrib/common/utils.py`` type hint
+- Fixed ``sb3_contrib/common/recurrent/type_aliases.py`` type hint
+- Fixed ``sb3_contrib/ars/policies.py`` type hint
+- Exposed modules in `__init__.py` with `__all__` attribute (@ZikangXiong)
+- Removed ignores on Flake8 F401 (@ZikangXiong)
+- Upgraded GitHub CI/setup-python to v4 and checkout to v3
+- Set tensors construction directly on the device
+- Standardized the use of ``from gym import spaces``
 
 Release 1.6.2 (2022-10-10)
 --------------------------
@@ -38,9 +290,6 @@ Breaking Changes:
 New Features:
 ^^^^^^^^^^^^^
 - Added ``progress_bar`` argument in the ``learn()`` method, displayed using TQDM and rich packages
-
-Bug Fixes:
-^^^^^^^^^^
 
 Deprecations:
 ^^^^^^^^^^^^^
@@ -358,4 +607,4 @@ Contributors:
 -------------
 
 @ku2482 @guyk1971 @minhlong94 @ayeright @kronion @glmcdona @cyprienc @sgillen @Gregwar @rnederstigt @qgallouedec
-@mlodel @CppMaster @burakdmb @honglu2875
+@mlodel @CppMaster @burakdmb @honglu2875 @ZikangXiong @AlexPasqua @jonasreiher @icheered @Armandpl @danielpalen @corentinlger

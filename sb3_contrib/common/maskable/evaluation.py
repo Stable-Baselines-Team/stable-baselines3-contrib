@@ -1,7 +1,7 @@
 import warnings
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Optional, Union
 
-import gym
+import gymnasium as gym
 import numpy as np
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, VecEnv, VecMonitor, is_vecenv_wrapped
@@ -10,18 +10,18 @@ from sb3_contrib.common.maskable.utils import get_action_masks, is_masking_suppo
 from sb3_contrib.ppo_mask import MaskablePPO
 
 
-def evaluate_policy(  # noqa: C901
+def evaluate_policy(
     model: MaskablePPO,
     env: Union[gym.Env, VecEnv],
     n_eval_episodes: int = 10,
     deterministic: bool = True,
     render: bool = False,
-    callback: Optional[Callable[[Dict[str, Any], Dict[str, Any]], None]] = None,
+    callback: Optional[Callable[[dict[str, Any], dict[str, Any]], None]] = None,
     reward_threshold: Optional[float] = None,
     return_episode_rewards: bool = False,
     warn: bool = True,
     use_masking: bool = True,
-) -> Union[Tuple[float, float], Tuple[List[float], List[int]]]:
+) -> Union[tuple[float, float], tuple[list[float], list[int]]]:
     """
     Runs policy for ``n_eval_episodes`` episodes and returns average reward.
     If a vector env is passed in, this divides the episodes to evaluate onto the
@@ -64,7 +64,7 @@ def evaluate_policy(  # noqa: C901
     is_monitor_wrapped = False
 
     if not isinstance(env, VecEnv):
-        env = DummyVecEnv([lambda: env])
+        env = DummyVecEnv([lambda: env])  # type: ignore[list-item, return-value]
 
     is_monitor_wrapped = is_vecenv_wrapped(env, VecMonitor) or env.env_is_wrapped(Monitor)[0]
 
@@ -93,7 +93,7 @@ def evaluate_policy(  # noqa: C901
         if use_masking:
             action_masks = get_action_masks(env)
             actions, state = model.predict(
-                observations,
+                observations,  # type: ignore[arg-type]
                 state=states,
                 episode_start=episode_starts,
                 deterministic=deterministic,
@@ -101,14 +101,16 @@ def evaluate_policy(  # noqa: C901
             )
         else:
             actions, states = model.predict(
-                observations, state=states, episode_start=episode_starts, deterministic=deterministic
+                observations,  # type: ignore[arg-type]
+                state=states,
+                episode_start=episode_starts,
+                deterministic=deterministic,
             )
         observations, rewards, dones, infos = env.step(actions)
         current_rewards += rewards
         current_lengths += 1
         for i in range(n_envs):
             if episode_counts[i] < episode_count_targets[i]:
-
                 # unpack values so that the callback can access the local variables
                 reward = rewards[i]
                 done = dones[i]

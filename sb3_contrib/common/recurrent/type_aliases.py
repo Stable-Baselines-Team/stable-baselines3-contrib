@@ -1,12 +1,12 @@
-from typing import NamedTuple, Tuple
+from typing import NamedTuple
 
 import torch as th
 from stable_baselines3.common.type_aliases import TensorDict
 
 
 class RNNStates(NamedTuple):
-    pi: Tuple[th.Tensor, ...]
-    vf: Tuple[th.Tensor, ...]
+    pi: tuple[th.Tensor, ...]
+    vf: tuple[th.Tensor, ...]
 
 
 class RecurrentRolloutBufferSamples(NamedTuple):
@@ -21,7 +21,7 @@ class RecurrentRolloutBufferSamples(NamedTuple):
     mask: th.Tensor
 
 
-class RecurrentDictRolloutBufferSamples(RecurrentRolloutBufferSamples):
+class RecurrentDictRolloutBufferSamples(NamedTuple):
     observations: TensorDict
     actions: th.Tensor
     old_values: th.Tensor

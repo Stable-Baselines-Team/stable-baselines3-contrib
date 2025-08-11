@@ -1,7 +1,6 @@
-import multiprocessing
 import multiprocessing as mp
 from collections import defaultdict
-from typing import Callable, List, Optional, Tuple, Union
+from typing import Callable, Optional, Union
 
 import numpy as np
 import torch as th
@@ -31,9 +30,9 @@ def _worker(
     :param n_eval_episodes: Number of evaluation episodes per candidate.
     """
     parent_remote.close()
-    env = worker_env_wrapper.var()
+    vec_env: VecEnv = worker_env_wrapper.var()
     train_policy = train_policy_wrapper.var
-    vec_normalize = unwrap_vec_normalize(env)
+    vec_normalize = unwrap_vec_normalize(vec_env)
     if vec_normalize is not None:
         obs_rms = vec_normalize.obs_rms
     else:
@@ -48,7 +47,7 @@ def _worker(
                     train_policy.load_from_vector(candidate_weights.cpu())
                     episode_rewards, episode_lengths = evaluate_policy(
                         train_policy,
-                        env,
+                        vec_env,
                         n_eval_episodes=n_eval_episodes,
                         return_episode_rewards=True,
                         warn=False,
@@ -56,14 +55,19 @@ def _worker(
                     results.append((weights_idx, (episode_rewards, episode_lengths)))
                 remote.send(results)
             elif cmd == "seed":
-                remote.send(env.seed(data))
+                # Note: the seed will only be effective at the next reset
+                remote.send(vec_env.seed(seed=data))
+            elif cmd == "set_options":
+                # Note: the options will only be effective at the next reset
+                remote.send(vec_env.set_options(data))  # type: ignore[func-returns-value]
             elif cmd == "get_obs_rms":
                 remote.send(obs_rms)
             elif cmd == "sync_obs_rms":
+                assert vec_normalize is not None, "Tried to call `sync_obs_rms` when not using VecNormalize"
                 vec_normalize.obs_rms = data
                 obs_rms = data
             elif cmd == "close":
-                env.close()
+                vec_env.close()
                 remote.close()
                 break
             else:
@@ -99,7 +103,7 @@ class AsyncEval:
 
     def __init__(
         self,
-        envs_fn: List[Callable[[], VecEnv]],
+        envs_fn: list[Callable[[], VecEnv]],
         train_policy: BasePolicy,
         start_method: Optional[str] = None,
         n_eval_episodes: int = 1,
@@ -127,7 +131,7 @@ class AsyncEval:
                 n_eval_episodes,
             )
             # daemon=True: if the main process crashes, we should not cause things to hang
-            process = ctx.Process(target=_worker, args=args, daemon=True)  # pytype:disable=attribute-error
+            process = ctx.Process(target=_worker, args=args, daemon=True)  # type: ignore[attr-defined]
             process.start()
             self.processes.append(process)
             work_remote.close()
@@ -147,18 +151,35 @@ class AsyncEval:
             remote.send(("eval", jobs_per_worker[remote_idx]))
         self.waiting = True
 
-    def seed(self, seed: Optional[int] = None) -> List[Union[None, int]]:
+    def seed(self, seed: Optional[int] = None) -> list[Union[None, int]]:
         """
         Seed the environments.
 
         :param seed: The seed for the pseudo-random generators.
         :return:
         """
+        if seed is None:
+            # Do nothing
+            return []
+
         for idx, remote in enumerate(self.remotes):
             remote.send(("seed", seed + idx))
         return [remote.recv() for remote in self.remotes]
 
-    def get_results(self) -> List[Tuple[int, Tuple[np.ndarray, np.ndarray]]]:
+    def set_options(self, options: Optional[Union[list[dict], dict]] = None) -> list[Union[None, int]]:
+        """
+        Set environment options for all environments.
+        If a dict is passed instead of a list, the same options will be used for all environments.
+        WARNING: Those options will only be passed to the environment at the next reset.
+
+        :param options: A dictionary of environment options to pass to each environment at the next reset.
+        :return:
+        """
+        for remote in self.remotes:
+            remote.send(("set_options", options))
+        return [remote.recv() for remote in self.remotes]
+
+    def get_results(self) -> list[tuple[int, tuple[np.ndarray, np.ndarray]]]:
         """
         Retreive episode rewards and lengths from each worker
         for all candidates (there might be multiple candidates per worker)
@@ -171,7 +192,7 @@ class AsyncEval:
         self.waiting = False
         return flat_results
 
-    def get_obs_rms(self) -> List[RunningMeanStd]:
+    def get_obs_rms(self) -> list[RunningMeanStd]:
         """
         Retrieve the observation filters (observation running mean std)
         of each process, they will be combined in the main process.

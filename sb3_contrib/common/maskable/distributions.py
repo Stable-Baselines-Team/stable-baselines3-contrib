@@ -1,13 +1,19 @@
 from abc import ABC, abstractmethod
-from typing import List, Optional, Tuple
+from typing import Optional, TypeVar, Union
 
 import numpy as np
 import torch as th
-from gym import spaces
+from gymnasium import spaces
 from stable_baselines3.common.distributions import Distribution
 from torch import nn
 from torch.distributions import Categorical
 from torch.distributions.utils import logits_to_probs
+
+SelfMaskableCategoricalDistribution = TypeVar("SelfMaskableCategoricalDistribution", bound="MaskableCategoricalDistribution")
+SelfMaskableMultiCategoricalDistribution = TypeVar(
+    "SelfMaskableMultiCategoricalDistribution", bound="MaskableMultiCategoricalDistribution"
+)
+MaybeMasks = Union[th.Tensor, np.ndarray, None]
 
 
 class MaskableCategorical(Categorical):
@@ -31,14 +37,14 @@ class MaskableCategorical(Categorical):
         probs: Optional[th.Tensor] = None,
         logits: Optional[th.Tensor] = None,
         validate_args: Optional[bool] = None,
-        masks: Optional[np.ndarray] = None,
+        masks: MaybeMasks = None,
     ):
         self.masks: Optional[th.Tensor] = None
         super().__init__(probs, logits, validate_args)
         self._original_logits = self.logits
         self.apply_masking(masks)
 
-    def apply_masking(self, masks: Optional[np.ndarray]) -> None:
+    def apply_masking(self, masks: MaybeMasks) -> None:
         """
         Eliminate ("mask out") chosen categorical outcomes by setting their probability to 0.
 
@@ -79,7 +85,7 @@ class MaskableCategorical(Categorical):
 
 class MaskableDistribution(Distribution, ABC):
     @abstractmethod
-    def apply_masking(self, masks: Optional[np.ndarray]) -> None:
+    def apply_masking(self, masks: MaybeMasks) -> None:
         """
         Eliminate ("mask out") chosen distribution outcomes by setting their probability to 0.
 
@@ -88,6 +94,13 @@ class MaskableDistribution(Distribution, ABC):
             to a large negative value, resulting in near 0 probability. If masks is None, any
             previously applied masking is removed, and the original logits are restored.
         """
+
+    @abstractmethod
+    def proba_distribution_net(self, *args, **kwargs) -> nn.Module:
+        """Create the layers and parameters that represent the distribution.
+
+        Subclasses must define this, but the arguments and return type vary between
+        concrete classes."""
 
 
 class MaskableCategoricalDistribution(MaskableDistribution):
@@ -115,7 +128,9 @@ class MaskableCategoricalDistribution(MaskableDistribution):
         action_logits = nn.Linear(latent_dim, self.action_dim)
         return action_logits
 
-    def proba_distribution(self, action_logits: th.Tensor) -> "MaskableCategoricalDistribution":
+    def proba_distribution(
+        self: SelfMaskableCategoricalDistribution, action_logits: th.Tensor
+    ) -> SelfMaskableCategoricalDistribution:
         # Restructure shape to align with logits
         reshaped_logits = action_logits.view(-1, self.action_dim)
         self.distribution = MaskableCategorical(logits=reshaped_logits)
@@ -142,12 +157,12 @@ class MaskableCategoricalDistribution(MaskableDistribution):
         self.proba_distribution(action_logits)
         return self.get_actions(deterministic=deterministic)
 
-    def log_prob_from_params(self, action_logits: th.Tensor) -> Tuple[th.Tensor, th.Tensor]:
+    def log_prob_from_params(self, action_logits: th.Tensor) -> tuple[th.Tensor, th.Tensor]:
         actions = self.actions_from_params(action_logits)
         log_prob = self.log_prob(actions)
         return actions, log_prob
 
-    def apply_masking(self, masks: Optional[np.ndarray]) -> None:
+    def apply_masking(self, masks: MaybeMasks) -> None:
         assert self.distribution is not None, "Must set distribution parameters"
         self.distribution.apply_masking(masks)
 
@@ -159,9 +174,9 @@ class MaskableMultiCategoricalDistribution(MaskableDistribution):
     :param action_dims: List of sizes of discrete action spaces
     """
 
-    def __init__(self, action_dims: List[int]):
+    def __init__(self, action_dims: list[int]):
         super().__init__()
-        self.distributions: List[MaskableCategorical] = []
+        self.distributions: list[MaskableCategorical] = []
         self.action_dims = action_dims
 
     def proba_distribution_net(self, latent_dim: int) -> nn.Module:
@@ -178,12 +193,14 @@ class MaskableMultiCategoricalDistribution(MaskableDistribution):
         action_logits = nn.Linear(latent_dim, sum(self.action_dims))
         return action_logits
 
-    def proba_distribution(self, action_logits: th.Tensor) -> "MaskableMultiCategoricalDistribution":
+    def proba_distribution(
+        self: SelfMaskableMultiCategoricalDistribution, action_logits: th.Tensor
+    ) -> SelfMaskableMultiCategoricalDistribution:
         # Restructure shape to align with logits
         reshaped_logits = action_logits.view(-1, sum(self.action_dims))
 
         self.distributions = [
-            MaskableCategorical(logits=split) for split in th.split(reshaped_logits, tuple(self.action_dims), dim=1)
+            MaskableCategorical(logits=split) for split in th.split(reshaped_logits, list(self.action_dims), dim=1)
         ]
         return self
 
@@ -215,23 +232,21 @@ class MaskableMultiCategoricalDistribution(MaskableDistribution):
         self.proba_distribution(action_logits)
         return self.get_actions(deterministic=deterministic)
 
-    def log_prob_from_params(self, action_logits: th.Tensor) -> Tuple[th.Tensor, th.Tensor]:
+    def log_prob_from_params(self, action_logits: th.Tensor) -> tuple[th.Tensor, th.Tensor]:
         actions = self.actions_from_params(action_logits)
         log_prob = self.log_prob(actions)
         return actions, log_prob
 
-    def apply_masking(self, masks: Optional[np.ndarray]) -> None:
+    def apply_masking(self, masks: MaybeMasks) -> None:
         assert len(self.distributions) > 0, "Must set distribution parameters"
 
         split_masks = [None] * len(self.distributions)
         if masks is not None:
-            masks = th.as_tensor(masks)
-
+            masks_tensor = th.as_tensor(masks)
             # Restructure shape to align with logits
-            masks = masks.view(-1, sum(self.action_dims))
-
+            masks_tensor = masks_tensor.view(-1, sum(self.action_dims))
             # Then split columnwise for each discrete action
-            split_masks = th.split(masks, tuple(self.action_dims), dim=1)
+            split_masks = th.split(masks_tensor, list(self.action_dims), dim=1)  # type: ignore[assignment]
 
         for distribution, mask in zip(self.distributions, split_masks):
             distribution.apply_masking(mask)
@@ -259,10 +274,13 @@ def make_masked_proba_distribution(action_space: spaces.Space) -> MaskableDistri
     """
 
     if isinstance(action_space, spaces.Discrete):
-        return MaskableCategoricalDistribution(action_space.n)
+        return MaskableCategoricalDistribution(int(action_space.n))
     elif isinstance(action_space, spaces.MultiDiscrete):
-        return MaskableMultiCategoricalDistribution(action_space.nvec)
+        return MaskableMultiCategoricalDistribution(list(action_space.nvec))
     elif isinstance(action_space, spaces.MultiBinary):
+        assert isinstance(
+            action_space.n, int
+        ), f"Multi-dimensional MultiBinary({action_space.n}) action space is not supported. You can flatten it instead."
         return MaskableBernoulliDistribution(action_space.n)
     else:
         raise NotImplementedError(

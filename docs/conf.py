@@ -11,9 +11,9 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
+import datetime
 import os
 import sys
-from unittest.mock import MagicMock
 
 # We CANNOT enable 'sphinxcontrib.spelling' because ReadTheDocs.org does not support
 # PyEnchant.
@@ -36,21 +36,6 @@ except ImportError:
 sys.path.insert(0, os.path.abspath(".."))
 
 
-class Mock(MagicMock):
-    __subclasses__ = []
-
-    @classmethod
-    def __getattr__(cls, name):
-        return MagicMock()
-
-
-# Mock modules that requires C modules
-# Note: because of that we cannot test examples using CI
-# 'torch', 'torch.nn', 'torch.nn.functional',
-# DO not mock modules for now, we will need to do that for read the docs later
-MOCK_MODULES = []
-sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
-
 # Read version from file
 version_file = os.path.join(os.path.dirname(__file__), "../sb3_contrib", "version.txt")
 with open(version_file) as file_handler:
@@ -59,7 +44,7 @@ with open(version_file) as file_handler:
 # -- Project information -----------------------------------------------------
 
 project = "Stable Baselines3 - Contrib"
-copyright = "2022, Stable Baselines3"
+copyright = f"2021-{datetime.date.today().year}, Stable Baselines3"
 author = "Stable Baselines3 Contributors"
 
 # The short X.Y version
@@ -79,7 +64,6 @@ release = __version__
 # ones.
 extensions = [
     "sphinx.ext.autodoc",
-    "sphinx_autodoc_typehints",
     "sphinx.ext.autosummary",
     "sphinx.ext.mathjax",
     "sphinx.ext.ifconfig",
@@ -87,6 +71,8 @@ extensions = [
     # 'sphinx.ext.intersphinx',
     # 'sphinx.ext.doctest'
 ]
+
+autodoc_typehints = "description"
 
 if enable_spell_check:
     extensions.append("sphinxcontrib.spelling")
@@ -126,14 +112,7 @@ pygments_style = "sphinx"
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-
-# Fix for read the docs
-on_rtd = os.environ.get("READTHEDOCS") == "True"
-if on_rtd:
-    html_theme = "default"
-else:
-    html_theme = "sphinx_rtd_theme"
-
+html_theme = "sphinx_rtd_theme"
 html_logo = "_static/img/logo.png"
 
 
@@ -171,7 +150,7 @@ htmlhelp_basename = "StableBaselines3doc"
 
 # -- Options for LaTeX output ------------------------------------------------
 
-latex_elements = {
+latex_elements: dict[str, str] = {
     # The paper size ('letterpaper' or 'a4paper').
     #
     # 'papersize': 'letterpaper',

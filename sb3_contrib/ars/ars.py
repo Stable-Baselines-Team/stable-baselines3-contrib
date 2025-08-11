@@ -1,18 +1,24 @@
 import warnings
-from typing import Any, Dict, Optional, Type, TypeVar, Union
+from functools import partial
+from typing import Any, ClassVar, Optional, TypeVar, Union
 
-import gym
+import numpy as np
 import torch as th
 import torch.nn.utils
+from gymnasium import spaces
+from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback
+from stable_baselines3.common.evaluation import evaluate_policy
+from stable_baselines3.common.policies import BasePolicy
+from stable_baselines3.common.save_util import load_from_zip_file
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
-from stable_baselines3.common.utils import get_schedule_fn
+from stable_baselines3.common.utils import FloatSchedule, safe_mean
 
 from sb3_contrib.common.policies import ESPolicy
 from sb3_contrib.common.population_based_algorithm import PopulationBasedAlgorithm
 from sb3_contrib.common.vec_env.async_eval import AsyncEval
 
-ARSSelf = TypeVar("ARSSelf", bound="ARS")
+SelfARS = TypeVar("SelfARS", bound="ARS")
 
 
 class ARS(PopulationBasedAlgorithm):
@@ -32,7 +38,9 @@ class ARS(PopulationBasedAlgorithm):
     :param zero_policy: Boolean determining if the passed policy should have it's weights zeroed before training.
     :param alive_bonus_offset: Constant added to the reward at each step, used to cancel out alive bonuses.
     :param n_eval_episodes: Number of episodes to evaluate each candidate.
-    :param policy_kwargs: Keyword arguments to pass to the policy on creation
+    :param policy_kwargs: Keyword arguments to pass to the policy on creation. See :ref:`ars_policies`
+    :param stats_window_size: Window size for the rollout logging, specifying the number of episodes to average
+        the reported success rate, mean episode length, and mean reward over
     :param tensorboard_log: String with the directory to put tensorboard logs:
     :param seed: Random seed for the training
     :param verbose: Verbosity level: 0 no output, 1 info, 2 debug
@@ -40,9 +48,14 @@ class ARS(PopulationBasedAlgorithm):
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
 
+    policy_aliases: ClassVar[dict[str, type[BasePolicy]]] = {
+        "MlpPolicy": MlpPolicy,
+        "LinearPolicy": LinearPolicy,
+    }
+
     def __init__(
         self,
-        policy: Union[str, Type[ESPolicy]],
+        policy: Union[str, type[ESPolicy]],
         env: Union[GymEnv, str],
         n_delta: int = 8,
         n_top: Optional[int] = None,
@@ -51,14 +64,14 @@ class ARS(PopulationBasedAlgorithm):
         zero_policy: bool = True,
         alive_bonus_offset: float = 0,
         n_eval_episodes: int = 1,
-        policy_kwargs: Optional[Dict[str, Any]] = None,
+        policy_kwargs: Optional[dict[str, Any]] = None,
+        stats_window_size: int = 100,
         tensorboard_log: Optional[str] = None,
         seed: Optional[int] = None,
         verbose: int = 0,
         device: Union[th.device, str] = "cpu",
         _init_setup_model: bool = True,
     ):
-
         super().__init__(
             policy,
             env,
@@ -66,16 +79,18 @@ class ARS(PopulationBasedAlgorithm):
             pop_size=2 * n_delta,
             alive_bonus_offset=alive_bonus_offset,
             n_eval_episodes=n_eval_episodes,
+            stats_window_size=stats_window_size,
             tensorboard_log=tensorboard_log,
             policy_kwargs=policy_kwargs,
             verbose=verbose,
             device=device,
-            supported_action_spaces=(gym.spaces.Box, gym.spaces.Discrete),
+            supported_action_spaces=(spaces.Box, spaces.Discrete),
+            support_multi_env=True,
             seed=seed,
         )
 
         self.n_delta = n_delta
-        self.delta_std_schedule = get_schedule_fn(delta_std)
+        self.delta_std_schedule = FloatSchedule(delta_std)
 
         if n_top is None:
             n_top = n_delta
@@ -155,7 +170,7 @@ class ARS(PopulationBasedAlgorithm):
         self._n_updates += 1
 
     def learn(
-        self: ARSSelf,
+        self: SelfARS,
         total_timesteps: int,
         callback: MaybeCallback = None,
         log_interval: int = 1,
@@ -163,7 +178,7 @@ class ARS(PopulationBasedAlgorithm):
         reset_num_timesteps: bool = True,
         async_eval: Optional[AsyncEval] = None,
         progress_bar: bool = False,
-    ) -> ARSSelf:
+    ) -> SelfARS:
         """
         Return a trained model.
 

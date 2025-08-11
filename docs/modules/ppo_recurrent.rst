@@ -64,8 +64,8 @@ Example
   model = RecurrentPPO("MlpLstmPolicy", "CartPole-v1", verbose=1)
   model.learn(5000)
 
-  env = model.get_env()
-  mean_reward, std_reward = evaluate_policy(model, env, n_eval_episodes=20, warn=False)
+  vec_env = model.get_env()
+  mean_reward, std_reward = evaluate_policy(model, vec_env, n_eval_episodes=20, warn=False)
   print(mean_reward)
 
   model.save("ppo_recurrent")
@@ -73,7 +73,7 @@ Example
 
   model = RecurrentPPO.load("ppo_recurrent")
 
-  obs = env.reset()
+  obs = vec_env.reset()
   # cell and hidden state of the LSTM
   lstm_states = None
   num_envs = 1
@@ -81,9 +81,9 @@ Example
   episode_starts = np.ones((num_envs,), dtype=bool)
   while True:
       action, lstm_states = model.predict(obs, state=lstm_states, episode_start=episode_starts, deterministic=True)
-      obs, rewards, dones, info = env.step(action)
+      obs, rewards, dones, info = vec_env.step(action)
       episode_starts = dones
-      env.render()
+      vec_env.render("human")
 
 
 
@@ -109,7 +109,6 @@ Clone the repo for the experiment:
 
    git clone https://github.com/DLR-RM/rl-baselines3-zoo
    cd rl-baselines3-zoo
-   git checkout feat/recurrent-ppo
 
 
 Run the benchmark (replace ``$ENV_ID`` by the envs mentioned above):
@@ -126,6 +125,7 @@ Parameters
   :members:
   :inherited-members:
 
+.. _ppo_recurrent_policies:
 
 RecurrentPPO Policies
 ---------------------

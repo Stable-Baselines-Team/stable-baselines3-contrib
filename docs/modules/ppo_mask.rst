@@ -45,6 +45,16 @@ MultiBinary   ✔️      ✔️
 Dict          ❌      ✔️
 ============= ====== ===========
 
+.. warning::
+  You must use ``MaskableEvalCallback`` from ``sb3_contrib.common.maskable.callbacks`` instead of the base ``EvalCallback`` to properly evaluate a model with action masks.
+  Similarly, you must use ``evaluate_policy`` from ``sb3_contrib.common.maskable.evaluation`` instead of the SB3 one.
+
+
+.. warning::
+  In order to use ``SubprocVecEnv`` with ``MaskablePPO``, you must implement the ``action_masks`` inside the environment (``ActionMasker`` cannot be used).
+  You can have a look at the `built-in environments with invalid action masks <https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/blob/master/sb3_contrib/common/envs/invalid_actions_env.py>`_ to have a working example. 
+
+
 
 Example
 -------
@@ -58,11 +68,13 @@ returns the invalid action mask (``True`` if the action is valid, ``False`` othe
   from sb3_contrib.common.envs import InvalidActionEnvDiscrete
   from sb3_contrib.common.maskable.evaluation import evaluate_policy
   from sb3_contrib.common.maskable.utils import get_action_masks
+  # This is a drop-in replacement for EvalCallback
+  from sb3_contrib.common.maskable.callbacks import MaskableEvalCallback
 
 
   env = InvalidActionEnvDiscrete(dim=80, n_invalid_actions=60)
   model = MaskablePPO("MlpPolicy", env, gamma=0.4, seed=32, verbose=1)
-  model.learn(5000)
+  model.learn(5_000)
 
   evaluate_policy(model, env, n_eval_episodes=20, reward_threshold=90, warn=False)
 
@@ -71,22 +83,26 @@ returns the invalid action mask (``True`` if the action is valid, ``False`` othe
 
   model = MaskablePPO.load("ppo_mask")
 
-  obs = env.reset()
+  obs, _ = env.reset()
   while True:
       # Retrieve current action mask
       action_masks = get_action_masks(env)
       action, _states = model.predict(obs, action_masks=action_masks)
-      obs, rewards, dones, info = env.step(action)
-      env.render()
+      obs, reward, terminated, truncated, info = env.step(action)
 
 
 If the environment implements the invalid action mask but using a different name, you can use the ``ActionMasker``
 to specify the name (see `PR #25 <https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/pull/25>`_):
 
+.. note::
+  If you are using a custom environment and you want to debug it with ``check_env``,
+  it will execute the method ``step`` passing a random action to it (using ``action_space.sample()``),
+  without taking into account the invalid actions mask (see `issue #145 <https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/issues/145>`_).
+
 
 .. code-block:: python
 
-  import gym
+  import gymnasium as gym
   import numpy as np
 
   from sb3_contrib.common.maskable.policies import MaskableActorCriticPolicy
@@ -229,6 +245,7 @@ Parameters
   :members:
   :inherited-members:
 
+.. _ppo_mask_policies:
 
 MaskablePPO Policies
 --------------------

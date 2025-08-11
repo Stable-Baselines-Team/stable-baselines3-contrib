@@ -1,4 +1,5 @@
-from typing import Callable, Optional, Sequence
+from collections.abc import Sequence
+from typing import Callable, Optional
 
 import torch as th
 from torch import nn
@@ -133,6 +134,8 @@ def conjugate_gradient_solver(
         beta = new_residual_squared_norm / residual_squared_norm
         residual_squared_norm = new_residual_squared_norm
         p = residual + beta * p
+    # Note: this return statement is only used when max_iter=0
+    return x
 
 
 def flat_grad(
@@ -147,9 +150,9 @@ def flat_grad(
 
     :param output: functional output to compute the gradient for
     :param parameters: sequence of ``Parameter``
-    :param retain_graph: – If ``False``, the graph used to compute the grad will be freed.
+    :param retain_graph: If ``False``, the graph used to compute the grad will be freed.
         Defaults to the value of ``create_graph``.
-    :param create_graph: – If ``True``, graph of the derivative will be constructed,
+    :param create_graph: If ``True``, graph of the derivative will be constructed,
         allowing to compute higher order derivative products. Default: ``False``.
     :return: Tensor containing the flattened gradients
     """

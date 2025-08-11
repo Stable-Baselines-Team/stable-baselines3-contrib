@@ -1,19 +1,14 @@
-import sys
-import time
-from collections import deque
-from typing import Any, Dict, Optional, Tuple, Type, TypeVar, Union
+from typing import Any, ClassVar, Optional, TypeVar, Union
 
-import gym
 import numpy as np
 import torch as th
-from gym import spaces
-from stable_baselines3.common import utils
+from gymnasium import spaces
 from stable_baselines3.common.buffers import RolloutBuffer
-from stable_baselines3.common.callbacks import BaseCallback, CallbackList, ConvertCallback, ProgressBarCallback
+from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
-from stable_baselines3.common.utils import explained_variance, get_schedule_fn, obs_as_tensor, safe_mean
+from stable_baselines3.common.utils import FloatSchedule, explained_variance, obs_as_tensor
 from stable_baselines3.common.vec_env import VecEnv
 from torch.nn import functional as F
 
@@ -22,7 +17,7 @@ from sb3_contrib.common.maskable.policies import MaskableActorCriticPolicy
 from sb3_contrib.common.maskable.utils import get_action_masks, is_masking_supported
 from sb3_contrib.ppo_mask.policies import CnnPolicy, MlpPolicy, MultiInputPolicy
 
-MaskablePPOSelf = TypeVar("MaskablePPOSelf", bound="MaskablePPO")
+SelfMaskablePPO = TypeVar("SelfMaskablePPO", bound="MaskablePPO")
 
 
 class MaskablePPO(OnPolicyAlgorithm):
@@ -59,8 +54,10 @@ class MaskablePPO(OnPolicyAlgorithm):
         because the clipping is not enough to prevent large update
         see issue #213 (cf https://github.com/hill-a/stable-baselines/issues/213)
         By default, there is no limit on the kl div.
+    :param stats_window_size: Window size for the rollout logging, specifying the number of episodes to average
+        the reported success rate, mean episode length, and mean reward over
     :param tensorboard_log: the log location for tensorboard (if None, no logging)
-    :param policy_kwargs: additional arguments to be passed to the policy on creation
+    :param policy_kwargs: additional arguments to be passed to the policy on creation. See :ref:`ppo_mask_policies`
     :param verbose: the verbosity level: 0 no output, 1 info, 2 debug
     :param seed: Seed for the pseudo random generators
     :param device: Device (cpu, cuda, ...) on which the code should be run.
@@ -68,15 +65,17 @@ class MaskablePPO(OnPolicyAlgorithm):
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
 
-    policy_aliases: Dict[str, Type[BasePolicy]] = {
+    policy_aliases: ClassVar[dict[str, type[BasePolicy]]] = {
         "MlpPolicy": MlpPolicy,
         "CnnPolicy": CnnPolicy,
         "MultiInputPolicy": MultiInputPolicy,
     }
+    policy: MaskableActorCriticPolicy  # type: ignore[assignment]
+    rollout_buffer: MaskableRolloutBuffer  # type: ignore[assignment]
 
     def __init__(
         self,
-        policy: Union[str, Type[MaskableActorCriticPolicy]],
+        policy: Union[str, type[MaskableActorCriticPolicy]],
         env: Union[GymEnv, str],
         learning_rate: Union[float, Schedule] = 3e-4,
         n_steps: int = 2048,
@@ -90,16 +89,19 @@ class MaskablePPO(OnPolicyAlgorithm):
         ent_coef: float = 0.0,
         vf_coef: float = 0.5,
         max_grad_norm: float = 0.5,
+        rollout_buffer_class: Optional[type[RolloutBuffer]] = None,
+        rollout_buffer_kwargs: Optional[dict[str, Any]] = None,
         target_kl: Optional[float] = None,
+        stats_window_size: int = 100,
         tensorboard_log: Optional[str] = None,
-        policy_kwargs: Optional[Dict[str, Any]] = None,
+        policy_kwargs: Optional[dict[str, Any]] = None,
         verbose: int = 0,
         seed: Optional[int] = None,
         device: Union[th.device, str] = "auto",
         _init_setup_model: bool = True,
     ):
         super().__init__(
-            policy,
+            policy,  # type: ignore[arg-type]
             env,
             learning_rate=learning_rate,
             n_steps=n_steps,
@@ -110,6 +112,9 @@ class MaskablePPO(OnPolicyAlgorithm):
             max_grad_norm=max_grad_norm,
             use_sde=False,
             sde_sample_freq=-1,
+            rollout_buffer_class=rollout_buffer_class,
+            rollout_buffer_kwargs=rollout_buffer_kwargs,
+            stats_window_size=stats_window_size,
             tensorboard_log=tensorboard_log,
             policy_kwargs=policy_kwargs,
             verbose=verbose,
@@ -137,22 +142,24 @@ class MaskablePPO(OnPolicyAlgorithm):
         self._setup_lr_schedule()
         self.set_random_seed(self.seed)
 
-        buffer_cls = (
-            MaskableDictRolloutBuffer if isinstance(self.observation_space, gym.spaces.Dict) else MaskableRolloutBuffer
-        )
-
-        self.policy = self.policy_class(
+        self.policy = self.policy_class(  # type: ignore[assignment]
             self.observation_space,
             self.action_space,
             self.lr_schedule,
-            **self.policy_kwargs,  # pytype:disable=not-instantiable
+            **self.policy_kwargs,
         )
         self.policy = self.policy.to(self.device)
 
         if not isinstance(self.policy, MaskableActorCriticPolicy):
             raise ValueError("Policy must subclass MaskableActorCriticPolicy")
 
-        self.rollout_buffer = buffer_cls(
+        if self.rollout_buffer_class is None:
+            if isinstance(self.observation_space, spaces.Dict):
+                self.rollout_buffer_class = MaskableDictRolloutBuffer
+            else:
+                self.rollout_buffer_class = MaskableRolloutBuffer
+
+        self.rollout_buffer = self.rollout_buffer_class(  # type: ignore[assignment]
             self.n_steps,
             self.observation_space,
             self.action_space,
@@ -160,94 +167,16 @@ class MaskablePPO(OnPolicyAlgorithm):
             gamma=self.gamma,
             gae_lambda=self.gae_lambda,
             n_envs=self.n_envs,
+            **self.rollout_buffer_kwargs,
         )
 
         # Initialize schedules for policy/value clipping
-        self.clip_range = get_schedule_fn(self.clip_range)
+        self.clip_range = FloatSchedule(self.clip_range)
         if self.clip_range_vf is not None:
             if isinstance(self.clip_range_vf, (float, int)):
                 assert self.clip_range_vf > 0, "`clip_range_vf` must be positive, " "pass `None` to deactivate vf clipping"
 
-            self.clip_range_vf = get_schedule_fn(self.clip_range_vf)
-
-    def _init_callback(
-        self,
-        callback: MaybeCallback,
-        use_masking: bool = True,
-        progress_bar: bool = False,
-    ) -> BaseCallback:
-        """
-        :param callback: Callback(s) called at every step with state of the algorithm.
-        :param use_masking: Whether or not to use invalid action masks during evaluation
-        :param progress_bar: Display a progress bar using tqdm and rich.
-        :return: A hybrid callback calling `callback` and performing evaluation.
-        """
-        # Convert a list of callbacks into a callback
-        if isinstance(callback, list):
-            callback = CallbackList(callback)
-
-        # Convert functional callback to object
-        if not isinstance(callback, BaseCallback):
-            callback = ConvertCallback(callback)
-
-        # Add progress bar callback
-        if progress_bar:
-            callback = CallbackList([callback, ProgressBarCallback()])
-
-        callback.init_callback(self)
-        return callback
-
-    def _setup_learn(
-        self,
-        total_timesteps: int,
-        callback: MaybeCallback = None,
-        reset_num_timesteps: bool = True,
-        tb_log_name: str = "run",
-        use_masking: bool = True,
-        progress_bar: bool = False,
-    ) -> Tuple[int, BaseCallback]:
-        """
-        Initialize different variables needed for training.
-
-        :param total_timesteps: The total number of samples (env steps) to train on
-        :param callback: Callback(s) called at every step with state of the algorithm.
-        :param reset_num_timesteps: Whether to reset or not the ``num_timesteps`` attribute
-        :param tb_log_name: the name of the run for tensorboard log
-        :param use_masking: Whether or not to use invalid action masks during training
-        :param progress_bar: Display a progress bar using tqdm and rich.
-        :return:
-        """
-
-        self.start_time = time.time_ns()
-        if self.ep_info_buffer is None or reset_num_timesteps:
-            # Initialize buffers if they don't exist, or reinitialize if resetting counters
-            self.ep_info_buffer = deque(maxlen=100)
-            self.ep_success_buffer = deque(maxlen=100)
-
-        if reset_num_timesteps:
-            self.num_timesteps = 0
-            self._episode_num = 0
-        else:
-            # Make sure training timesteps are ahead of the internal counter
-            total_timesteps += self.num_timesteps
-        self._total_timesteps = total_timesteps
-
-        # Avoid resetting the environment when calling ``.learn()`` consecutive times
-        if reset_num_timesteps or self._last_obs is None:
-            self._last_obs = self.env.reset()
-            self._last_episode_starts = np.ones((self.env.num_envs,), dtype=bool)
-            # Retrieve unnormalized observation for saving into the buffer
-            if self._vec_normalize_env is not None:
-                self._last_original_obs = self._vec_normalize_env.get_original_obs()
-
-        # Configure logger's outputs if no logger was passed
-        if not self._custom_logger:
-            self._logger = utils.configure_logger(self.verbose, self.tensorboard_log, tb_log_name, reset_num_timesteps)
-
-        # Create eval callback if needed
-        callback = self._init_callback(callback, use_masking, progress_bar)
-
-        return total_timesteps, callback
+            self.clip_range_vf = FloatSchedule(self.clip_range_vf)
 
     def collect_rollouts(
         self,
@@ -307,10 +236,10 @@ class MaskablePPO(OnPolicyAlgorithm):
 
             # Give access to local variables
             callback.update_locals(locals())
-            if callback.on_step() is False:
+            if not callback.on_step():
                 return False
 
-            self._update_info_buffer(infos)
+            self._update_info_buffer(infos, dones)
             n_steps += 1
 
             if isinstance(self.action_space, spaces.Discrete):
@@ -339,14 +268,14 @@ class MaskablePPO(OnPolicyAlgorithm):
                 log_probs,
                 action_masks=action_masks,
             )
-            self._last_obs = new_obs
+            self._last_obs = new_obs  # type: ignore[assignment]
             self._last_episode_starts = dones
 
         with th.no_grad():
             # Compute value for the last timestep
             # Masking is not needed here, the choice of action doesn't matter.
             # We only want the value of the current observation.
-            values = self.policy.predict_values(obs_as_tensor(new_obs, self.device))
+            values = self.policy.predict_values(obs_as_tensor(new_obs, self.device))  # type: ignore[arg-type]
 
         rollout_buffer.compute_returns_and_advantage(last_values=values, dones=dones)
 
@@ -354,14 +283,14 @@ class MaskablePPO(OnPolicyAlgorithm):
 
         return True
 
-    def predict(
+    def predict(  # type: ignore[override]
         self,
-        observation: np.ndarray,
-        state: Optional[Tuple[np.ndarray, ...]] = None,
+        observation: Union[np.ndarray, dict[str, np.ndarray]],
+        state: Optional[tuple[np.ndarray, ...]] = None,
         episode_start: Optional[np.ndarray] = None,
         deterministic: bool = False,
         action_masks: Optional[np.ndarray] = None,
-    ) -> Tuple[np.ndarray, Optional[Tuple[np.ndarray, ...]]]:
+    ) -> tuple[np.ndarray, Optional[tuple[np.ndarray, ...]]]:
         """
         Get the policy action from an observation (and optional hidden state).
         Includes sugar-coating to handle different observations (e.g. normalizing images).
@@ -386,10 +315,10 @@ class MaskablePPO(OnPolicyAlgorithm):
         # Update optimizer learning rate
         self._update_learning_rate(self.policy.optimizer)
         # Compute current clip range
-        clip_range = self.clip_range(self._current_progress_remaining)
+        clip_range = self.clip_range(self._current_progress_remaining)  # type: ignore[operator]
         # Optional: clip range for the value function
         if self.clip_range_vf is not None:
-            clip_range_vf = self.clip_range_vf(self._current_progress_remaining)
+            clip_range_vf = self.clip_range_vf(self._current_progress_remaining)  # type: ignore[operator]
 
         entropy_losses = []
         pg_losses, value_losses = [], []
@@ -497,8 +426,8 @@ class MaskablePPO(OnPolicyAlgorithm):
         if self.clip_range_vf is not None:
             self.logger.record("train/clip_range_vf", clip_range_vf)
 
-    def learn(
-        self: MaskablePPOSelf,
+    def learn(  # type: ignore[override]
+        self: SelfMaskablePPO,
         total_timesteps: int,
         callback: MaybeCallback = None,
         log_interval: int = 1,
@@ -506,7 +435,7 @@ class MaskablePPO(OnPolicyAlgorithm):
         reset_num_timesteps: bool = True,
         use_masking: bool = True,
         progress_bar: bool = False,
-    ) -> MaskablePPOSelf:
+    ) -> SelfMaskablePPO:
         iteration = 0
 
         total_timesteps, callback = self._setup_learn(
@@ -514,16 +443,17 @@ class MaskablePPO(OnPolicyAlgorithm):
             callback,
             reset_num_timesteps,
             tb_log_name,
-            use_masking,
             progress_bar,
         )
 
         callback.on_training_start(locals(), globals())
 
+        assert self.env is not None
+
         while self.num_timesteps < total_timesteps:
             continue_training = self.collect_rollouts(self.env, callback, self.rollout_buffer, self.n_steps, use_masking)
 
-            if continue_training is False:
+            if not continue_training:
                 break
 
             iteration += 1
@@ -531,16 +461,7 @@ class MaskablePPO(OnPolicyAlgorithm):
 
             # Display training infos
             if log_interval is not None and iteration % log_interval == 0:
-                time_elapsed = max((time.time_ns() - self.start_time) / 1e9, sys.float_info.epsilon)
-                fps = int((self.num_timesteps - self._num_timesteps_at_start) / time_elapsed)
-                self.logger.record("time/iterations", iteration, exclude="tensorboard")
-                if len(self.ep_info_buffer) > 0 and len(self.ep_info_buffer[0]) > 0:
-                    self.logger.record("rollout/ep_rew_mean", safe_mean([ep_info["r"] for ep_info in self.ep_info_buffer]))
-                    self.logger.record("rollout/ep_len_mean", safe_mean([ep_info["l"] for ep_info in self.ep_info_buffer]))
-                self.logger.record("time/fps", fps)
-                self.logger.record("time/time_elapsed", int(time_elapsed), exclude="tensorboard")
-                self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
-                self.logger.dump(step=self.num_timesteps)
+                self.dump_logs(iteration)
 
             self.train()
 

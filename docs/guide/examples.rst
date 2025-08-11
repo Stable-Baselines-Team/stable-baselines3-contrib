@@ -35,6 +35,12 @@ MaskablePPO
 
 Train a PPO with invalid action masking agent on a toy environment.
 
+.. warning::
+  You must use ``MaskableEvalCallback`` from ``sb3_contrib.common.maskable.callbacks`` instead of the base ``EvalCallback`` to properly evaluate a model with action masks.
+  Similarly, you must use ``evaluate_policy`` from ``sb3_contrib.common.maskable.evaluation`` instead of the SB3 one.
+
+
+
 .. code-block:: python
 
   from sb3_contrib import MaskablePPO
@@ -94,15 +100,39 @@ Train a PPO agent with a recurrent policy on the CartPole environment.
  model = RecurrentPPO("MlpLstmPolicy", "CartPole-v1", verbose=1)
  model.learn(5000)
 
- env = model.get_env()
- obs = env.reset()
- # cell and hidden state of the LSTM
+ vec_env = model.get_env()
+ obs = vec_env.reset()
+ # Cell and hidden state of the LSTM
  lstm_states = None
  num_envs = 1
  # Episode start signals are used to reset the lstm states
  episode_starts = np.ones((num_envs,), dtype=bool)
  while True:
      action, lstm_states = model.predict(obs, state=lstm_states, episode_start=episode_starts, deterministic=True)
-     obs, rewards, dones, info = env.step(action)
+     # Note: vectorized environment resets automatically
+     obs, rewards, dones, info = vec_env.step(action)
      episode_starts = dones
-     env.render()
+     vec_env.render("human")
+
+CrossQ
+------
+
+Train a CrossQ agent on the Pendulum environment.
+
+.. code-block:: python
+
+ from sb3_contrib import CrossQ
+
+ model = CrossQ(
+     "MlpPolicy",
+     "Pendulum-v1",
+     verbose=1,
+     policy_kwargs=dict(
+         net_arch=dict(
+             pi=[256, 256],
+             qf=[1024, 1024],
+         )
+     ),
+ )
+ model.learn(total_timesteps=5_000, log_interval=4)
+ model.save("crossq_pendulum")

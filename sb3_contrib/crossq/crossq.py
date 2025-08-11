@@ -1,4 +1,4 @@
-from typing import Any, Callable, ClassVar, Optional, TypeVar, Union
+from typing import Any, ClassVar, Optional, TypeVar, Union
 
 import numpy as np
 import torch as th
@@ -7,23 +7,21 @@ from stable_baselines3.common.buffers import ReplayBuffer
 from stable_baselines3.common.noise import ActionNoise
 from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
 from stable_baselines3.common.policies import BasePolicy
-from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback
-from stable_baselines3.common.utils import get_parameters_by_name, polyak_update
+from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
+from torch.nn import functional as F
 
-from sb3_contrib.common.utils import quantile_huber_loss
-from sb3_contrib.tqc.policies import Actor, CnnPolicy, Critic, MlpPolicy, MultiInputPolicy, TQCPolicy
+from sb3_contrib.crossq.policies import Actor, CrossQCritic, CrossQPolicy, MlpPolicy
 
-SelfTQC = TypeVar("SelfTQC", bound="TQC")
+SelfCrossQ = TypeVar("SelfCrossQ", bound="CrossQ")
 
 
-class TQC(OffPolicyAlgorithm):
+class CrossQ(OffPolicyAlgorithm):
     """
+    Implementation of Batch Normalization in Deep Reinforcement Learning (CrossQ).
+    Paper: https://openreview.net/forum?id=PczQtTsTIX
+    Reference implementation: https://github.com/araffin/sbx
 
-    Controlling Overestimation Bias with Truncated Mixture of Continuous Distributional Quantile Critics.
-    Paper: https://arxiv.org/abs/2005.04269
-    This implementation uses SB3 SAC implementation as base.
-
-    :param policy: The policy model to use (MlpPolicy, CnnPolicy, ...)
+    :param policy: The policy model to use (MlpPolicy)
     :param env: The environment to learn from (if registered in Gym, can be str)
     :param learning_rate: learning rate for adam optimizer,
         the same learning rate will be used for all networks (Q-Values, Actor and Value function)
@@ -31,11 +29,12 @@ class TQC(OffPolicyAlgorithm):
     :param buffer_size: size of the replay buffer
     :param learning_starts: how many steps of the model to collect transitions for before learning starts
     :param batch_size: Minibatch size for each gradient update
-    :param tau: the soft update coefficient ("Polyak update", between 0 and 1)
     :param gamma: the discount factor
     :param train_freq: Update the model every ``train_freq`` steps. Alternatively pass a tuple of frequency and unit
         like ``(5, "step")`` or ``(2, "episode")``.
-    :param gradient_steps: How many gradient update after each step
+    :param gradient_steps: How many gradient steps to do after each rollout (see ``train_freq``)
+        Set to ``-1`` means to do as many gradient steps as steps done in the environment
+        during the rollout.
     :param action_noise: the action noise type (None by default), this can help
         for hard exploration problem. Cf common.noise for the different action noise type.
     :param replay_buffer_class: Replay buffer class to use (for instance ``HerReplayBuffer``).
@@ -48,10 +47,7 @@ class TQC(OffPolicyAlgorithm):
     :param ent_coef: Entropy regularization coefficient. (Equivalent to
         inverse of reward scale in the original SAC paper.)  Controlling exploration/exploitation trade-off.
         Set it to 'auto' to learn it automatically (and 'auto_0.1' for using 0.1 as initial value)
-    :param target_update_interval: update the target network every ``target_network_update_freq``
-        gradient steps.
     :param target_entropy: target entropy when learning ``ent_coef`` (``ent_coef = 'auto'``)
-    :param top_quantiles_to_drop_per_net: Number of quantiles to drop per network
     :param use_sde: Whether to use generalized State Dependent Exploration (gSDE)
         instead of action noise exploration (default: False)
     :param sde_sample_freq: Sample a new noise matrix every n steps when using gSDE
@@ -61,8 +57,9 @@ class TQC(OffPolicyAlgorithm):
     :param stats_window_size: Window size for the rollout logging, specifying the number of episodes to average
         the reported success rate, mean episode length, and mean reward over
     :param tensorboard_log: the log location for tensorboard (if None, no logging)
-    :param policy_kwargs: additional arguments to be passed to the policy on creation. See :ref:`tqc_policies`
-    :param verbose: the verbosity level: 0 no output, 1 info, 2 debug
+    :param policy_kwargs: additional arguments to be passed to the policy on creation. See :ref:`crossq_policies`
+    :param verbose: Verbosity level: 0 for no output, 1 for info messages (such as device or wrappers used), 2 for
+        debug messages
     :param seed: Seed for the pseudo random generators
     :param device: Device (cpu, cuda, ...) on which the code should be run.
         Setting it to auto, the code will be run on the GPU if possible.
@@ -71,23 +68,20 @@ class TQC(OffPolicyAlgorithm):
 
     policy_aliases: ClassVar[dict[str, type[BasePolicy]]] = {
         "MlpPolicy": MlpPolicy,
-        "CnnPolicy": CnnPolicy,
-        "MultiInputPolicy": MultiInputPolicy,
+        # TODO: Implement CnnPolicy and MultiInputPolicy
     }
-    policy: TQCPolicy
+    policy: CrossQPolicy
     actor: Actor
-    critic: Critic
-    critic_target: Critic
+    critic: CrossQCritic
 
     def __init__(
         self,
-        policy: Union[str, type[TQCPolicy]],
+        policy: Union[str, type[CrossQPolicy]],
         env: Union[GymEnv, str],
-        learning_rate: Union[float, Callable] = 3e-4,
-        buffer_size: int = 1000000,  # 1e6
+        learning_rate: Union[float, Schedule] = 1e-3,
+        buffer_size: int = 1_000_000,  # 1e6
         learning_starts: int = 100,
         batch_size: int = 256,
-        tau: float = 0.005,
         gamma: float = 0.99,
         train_freq: Union[int, tuple[int, str]] = 1,
         gradient_steps: int = 1,
@@ -97,9 +91,8 @@ class TQC(OffPolicyAlgorithm):
         optimize_memory_usage: bool = False,
         n_steps: int = 1,
         ent_coef: Union[str, float] = "auto",
-        target_update_interval: int = 1,
         target_entropy: Union[str, float] = "auto",
-        top_quantiles_to_drop_per_net: int = 2,
+        policy_delay: int = 3,
         use_sde: bool = False,
         sde_sample_freq: int = -1,
         use_sde_at_warmup: bool = False,
@@ -118,11 +111,11 @@ class TQC(OffPolicyAlgorithm):
             buffer_size,
             learning_starts,
             batch_size,
-            tau,
+            1.0,  # no target networks, tau=1.0
             gamma,
             train_freq,
             gradient_steps,
-            action_noise=action_noise,
+            action_noise,
             replay_buffer_class=replay_buffer_class,
             replay_buffer_kwargs=replay_buffer_kwargs,
             optimize_memory_usage=optimize_memory_usage,
@@ -145,9 +138,8 @@ class TQC(OffPolicyAlgorithm):
         # Entropy coefficient / Entropy temperature
         # Inverse of the reward scale
         self.ent_coef = ent_coef
-        self.target_update_interval = target_update_interval
         self.ent_coef_optimizer: Optional[th.optim.Adam] = None
-        self.top_quantiles_to_drop_per_net = top_quantiles_to_drop_per_net
+        self.policy_delay = policy_delay
 
         if _init_setup_model:
             self._setup_model()
@@ -155,14 +147,10 @@ class TQC(OffPolicyAlgorithm):
     def _setup_model(self) -> None:
         super()._setup_model()
         self._create_aliases()
-        # Running mean and running var
-        self.batch_norm_stats = get_parameters_by_name(self.critic, ["running_"])
-        self.batch_norm_stats_target = get_parameters_by_name(self.critic_target, ["running_"])
-
         # Target entropy is used when learning the entropy coefficient
         if self.target_entropy == "auto":
             # automatically set target entropy if needed
-            self.target_entropy = -np.prod(self.env.action_space.shape).astype(np.float32)  # type: ignore
+            self.target_entropy = float(-np.prod(self.env.action_space.shape).astype(np.float32))  # type: ignore
         else:
             # Force conversion
             # this will also throw an error for unexpected string
@@ -191,7 +179,6 @@ class TQC(OffPolicyAlgorithm):
     def _create_aliases(self) -> None:
         self.actor = self.policy.actor
         self.critic = self.policy.critic
-        self.critic_target = self.policy.critic_target
 
     def train(self, gradient_steps: int, batch_size: int = 64) -> None:
         # Switch to train mode (this affects batch norm / dropout)
@@ -207,7 +194,8 @@ class TQC(OffPolicyAlgorithm):
         ent_coef_losses, ent_coefs = [], []
         actor_losses, critic_losses = [], []
 
-        for gradient_step in range(gradient_steps):
+        for _ in range(gradient_steps):
+            self._n_updates += 1
             # Sample replay buffer
             replay_data = self.replay_buffer.sample(batch_size, env=self._vec_normalize_env)  # type: ignore[union-attr]
             # For n-step replay, discount factor is gamma**n_steps (when no early termination)
@@ -217,93 +205,117 @@ class TQC(OffPolicyAlgorithm):
             if self.use_sde:
                 self.actor.reset_noise()
 
-            # Action by the current actor for the sampled state
-            actions_pi, log_prob = self.actor.action_log_prob(replay_data.observations)
-            log_prob = log_prob.reshape(-1, 1)
+            # Note: in the following lines we always need to make sure to set train/eval modes
+            # of actor and critic carefully. This is because of the BatchNorm layers in the networks
+            # which behave differently in train and eval modes.
 
-            ent_coef_loss = None
-            if self.ent_coef_optimizer is not None and self.log_ent_coef is not None:
+            if self.log_ent_coef is not None:
                 # Important: detach the variable from the graph
                 # so we don't change it with other losses
                 # see https://github.com/rail-berkeley/softlearning/issues/60
                 ent_coef = th.exp(self.log_ent_coef.detach())
-                ent_coef_loss = -(self.log_ent_coef * (log_prob + self.target_entropy).detach()).mean()  # type: ignore[operator]
-                ent_coef_losses.append(ent_coef_loss.item())
             else:
                 ent_coef = self.ent_coef_tensor
 
             ent_coefs.append(ent_coef.item())
 
-            # Optimize entropy coefficient, also called
-            # entropy temperature or alpha in the paper
-            if ent_coef_loss is not None and self.ent_coef_optimizer is not None:
-                self.ent_coef_optimizer.zero_grad()
-                ent_coef_loss.backward()
-                self.ent_coef_optimizer.step()
-
             with th.no_grad():
                 # Select action according to policy
+                # Use more precise set_training_mode to allow the use of Dropout
+                self.actor.set_bn_training_mode(False)
                 next_actions, next_log_prob = self.actor.action_log_prob(replay_data.next_observations)
-                # Compute and cut quantiles at the next state
-                # batch x nets x quantiles
-                next_quantiles = self.critic_target(replay_data.next_observations, next_actions)
 
-                # Sort and drop top k quantiles to control overestimation.
-                n_target_quantiles = self.critic.quantiles_total - self.top_quantiles_to_drop_per_net * self.critic.n_critics
-                next_quantiles, _ = th.sort(next_quantiles.reshape(batch_size, -1))
-                next_quantiles = next_quantiles[:, :n_target_quantiles]
+            # Joint forward pass of obs/next_obs and actions/next_state_actions to have only
+            # one forward pass.
+            #
+            # This has two reasons:
+            # 1. According to the paper obs/actions and next_obs/next_state_actions are differently
+            #    distributed which is the reason why "naively" applying Batch Normalization in SAC fails.
+            #    The batch statistics have to instead be calculated for the mixture distribution of obs/next_obs
+            #    and actions/next_state_actions. Otherwise, next_obs/next_state_actions are perceived as
+            #    out-of-distribution to the Batch Normalization layer, since running statistics are only polyak averaged
+            #    over from the live network and have never seen the next batch which is known to be unstable.
+            #    Without target networks, the joint forward pass is a simple solution to calculate
+            #    the joint batch statistics directly with a single forward pass.
+            #
+            # 2. From a computational perspective a single forward pass is simply more efficient than
+            #    two sequential forward passes.
+            all_obs = th.cat([replay_data.observations, replay_data.next_observations], dim=0)
+            all_actions = th.cat([replay_data.actions, next_actions], dim=0)
+            # Update critic BN stats
+            self.critic.set_bn_training_mode(True)
+            all_q_values = th.cat(self.critic(all_obs, all_actions), dim=1)
+            self.critic.set_bn_training_mode(False)
+            # (2 * batch_size, n_critics) -> (batch_size, n_critics), (batch_size, n_critics)
+            current_q_values, next_q_values = th.split(all_q_values, batch_size, dim=0)
+            # (batch_size, n_critics) -> (n_critics, batch_size, 1)
+            current_q_values = current_q_values.T[..., None]
 
+            with th.no_grad():
+                # Compute the target Q value
+                next_q_values, _ = th.min(next_q_values.detach(), dim=1, keepdim=True)
+                # Add entropy term
+                next_q_values = next_q_values - ent_coef * next_log_prob.reshape(-1, 1)
                 # td error + entropy term
-                target_quantiles = next_quantiles - ent_coef * next_log_prob.reshape(-1, 1)
-                target_quantiles = replay_data.rewards + (1 - replay_data.dones) * discounts * target_quantiles
-                # Make target_quantiles broadcastable to (batch_size, n_critics, n_target_quantiles).
-                target_quantiles.unsqueeze_(dim=1)
+                target_q_values = replay_data.rewards + (1 - replay_data.dones) * discounts * next_q_values
 
-            # Get current Quantile estimates using action from the replay buffer
-            current_quantiles = self.critic(replay_data.observations, replay_data.actions)
-            # Compute critic loss, not summing over the quantile dimension as in the paper.
-            critic_loss = quantile_huber_loss(current_quantiles, target_quantiles, sum_over_quantiles=False)
-            critic_losses.append(critic_loss.item())
+            # Compute critic loss
+            critic_loss = 0.5 * sum(F.mse_loss(current_q, target_q_values.detach()) for current_q in current_q_values)
+            assert isinstance(critic_loss, th.Tensor)  # for type checker
+            critic_losses.append(critic_loss.item())  # type: ignore[union-attr]
 
             # Optimize the critic
             self.critic.optimizer.zero_grad()
             critic_loss.backward()
             self.critic.optimizer.step()
 
-            # Compute actor loss
-            qf_pi = self.critic(replay_data.observations, actions_pi).mean(dim=2).mean(dim=1, keepdim=True)
-            actor_loss = (ent_coef * log_prob - qf_pi).mean()
-            actor_losses.append(actor_loss.item())
+            # Delayed policy updates
+            if self._n_updates % self.policy_delay == 0:
+                # Sample action according to policy and update actor BN stats
+                self.actor.set_bn_training_mode(True)
+                actions_pi, log_prob = self.actor.action_log_prob(replay_data.observations)
+                log_prob = log_prob.reshape(-1, 1)
+                self.actor.set_bn_training_mode(False)
 
-            # Optimize the actor
-            self.actor.optimizer.zero_grad()
-            actor_loss.backward()
-            self.actor.optimizer.step()
+                # Optimize entropy coefficient, also called entropy temperature or alpha in the paper
+                if self.ent_coef_optimizer is not None:
+                    ent_coef_loss = -(self.log_ent_coef * (log_prob + self.target_entropy).detach()).mean()  # type: ignore[operator]
+                    ent_coef_losses.append(ent_coef_loss.item())
 
-            # Update target networks
-            if gradient_step % self.target_update_interval == 0:
-                polyak_update(self.critic.parameters(), self.critic_target.parameters(), self.tau)
-                # Copy running stats, see https://github.com/DLR-RM/stable-baselines3/issues/996
-                polyak_update(self.batch_norm_stats, self.batch_norm_stats_target, 1.0)
+                    self.ent_coef_optimizer.zero_grad()
+                    ent_coef_loss.backward()
+                    self.ent_coef_optimizer.step()
 
-        self._n_updates += gradient_steps
+                # Compute actor loss
+                self.critic.set_bn_training_mode(False)
+                q_values_pi = th.cat(self.critic(replay_data.observations, actions_pi), dim=1)
+
+                min_qf_pi, _ = th.min(q_values_pi, dim=1, keepdim=True)
+                actor_loss = (ent_coef * log_prob.reshape(-1, 1) - min_qf_pi).mean()
+                actor_losses.append(actor_loss.item())
+
+                # Optimize the actor
+                self.actor.optimizer.zero_grad()
+                actor_loss.backward()
+                self.actor.optimizer.step()
 
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
         self.logger.record("train/ent_coef", np.mean(ent_coefs))
-        self.logger.record("train/actor_loss", np.mean(actor_losses))
+        if len(actor_losses) > 0:
+            self.logger.record("train/actor_loss", np.mean(actor_losses))
         self.logger.record("train/critic_loss", np.mean(critic_losses))
         if len(ent_coef_losses) > 0:
             self.logger.record("train/ent_coef_loss", np.mean(ent_coef_losses))
 
     def learn(
-        self: SelfTQC,
+        self: SelfCrossQ,
         total_timesteps: int,
         callback: MaybeCallback = None,
         log_interval: int = 4,
-        tb_log_name: str = "TQC",
+        tb_log_name: str = "CrossQ",
         reset_num_timesteps: bool = True,
         progress_bar: bool = False,
-    ) -> SelfTQC:
+    ) -> SelfCrossQ:
         return super().learn(
             total_timesteps=total_timesteps,
             callback=callback,
@@ -314,8 +326,7 @@ class TQC(OffPolicyAlgorithm):
         )
 
     def _excluded_save_params(self) -> list[str]:
-        # Exclude aliases
-        return super()._excluded_save_params() + ["actor", "critic", "critic_target"]  # noqa: RUF005
+        return [*super()._excluded_save_params(), "actor", "critic"]
 
     def _get_torch_save_params(self) -> tuple[list[str], list[str]]:
         state_dicts = ["policy", "actor.optimizer", "critic.optimizer"]

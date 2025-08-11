@@ -1,18 +1,15 @@
-import sys
-import time
 from copy import deepcopy
-from typing import Any, Dict, Optional, Type, TypeVar, Union
+from typing import Any, ClassVar, Optional, TypeVar, Union
 
-import gym
 import numpy as np
 import torch as th
-from gym import spaces
+from gymnasium import spaces
 from stable_baselines3.common.buffers import RolloutBuffer
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
-from stable_baselines3.common.utils import explained_variance, get_schedule_fn, obs_as_tensor, safe_mean
+from stable_baselines3.common.utils import FloatSchedule, explained_variance, obs_as_tensor
 from stable_baselines3.common.vec_env import VecEnv
 
 from sb3_contrib.common.recurrent.buffers import RecurrentDictRolloutBuffer, RecurrentRolloutBuffer
@@ -20,7 +17,7 @@ from sb3_contrib.common.recurrent.policies import RecurrentActorCriticPolicy
 from sb3_contrib.common.recurrent.type_aliases import RNNStates
 from sb3_contrib.ppo_recurrent.policies import CnnLstmPolicy, MlpLstmPolicy, MultiInputLstmPolicy
 
-RecurrentPPOSelf = TypeVar("RecurrentPPOSelf", bound="RecurrentPPO")
+SelfRecurrentPPO = TypeVar("SelfRecurrentPPO", bound="RecurrentPPO")
 
 
 class RecurrentPPO(OnPolicyAlgorithm):
@@ -57,8 +54,10 @@ class RecurrentPPO(OnPolicyAlgorithm):
         because the clipping is not enough to prevent large update
         see issue #213 (cf https://github.com/hill-a/stable-baselines/issues/213)
         By default, there is no limit on the kl div.
+    :param stats_window_size: Window size for the rollout logging, specifying the number of episodes to average
+        the reported success rate, mean episode length, and mean reward over
     :param tensorboard_log: the log location for tensorboard (if None, no logging)
-    :param policy_kwargs: additional arguments to be passed to the policy on creation
+    :param policy_kwargs: additional arguments to be passed to the policy on creation. See :ref:`ppo_recurrent_policies`
     :param verbose: the verbosity level: 0 no output, 1 info, 2 debug
     :param seed: Seed for the pseudo random generators
     :param device: Device (cpu, cuda, ...) on which the code should be run.
@@ -66,7 +65,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
 
-    policy_aliases: Dict[str, Type[BasePolicy]] = {
+    policy_aliases: ClassVar[dict[str, type[BasePolicy]]] = {
         "MlpLstmPolicy": MlpLstmPolicy,
         "CnnLstmPolicy": CnnLstmPolicy,
         "MultiInputLstmPolicy": MultiInputLstmPolicy,
@@ -74,7 +73,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
 
     def __init__(
         self,
-        policy: Union[str, Type[RecurrentActorCriticPolicy]],
+        policy: Union[str, type[RecurrentActorCriticPolicy]],
         env: Union[GymEnv, str],
         learning_rate: Union[float, Schedule] = 3e-4,
         n_steps: int = 128,
@@ -91,8 +90,9 @@ class RecurrentPPO(OnPolicyAlgorithm):
         use_sde: bool = False,
         sde_sample_freq: int = -1,
         target_kl: Optional[float] = None,
+        stats_window_size: int = 100,
         tensorboard_log: Optional[str] = None,
-        policy_kwargs: Optional[Dict[str, Any]] = None,
+        policy_kwargs: Optional[dict[str, Any]] = None,
         verbose: int = 0,
         seed: Optional[int] = None,
         device: Union[th.device, str] = "auto",
@@ -110,6 +110,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
             max_grad_norm=max_grad_norm,
             use_sde=use_sde,
             sde_sample_freq=sde_sample_freq,
+            stats_window_size=stats_window_size,
             tensorboard_log=tensorboard_log,
             policy_kwargs=policy_kwargs,
             verbose=verbose,
@@ -139,16 +140,14 @@ class RecurrentPPO(OnPolicyAlgorithm):
         self._setup_lr_schedule()
         self.set_random_seed(self.seed)
 
-        buffer_cls = (
-            RecurrentDictRolloutBuffer if isinstance(self.observation_space, gym.spaces.Dict) else RecurrentRolloutBuffer
-        )
+        buffer_cls = RecurrentDictRolloutBuffer if isinstance(self.observation_space, spaces.Dict) else RecurrentRolloutBuffer
 
         self.policy = self.policy_class(
             self.observation_space,
             self.action_space,
             self.lr_schedule,
             use_sde=self.use_sde,
-            **self.policy_kwargs,  # pytype:disable=not-instantiable
+            **self.policy_kwargs,
         )
         self.policy = self.policy.to(self.device)
 
@@ -163,12 +162,12 @@ class RecurrentPPO(OnPolicyAlgorithm):
         # hidden and cell states for actor and critic
         self._last_lstm_states = RNNStates(
             (
-                th.zeros(single_hidden_state_shape).to(self.device),
-                th.zeros(single_hidden_state_shape).to(self.device),
+                th.zeros(single_hidden_state_shape, device=self.device),
+                th.zeros(single_hidden_state_shape, device=self.device),
             ),
             (
-                th.zeros(single_hidden_state_shape).to(self.device),
-                th.zeros(single_hidden_state_shape).to(self.device),
+                th.zeros(single_hidden_state_shape, device=self.device),
+                th.zeros(single_hidden_state_shape, device=self.device),
             ),
         )
 
@@ -186,12 +185,12 @@ class RecurrentPPO(OnPolicyAlgorithm):
         )
 
         # Initialize schedules for policy/value clipping
-        self.clip_range = get_schedule_fn(self.clip_range)
+        self.clip_range = FloatSchedule(self.clip_range)
         if self.clip_range_vf is not None:
             if isinstance(self.clip_range_vf, (float, int)):
                 assert self.clip_range_vf > 0, "`clip_range_vf` must be positive, pass `None` to deactivate vf clipping"
 
-            self.clip_range_vf = get_schedule_fn(self.clip_range_vf)
+            self.clip_range_vf = FloatSchedule(self.clip_range_vf)
 
     def collect_rollouts(
         self,
@@ -239,7 +238,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
             with th.no_grad():
                 # Convert to pytorch tensor or to TensorDict
                 obs_tensor = obs_as_tensor(self._last_obs, self.device)
-                episode_starts = th.tensor(self._last_episode_starts).float().to(self.device)
+                episode_starts = th.tensor(self._last_episode_starts, dtype=th.float32, device=self.device)
                 actions, values, log_probs, lstm_states = self.policy.forward(obs_tensor, lstm_states, episode_starts)
 
             actions = actions.cpu().numpy()
@@ -247,7 +246,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
             # Rescale and perform action
             clipped_actions = actions
             # Clip the actions to avoid out of bound error
-            if isinstance(self.action_space, gym.spaces.Box):
+            if isinstance(self.action_space, spaces.Box):
                 clipped_actions = np.clip(actions, self.action_space.low, self.action_space.high)
 
             new_obs, rewards, dones, infos = env.step(clipped_actions)
@@ -256,13 +255,13 @@ class RecurrentPPO(OnPolicyAlgorithm):
 
             # Give access to local variables
             callback.update_locals(locals())
-            if callback.on_step() is False:
+            if not callback.on_step():
                 return False
 
-            self._update_info_buffer(infos)
+            self._update_info_buffer(infos, dones)
             n_steps += 1
 
-            if isinstance(self.action_space, gym.spaces.Discrete):
+            if isinstance(self.action_space, spaces.Discrete):
                 # Reshape in case of discrete action
                 actions = actions.reshape(-1, 1)
 
@@ -277,11 +276,11 @@ class RecurrentPPO(OnPolicyAlgorithm):
                     terminal_obs = self.policy.obs_to_tensor(infos[idx]["terminal_observation"])[0]
                     with th.no_grad():
                         terminal_lstm_state = (
-                            lstm_states.vf[0][:, idx : idx + 1, :],
-                            lstm_states.vf[1][:, idx : idx + 1, :],
+                            lstm_states.vf[0][:, idx : idx + 1, :].contiguous(),
+                            lstm_states.vf[1][:, idx : idx + 1, :].contiguous(),
                         )
                         # terminal_lstm_state = None
-                        episode_starts = th.tensor([False]).float().to(self.device)
+                        episode_starts = th.tensor([False], dtype=th.float32, device=self.device)
                         terminal_value = self.policy.predict_values(terminal_obs, terminal_lstm_state, episode_starts)[0]
                     rewards[idx] += self.gamma * terminal_value
 
@@ -301,7 +300,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
 
         with th.no_grad():
             # Compute value for the last timestep
-            episode_starts = th.tensor(dones).float().to(self.device)
+            episode_starts = th.tensor(dones, dtype=th.float32, device=self.device)
             values = self.policy.predict_values(obs_as_tensor(new_obs, self.device), lstm_states.vf, episode_starts)
 
         rollout_buffer.compute_returns_and_advantage(last_values=values, dones=dones)
@@ -342,10 +341,6 @@ class RecurrentPPO(OnPolicyAlgorithm):
 
                 # Convert mask from float to bool
                 mask = rollout_data.mask > 1e-8
-
-                # Re-sample the noise matrix because the log_std has changed
-                if self.use_sde:
-                    self.policy.reset_noise(self.batch_size)
 
                 values, log_prob, entropy = self.policy.evaluate_actions(
                     rollout_data.observations,
@@ -444,51 +439,22 @@ class RecurrentPPO(OnPolicyAlgorithm):
             self.logger.record("train/clip_range_vf", clip_range_vf)
 
     def learn(
-        self: RecurrentPPOSelf,
+        self: SelfRecurrentPPO,
         total_timesteps: int,
         callback: MaybeCallback = None,
         log_interval: int = 1,
         tb_log_name: str = "RecurrentPPO",
         reset_num_timesteps: bool = True,
         progress_bar: bool = False,
-    ) -> RecurrentPPOSelf:
-        iteration = 0
-
-        total_timesteps, callback = self._setup_learn(
-            total_timesteps,
-            callback,
-            reset_num_timesteps,
-            tb_log_name,
-            progress_bar,
+    ) -> SelfRecurrentPPO:
+        return super().learn(
+            total_timesteps=total_timesteps,
+            callback=callback,
+            log_interval=log_interval,
+            tb_log_name=tb_log_name,
+            reset_num_timesteps=reset_num_timesteps,
+            progress_bar=progress_bar,
         )
 
-        callback.on_training_start(locals(), globals())
-
-        while self.num_timesteps < total_timesteps:
-
-            continue_training = self.collect_rollouts(self.env, callback, self.rollout_buffer, n_rollout_steps=self.n_steps)
-
-            if continue_training is False:
-                break
-
-            iteration += 1
-            self._update_current_progress_remaining(self.num_timesteps, total_timesteps)
-
-            # Display training infos
-            if log_interval is not None and iteration % log_interval == 0:
-                time_elapsed = max((time.time_ns() - self.start_time) / 1e9, sys.float_info.epsilon)
-                fps = int((self.num_timesteps - self._num_timesteps_at_start) / time_elapsed)
-                self.logger.record("time/iterations", iteration, exclude="tensorboard")
-                if len(self.ep_info_buffer) > 0 and len(self.ep_info_buffer[0]) > 0:
-                    self.logger.record("rollout/ep_rew_mean", safe_mean([ep_info["r"] for ep_info in self.ep_info_buffer]))
-                    self.logger.record("rollout/ep_len_mean", safe_mean([ep_info["l"] for ep_info in self.ep_info_buffer]))
-                self.logger.record("time/fps", fps)
-                self.logger.record("time/time_elapsed", int(time_elapsed), exclude="tensorboard")
-                self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
-                self.logger.dump(step=self.num_timesteps)
-
-            self.train()
-
-        callback.on_training_end()
-
-        return self
+    def _excluded_save_params(self) -> list[str]:
+        return super()._excluded_save_params() + ["_last_lstm_states"]  # noqa: RUF005

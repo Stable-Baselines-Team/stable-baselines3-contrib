@@ -16,7 +16,7 @@ def get_action_masks(env: GymEnv) -> np.ndarray:
     if isinstance(env, VecEnv):
         return np.stack(env.env_method(EXPECTED_METHOD_NAME))
     else:
-        return getattr(env, EXPECTED_METHOD_NAME)()
+        return env.get_wrapper_attr(EXPECTED_METHOD_NAME)()
 
 
 def is_masking_supported(env: GymEnv) -> bool:
@@ -28,11 +28,10 @@ def is_masking_supported(env: GymEnv) -> bool:
     """
 
     if isinstance(env, VecEnv):
+        return env.has_attr(EXPECTED_METHOD_NAME)
+    else:
         try:
-            # TODO: add VecEnv.has_attr()
-            env.get_attr(EXPECTED_METHOD_NAME)
+            env.get_wrapper_attr(EXPECTED_METHOD_NAME)
             return True
         except AttributeError:
             return False
-    else:
-        return hasattr(env, EXPECTED_METHOD_NAME)

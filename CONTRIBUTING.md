@@ -152,20 +152,20 @@ To run tests with `pytest`:
 make pytest
 ```
 
-Type checking with `pytype`:
+Type checking with `mypy`:
 
 ```
 make type
 ```
 
-Codestyle check with `black`, `isort` and `flake8`:
+Codestyle check with `black` and `ruff`:
 
 ```
 make check-codestyle
 make lint
 ```
 
-To run `pytype`, `format` and `lint` in one command:
+To run `type`, `format` and `lint` in one command:
 ```
 make commit-checks
 ```

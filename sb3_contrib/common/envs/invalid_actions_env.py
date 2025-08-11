@@ -1,11 +1,11 @@
-from typing import List, Optional
+from typing import Optional
 
 import numpy as np
-from gym import spaces
+from gymnasium import spaces
 from stable_baselines3.common.envs import IdentityEnv
 
 
-class InvalidActionEnvDiscrete(IdentityEnv):
+class InvalidActionEnvDiscrete(IdentityEnv[int]):
     """
     Identity env with a discrete action space. Supports action masking.
     """
@@ -22,28 +22,32 @@ class InvalidActionEnvDiscrete(IdentityEnv):
 
         space = spaces.Discrete(dim)
         self.n_invalid_actions = n_invalid_actions
-        self.possible_actions = np.arange(space.n)
-        self.invalid_actions: List[int] = []
+        self.possible_actions = np.arange(space.n, dtype=int)
+        self.invalid_actions: list[int] = []
         super().__init__(space=space, ep_length=ep_length)
 
     def _choose_next_state(self) -> None:
         self.state = self.action_space.sample()
         # Randomly choose invalid actions that are not the current state
         potential_invalid_actions = [i for i in self.possible_actions if i != self.state]
-        self.invalid_actions = np.random.choice(potential_invalid_actions, self.n_invalid_actions, replace=False)
+        self.invalid_actions = np.random.choice(  # type: ignore[assignment]
+            potential_invalid_actions, self.n_invalid_actions, replace=False
+        ).tolist()
 
-    def action_masks(self) -> List[bool]:
+    def action_masks(self) -> list[bool]:
         return [action not in self.invalid_actions for action in self.possible_actions]
 
 
-class InvalidActionEnvMultiDiscrete(IdentityEnv):
+class InvalidActionEnvMultiDiscrete(IdentityEnv[np.ndarray]):
     """
     Identity env with a multidiscrete action space. Supports action masking.
     """
 
+    action_space: spaces.MultiDiscrete
+
     def __init__(
         self,
-        dims: Optional[List[int]] = None,
+        dims: Optional[list[int]] = None,
         ep_length: int = 100,
         n_invalid_actions: int = 0,
     ):
@@ -56,13 +60,13 @@ class InvalidActionEnvMultiDiscrete(IdentityEnv):
         space = spaces.MultiDiscrete(dims)
         self.n_invalid_actions = n_invalid_actions
         self.possible_actions = np.arange(sum(dims))
-        self.invalid_actions: List[int] = []
+        self.invalid_actions: list[int] = []
         super().__init__(space=space, ep_length=ep_length)
 
     def _choose_next_state(self) -> None:
         self.state = self.action_space.sample()
 
-        converted_state: List[int] = []
+        converted_state: list[int] = []
         running_total = 0
         for i in range(len(self.action_space.nvec)):
             converted_state.append(running_total + self.state[i])
@@ -70,13 +74,15 @@ class InvalidActionEnvMultiDiscrete(IdentityEnv):
 
         # Randomly choose invalid actions that are not the current state
         potential_invalid_actions = [i for i in self.possible_actions if i not in converted_state]
-        self.invalid_actions = np.random.choice(potential_invalid_actions, self.n_invalid_actions, replace=False)
+        self.invalid_actions = np.random.choice(  # type: ignore[assignment]
+            potential_invalid_actions, self.n_invalid_actions, replace=False
+        ).tolist()
 
-    def action_masks(self) -> List[bool]:
+    def action_masks(self) -> list[bool]:
         return [action not in self.invalid_actions for action in self.possible_actions]
 
 
-class InvalidActionEnvMultiBinary(IdentityEnv):
+class InvalidActionEnvMultiBinary(IdentityEnv[np.ndarray]):
     """
     Identity env with a multibinary action space. Supports action masking.
     """
@@ -94,23 +100,26 @@ class InvalidActionEnvMultiBinary(IdentityEnv):
             raise ValueError(f"Cannot find a valid action for each dim. Set n_invalid_actions <= {dims}")
 
         space = spaces.MultiBinary(dims)
+        self.n_dims = dims
         self.n_invalid_actions = n_invalid_actions
         self.possible_actions = np.arange(2 * dims)
-        self.invalid_actions: List[int] = []
+        self.invalid_actions: list[int] = []
         super().__init__(space=space, ep_length=ep_length)
 
     def _choose_next_state(self) -> None:
         self.state = self.action_space.sample()
 
-        converted_state: List[int] = []
+        converted_state: list[int] = []
         running_total = 0
-        for i in range(self.action_space.n):
+        for i in range(self.n_dims):
             converted_state.append(running_total + self.state[i])
             running_total += 2
 
         # Randomly choose invalid actions that are not the current state
         potential_invalid_actions = [i for i in self.possible_actions if i not in converted_state]
-        self.invalid_actions = np.random.choice(potential_invalid_actions, self.n_invalid_actions, replace=False)
+        self.invalid_actions = np.random.choice(  # type: ignore[assignment]
+            potential_invalid_actions, self.n_invalid_actions, replace=False
+        ).tolist()
 
-    def action_masks(self) -> List[bool]:
+    def action_masks(self) -> list[bool]:
         return [action not in self.invalid_actions for action in self.possible_actions]
