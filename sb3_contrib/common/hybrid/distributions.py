@@ -3,6 +3,7 @@ import torch as th
 from torch import nn
 from typing import Any, Optional, TypeVar, Union
 from stable_baselines3.common.distributions import Distribution
+from torch.distributions import Categorical, Normal
 from gymnasium import spaces
 
 
@@ -34,6 +35,43 @@ class HybridDistributionNet(nn.Module):
         return categorical_outputs, gaussian_output
 
 
+class Hybrid(th.distributions.Distribution):
+    """
+    A hybrid distribution that combines multiple categorical distributions for discrete actions
+    and a Gaussian distribution for continuous actions.
+    """
+
+    def __init__(self,
+        probs: Optional[tuple[list[th.Tensor], th.Tensor]] = None,
+        logits: Optional[tuple[list[th.Tensor], th.Tensor]] = None,
+        validate_args: Optional[bool] = None,
+    ):
+        super().__init__()
+        categorical_logits: list[th.Tensor] = logits[0]
+        gaussian_means: th.Tensor = logits[1]
+        self.categorical_dists = [Categorical(logits=logit) for logit in categorical_logits]
+        self.gaussian_dist = Normal(loc=gaussian_means, scale=th.ones_like(gaussian_means))
+    
+    def sample(self) -> tuple[th.Tensor, th.Tensor]:
+        categorical_samples = [dist.sample() for dist in self.categorical_dists]
+        gaussian_samples = self.gaussian_dist.sample()
+        return th.stack(categorical_samples, dim=-1), gaussian_samples
+        
+    def log_prob(self):
+        """
+        Returns the log probability of the given actions, both discrete and continuous.
+        """
+        gaussian_log_prob = self.gaussian_dist.log_prob(self.gaussian_dist.sample())
+        categorical_log_probs = [dist.log_prob(dist.sample()) for dist in self.categorical_dists]
+
+        # TODO: check dimensions
+        return th.sum(th.stack(categorical_log_probs, dim=-1), dim=-1), th.sum(gaussian_log_prob, dim=-1)
+
+    # TODO: implement
+    def entropy(self):
+        raise NotImplementedError()
+
+
 class HybridDistribution(Distribution):
     def __init__(self, categorical_dimensions: np.ndarray, n_continuous: int):
         """
@@ -56,19 +94,24 @@ class HybridDistribution(Distribution):
         action_net = HybridDistributionNet(latent_dim, self.categorical_dimensions)
         return action_net
 
-    def proba_distribution(self: SelfHybridDistribution, *args, **kwargs) -> SelfHybridDistribution:
+    def proba_distribution(self: SelfHybridDistribution, action_logits: tuple[list[th.Tensor], th.Tensor]) -> SelfHybridDistribution:
         """Set parameters of the distribution.
 
         :return: self
         """
+        self.distribution = Hybrid(logits=action_logits)
+        return self
 
-    def log_prob(self, x: th.Tensor) -> th.Tensor:
+    # TODO: check return type hint
+    def log_prob(self, discrete_actions: th.Tensor, continuous_actions: th.Tensor) -> th.Tensor:
         """
         Returns the log likelihood
 
         :param x: the taken action
         :return: The log likelihood of the distribution
         """
+        assert self.distribution is not None, "Must set distribution parameters"
+        return self.distribution.log_prob(continuous_actions, discrete_actions)
 
     def entropy(self) -> Optional[th.Tensor]:
         """
@@ -77,12 +120,14 @@ class HybridDistribution(Distribution):
         :return: the entropy, or None if no analytical form is known
         """
 
-    def sample(self) -> th.Tensor:
+    def sample(self) -> tuple[th.Tensor, th.Tensor]:
         """
         Returns a sample from the probability distribution
 
         :return: the stochastic action
         """
+        assert self.distribution is not None, "Must set distribution parameters"
+        return self.distribution.sample()
 
     def mode(self) -> th.Tensor:
         """
@@ -92,8 +137,7 @@ class HybridDistribution(Distribution):
         :return: the stochastic action
         """
 
-    # TODO: this is not abstract in superclass, you can also not re-implement it --> check
-    def get_actions(self, deterministic: bool = False) -> th.Tensor:
+    def get_actions(self, deterministic: bool = False) -> tuple[th.Tensor, th.Tensor]:
         """
         Return actions according to the probability distribution.
 

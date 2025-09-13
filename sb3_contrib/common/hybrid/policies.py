@@ -167,7 +167,39 @@ class HybridActorCriticPolicy(BasePolicy):
             lr=lr_schedule(1),  # type: ignore[call-arg]
             **self.optimizer_kwargs,
         )
+    
+    def forward(self, obs: th.Tensor, deterministic: bool = False) -> tuple[th.Tensor, th.Tensor, th.Tensor]:
+        """
+        Forward pass in all the networks (actor and critic)
 
+        :param obs: Observation
+        :param deterministic: Whether to sample or use deterministic actions
+        :return: action, value and log probability of the action
+        """
+        # Preprocess the observation if needed
+        features = self.extract_features(obs)
+        if self.share_features_extractor:
+            latent_pi, latent_vf = self.mlp_extractor(features)
+        else:
+            pi_features, vf_features = features
+            latent_pi = self.mlp_extractor.forward_actor(pi_features)
+            latent_vf = self.mlp_extractor.forward_critic(vf_features)
+        # Evaluate the values for the given observations
+        values = self.value_net(latent_vf)
+        distribution = self._get_action_dist_from_latent(latent_pi)
+        distrete_actions, continuous_actions = distribution.get_actions(deterministic=deterministic)
+        log_prob = distribution.log_prob(actions)
+        return actions, values, log_prob
+    
+    def _get_action_dist_from_latent(self, latent_pi: th.Tensor) -> HybridDistribution:
+        """
+        Retrieve action distribution given the latent codes.
+
+        :param latent_pi: Latent code for the actor
+        :return: Action distribution
+        """
+        action_logits: tuple[list[th.Tensor], th.Tensor] = self.action_net(latent_pi)
+        return self.action_dist.proba_distribution(action_logits=action_logits)
 
 
 # TODO: check superclass
