@@ -36,6 +36,12 @@ class HybridDistributionNet(nn.Module):
 
 class HybridDistribution(Distribution):
     def __init__(self, categorical_dimensions: np.ndarray, n_continuous: int):
+        """
+        Initialize the hybrid distribution with categorical and continuous components.
+        
+        :param categorical_dimensions: An array specifying the dimensions of the categorical actions.
+        :param n_continuous: The number of continuous actions.
+        """
         super().__init__()
         self.categorical_dimensions = categorical_dimensions
         self.n_continuous = n_continuous

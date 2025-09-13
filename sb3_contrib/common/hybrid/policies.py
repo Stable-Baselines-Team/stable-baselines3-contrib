@@ -1,5 +1,7 @@
+from functools import partial
 from typing import Any, Optional, Union
 import warnings
+import numpy as np
 from stable_baselines3.common.policies import BasePolicy
 from gymnasium import spaces
 from stable_baselines3.common.type_aliases import PyTorchObs, Schedule
@@ -13,7 +15,7 @@ from stable_baselines3.common.torch_layers import (
     NatureCNN,
 )
 
-from sb3_contrib.common.hybrid.distributions import make_hybrid_proba_distribution
+from sb3_contrib.common.hybrid.distributions import HybridDistribution, make_hybrid_proba_distribution
 
 
 class HybridActorCriticPolicy(BasePolicy):
@@ -114,9 +116,58 @@ class HybridActorCriticPolicy(BasePolicy):
         self.log_std_init = log_std_init
 
         # Action distribution
-        self.action_dist = make_hybrid_proba_distribution(action_space)
+        self.action_dist: HybridDistribution = make_hybrid_proba_distribution(action_space)
 
-        # TODO: self._build()
+        self._build(lr_schedule)
+    
+    def _build_mlp_extractor(self) -> None:
+        """
+        Create the policy and value networks.
+        """
+        self.mlp_extractor = MlpExtractor(
+            self.features_dim,
+            net_arch=self.net_arch,
+            activation_fn=self.activation_fn,
+            device=self.device,
+        )
+    
+    def _build(self, lr_schedule: Schedule) -> None:
+        self._build_mlp_extractor()
+
+        # Create action net and valule net
+        self.action_net, self.log_std = self.action_dist.proba_distribution_net(latent_dim=self.mlp_extractor.latent_dim_pi)
+        self.value_net = nn.Linear(self.mlp_extractor.latent_dim_vf, 1)
+
+        # Init weights: use orthogonal initialization
+        # with small initial weight for the output
+        if self.ortho_init:
+            # TODO: check for features_extractor
+            # Values from stable-baselines.
+            # features_extractor/mlp values are
+            # originally from openai/baselines (default gains/init_scales).
+            module_gains = {
+                self.features_extractor: np.sqrt(2),
+                self.mlp_extractor: np.sqrt(2),
+                self.action_net: 0.01,
+                self.value_net: 1,
+            }
+            if not self.share_features_extractor:
+                # Note(antonin): this is to keep SB3 results
+                # consistent, see GH#1148
+                del module_gains[self.features_extractor]
+                module_gains[self.pi_features_extractor] = np.sqrt(2)
+                module_gains[self.vf_features_extractor] = np.sqrt(2)
+
+            for module, gain in module_gains.items():
+                module.apply(partial(self.init_weights, gain=gain))
+
+        # Setup optimizer with initial learning rate
+        self.optimizer = self.optimizer_class(
+            self.parameters(),
+            lr=lr_schedule(1),  # type: ignore[call-arg]
+            **self.optimizer_kwargs,
+        )
+
 
 
 # TODO: check superclass
