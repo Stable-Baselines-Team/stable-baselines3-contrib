@@ -1,8 +1,10 @@
 from typing import Any, ClassVar, Optional, TypeVar, Union
 import torch as th
 import numpy as np
+from gymnasium import spaces
+from common.hybrid.policies import HybridActorCriticPolicy, HybridActorCriticCnnPolicy, HybridMultiInputActorCriticPolicy
 from stable_baselines3.ppo import PPO
-from stable_baselines3.common.policies import ActorCriticCnnPolicy, ActorCriticPolicy, BasePolicy, MultiInputActorCriticPolicy
+from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.buffers import RolloutBuffer
@@ -14,14 +16,14 @@ SelfHybridPPO = TypeVar("SelfHybridPPO", bound="HybridPPO")
 
 class HybridPPO(PPO):
     policy_aliases: ClassVar[dict[str, type[BasePolicy]]] = {
-        "MlpPolicy": ActorCriticPolicy,
-        "CnnPolicy": ActorCriticCnnPolicy,
-        "MultiInputPolicy": MultiInputActorCriticPolicy,
+        "MlpPolicy": HybridActorCriticPolicy,
+        "CnnPolicy": HybridActorCriticCnnPolicy,
+        "MultiInputPolicy": HybridMultiInputActorCriticPolicy,
     }
     
     def __init__(
         self,
-        policy: Union[str, type[ActorCriticPolicy]],
+        policy: Union[str, type[HybridActorCriticPolicy]],
         env: Union[GymEnv, str],    # TODO: check if custom env needed to accept multiple actions
         learning_rate: Union[float, Schedule] = 3e-4,
         n_steps: int = 2048,
@@ -147,8 +149,11 @@ class HybridPPO(PPO):
             n_steps += 1
 
             # Reshape in case of discrete action
-            # actions_d = actions_d.reshape(-1, 1)    # TODO: MultiDiscrete (not simple Discrete) --> check
-            actions_d = actions_d.reshape(-1, self.action_space.nvec.shape[0])  # TODO: check
+            if isinstance(self.action_space[0], spaces.Discrete):
+                # Reshape in case of discrete action
+                actions_d = actions_d.reshape(-1, 1)
+            elif isinstance(self.action_space[0], spaces.MultiDiscrete):
+                actions_d = actions_d.reshape(-1, self.action_space[0].nvec.shape[0])
 
             # Handle timeout by bootstrapping with value function
             # see GitHub issue #633
@@ -187,6 +192,43 @@ class HybridPPO(PPO):
         callback.on_rollout_end()
 
         return True
+
+    def train(self) -> None:
+        """
+        Update policy using the currently gathered rollout buffer.
+        """
+        # Switch to train mode (this affects batch norm / dropout)
+        self.policy.set_training_mode(True)
+        # Update optimizer learning rate
+        self._update_learning_rate(self.policy.optimizer)
+        # Compute current clip range
+        clip_range = self.clip_range(self._current_progress_remaining)  # type: ignore[operator]
+        # Optional: clip range for the value function
+        if self.clip_range_vf is not None:
+            clip_range_vf = self.clip_range_vf(self._current_progress_remaining)  # type: ignore[operator]
+        
+        entropy_losses = []
+        pg_losses, value_losses = [], []
+        clip_fractions = []
+
+        continue_training = True
+        # train for n_epochs epochs
+        for epoch in range(self.n_epochs):
+            approx_kl_divs = []
+            # Do a complete pass on the rollout buffer
+            for rollout_data in self.rollout_buffer.get(self.batch_size):
+                actions_d = rollout_data.actions_d
+                actions_c = rollout_data.actions_c
+                if isinstance(self.action_space[0], spaces.Discrete):
+                    # Reshape in case of discrete action
+                    actions_d = actions_d.reshape(-1, 1)
+                elif isinstance(self.action_space[0], spaces.MultiDiscrete):
+                    actions_d = actions_d.reshape(-1, self.action_space[0].nvec.shape[0])
+                
+                values, log_prob, entropy = self.policy.evaluate_actions(rollout_data.observations, actions_d, actions_c)
+                log_prob_d, log_prob_c = log_prob
+                entropy_d, entropy_c = entropy
+                
 
     def learn(
         self: SelfHybridPPO,

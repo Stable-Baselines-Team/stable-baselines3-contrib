@@ -57,7 +57,7 @@ class Hybrid(th.distributions.Distribution):
         gaussian_samples = self.gaussian_dist.sample()
         return th.stack(categorical_samples, dim=-1), gaussian_samples
         
-    def log_prob(self):
+    def log_prob(self) -> tuple[th.Tensor, th.Tensor]:
         """
         Returns the log probability of the given actions, both discrete and continuous.
         """
@@ -67,9 +67,18 @@ class Hybrid(th.distributions.Distribution):
         # TODO: check dimensions
         return th.sum(th.stack(categorical_log_probs, dim=-1), dim=-1), th.sum(gaussian_log_prob, dim=-1)
 
-    # TODO: implement
-    def entropy(self):
-        raise NotImplementedError()
+    def entropy(self) -> tuple[th.Tensor, th.Tensor]:
+        """
+        Returns the entropy of the hybrid distribution, which is the sum of the entropies
+        of the categorical and gaussian components.
+
+        :return: Tuple of (categorical entropy, gaussian entropy)
+        """
+        categorical_entropies = [dist.entropy() for dist in self.categorical_dists]
+        # Sum entropies for all categorical distributions
+        categorical_entropy = th.sum(th.stack(categorical_entropies, dim=-1), dim=-1)
+        gaussian_entropy = self.gaussian_dist.entropy().sum(dim=-1)
+        return categorical_entropy, gaussian_entropy
 
 
 class HybridDistribution(Distribution):
@@ -102,23 +111,24 @@ class HybridDistribution(Distribution):
         self.distribution = Hybrid(logits=action_logits)
         return self
 
-    # TODO: check return type hint
-    def log_prob(self, discrete_actions: th.Tensor, continuous_actions: th.Tensor) -> th.Tensor:
+    def log_prob(self, discrete_actions: th.Tensor, continuous_actions: th.Tensor) -> tuple[th.Tensor, th.Tensor]:
         """
         Returns the log likelihood
 
         :param x: the taken action
-        :return: The log likelihood of the distribution
+        :return: The log likelihood of the distribution for discrete and continuous distributions
         """
         assert self.distribution is not None, "Must set distribution parameters"
         return self.distribution.log_prob(continuous_actions, discrete_actions)
 
-    def entropy(self) -> Optional[th.Tensor]:
+    def entropy(self) -> tuple[th.Tensor, th.Tensor]:
         """
         Returns Shannon's entropy of the probability
 
-        :return: the entropy, or None if no analytical form is known
+        :return: the entropy of discrete and continuous distributions
         """
+        assert self.distribution is not None, "Must set distribution parameters"
+        return self.distribution.entropy()
 
     def sample(self) -> tuple[th.Tensor, th.Tensor]:
         """

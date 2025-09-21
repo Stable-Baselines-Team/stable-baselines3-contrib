@@ -201,6 +201,32 @@ class HybridActorCriticPolicy(BasePolicy):
         """
         action_logits: tuple[list[th.Tensor], th.Tensor] = self.action_net(latent_pi)
         return self.action_dist.proba_distribution(action_logits=action_logits)
+    
+    def evaluate_actions(self, obs: PyTorchObs, actions: th.Tensor) -> tuple[th.Tensor, th.Tensor, Optional[th.Tensor]]:
+        """
+        Evaluate actions according to the current policy,
+        given the observations.
+
+        :param obs: Observation
+        :param actions: Actions
+        :return: estimated value, log likelihood of taking those actions
+            and entropy of the action distribution.
+        """
+        # Preprocess the observation if needed
+        features = self.extract_features(obs)
+        if self.share_features_extractor:
+            latent_pi, latent_vf = self.mlp_extractor(features)
+        else:
+            pi_features, vf_features = features
+            latent_pi = self.mlp_extractor.forward_actor(pi_features)
+            latent_vf = self.mlp_extractor.forward_critic(vf_features)
+        distribution = self._get_action_dist_from_latent(latent_pi)
+        # log prob of discrete and continuous actions
+        log_prob: tuple[th.Tensor, th.Tensor] = distribution.log_prob(actions)
+        # entropy of discrete and continuous actions
+        entropy: tuple[th.Tensor, th.Tensor] = distribution.entropy()
+        values = self.value_net(latent_vf)
+        return values, log_prob, entropy
 
 
 # TODO: check superclass
