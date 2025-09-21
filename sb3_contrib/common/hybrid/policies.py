@@ -187,9 +187,10 @@ class HybridActorCriticPolicy(BasePolicy):
         # Evaluate the values for the given observations
         values = self.value_net(latent_vf)
         distribution = self._get_action_dist_from_latent(latent_pi)
-        distrete_actions, continuous_actions = distribution.get_actions(deterministic=deterministic)
-        log_prob = distribution.log_prob(actions)
-        return actions, values, log_prob
+        actions_d, actions_c = distribution.get_actions(deterministic=deterministic)
+        log_prob_d = distribution.log_prob(actions_d)
+        log_prob_c = distribution.log_prob(actions_c)
+        return actions_d, actions_c, values, log_prob_d, log_prob_c
     
     def _get_action_dist_from_latent(self, latent_pi: th.Tensor) -> HybridDistribution:
         """
