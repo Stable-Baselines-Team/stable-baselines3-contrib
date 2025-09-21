@@ -1,4 +1,4 @@
-from typing import ClassVar, TypeVar
+from typing import Any, ClassVar, Optional, TypeVar, Union
 import torch as th
 import numpy as np
 from stable_baselines3.ppo import PPO
@@ -6,7 +6,7 @@ from stable_baselines3.common.policies import ActorCriticCnnPolicy, ActorCriticP
 from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.buffers import RolloutBuffer
-from stable_baselines3.common.type_aliases import MaybeCallback
+from stable_baselines3.common.type_aliases import MaybeCallback, GymEnv, Schedule
 from stable_baselines3.common.utils import obs_as_tensor
 
 SelfHybridPPO = TypeVar("SelfHybridPPO", bound="HybridPPO")
@@ -21,32 +21,32 @@ class HybridPPO(PPO):
     
     def __init__(
         self,
-        policy,
-        env,
-        learning_rate=0.0003,
-        n_steps=2048,
-        batch_size=64,
-        n_epochs=10,
-        gamma=0.99,
-        gae_lambda=0.95,
-        clip_range=0.2,
-        clip_range_vf=None,
-        normalize_advantage=True,
-        ent_coef=0,
-        vf_coef=0.5,
-        max_grad_norm=0.5,
-        use_sde=False,
-        sde_sample_freq=-1,
-        rollout_buffer_class=None,
-        rollout_buffer_kwargs=None,
-        target_kl=None,
-        stats_window_size=100,
-        tensorboard_log=None,
-        policy_kwargs=None,
-        verbose=0,
-        seed=None,
-        device="auto",
-        _init_setup_model=True,
+        policy: Union[str, type[ActorCriticPolicy]],
+        env: Union[GymEnv, str],    # TODO: check if custom env needed to accept multiple actions
+        learning_rate: Union[float, Schedule] = 3e-4,
+        n_steps: int = 2048,
+        batch_size: int = 64,
+        n_epochs: int = 10,
+        gamma: float = 0.99,
+        gae_lambda: float = 0.95,
+        clip_range: Union[float, Schedule] = 0.2,
+        clip_range_vf: Union[None, float, Schedule] = None,
+        normalize_advantage: bool = True,
+        ent_coef: float = 0.0,
+        vf_coef: float = 0.5,
+        max_grad_norm: float = 0.5,
+        use_sde: bool = False,
+        sde_sample_freq: int = -1,
+        rollout_buffer_class: Optional[type[RolloutBuffer]] = None,     # TODO: check if custom class needed to accept multiple actions
+        rollout_buffer_kwargs: Optional[dict[str, Any]] = None,
+        target_kl: Optional[float] = None,
+        stats_window_size: int = 100,
+        tensorboard_log: Optional[str] = None,
+        policy_kwargs: Optional[dict[str, Any]] = None,
+        verbose: int = 0,
+        seed: Optional[int] = None,
+        device: Union[th.device, str] = "auto",
+        _init_setup_model: bool = True,
     ):
         super().__init__(
             policy,
