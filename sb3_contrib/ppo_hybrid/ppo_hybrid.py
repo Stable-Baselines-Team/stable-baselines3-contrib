@@ -1,4 +1,4 @@
-from typing import ClassVar
+from typing import ClassVar, TypeVar
 import torch as th
 import numpy as np
 from stable_baselines3.ppo import PPO
@@ -6,10 +6,13 @@ from stable_baselines3.common.policies import ActorCriticCnnPolicy, ActorCriticP
 from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.buffers import RolloutBuffer
+from stable_baselines3.common.type_aliases import MaybeCallback
 from stable_baselines3.common.utils import obs_as_tensor
 
+SelfHybridPPO = TypeVar("SelfHybridPPO", bound="HybridPPO")
 
-class HybrudPPO(PPO):
+
+class HybridPPO(PPO):
     policy_aliases: ClassVar[dict[str, type[BasePolicy]]] = {
         "MlpPolicy": ActorCriticPolicy,
         "CnnPolicy": ActorCriticCnnPolicy,
@@ -184,3 +187,21 @@ class HybrudPPO(PPO):
         callback.on_rollout_end()
 
         return True
+
+    def learn(
+        self: SelfHybridPPO,
+        total_timesteps: int,
+        callback: MaybeCallback = None,
+        log_interval: int = 1,
+        tb_log_name: str = "Hybrid PPO",
+        reset_num_timesteps: bool = True,
+        progress_bar: bool = False,
+    ) -> SelfHybridPPO:
+        return super().learn(
+            total_timesteps=total_timesteps,
+            callback=callback,
+            log_interval=log_interval,
+            tb_log_name=tb_log_name,
+            reset_num_timesteps=reset_num_timesteps,
+            progress_bar=progress_bar,
+        )
