@@ -35,7 +35,7 @@ exclude = """(?x)(
 
 [tool.pytest.ini_options]
 # Deterministic ordering for tests; useful for pytest-xdist.
-env = ["PYTHONHASHSEED=0"]
+# env = ["PYTHONHASHSEED=0"]
 
 filterwarnings = [
     # Tensorboard warnings
