@@ -221,7 +221,7 @@ class MaskablePPO(OnPolicyAlgorithm):
         while n_steps < n_rollout_steps:
             with th.no_grad():
                 # Convert to pytorch tensor or to TensorDict
-                obs_tensor = obs_as_tensor(self._last_obs, self.device)
+                obs_tensor = obs_as_tensor(self._last_obs, self.device)  # type: ignore[arg-type]
 
                 # This is the only change related to invalid action masking
                 if use_masking:

@@ -296,7 +296,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         features = super(ActorCriticPolicy, self).extract_features(obs, self.vf_features_extractor)
 
         if self.lstm_critic is not None:
-            latent_vf, lstm_states_vf = self._process_sequence(features, lstm_states, episode_starts, self.lstm_critic)
+            latent_vf, _ = self._process_sequence(features, lstm_states, episode_starts, self.lstm_critic)
         elif self.shared_lstm:
             # Use LSTM from the actor
             latent_pi, _ = self._process_sequence(features, lstm_states, episode_starts, self.lstm_actor)
