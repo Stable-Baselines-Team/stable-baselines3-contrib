@@ -431,7 +431,7 @@ class MaskablePPO(OnPolicyAlgorithm):
         total_timesteps: int,
         callback: MaybeCallback = None,
         log_interval: int = 1,
-        tb_log_name: str = "PPO",
+        tb_log_name: str = "MaskablePPO",
         reset_num_timesteps: bool = True,
         use_masking: bool = True,
         progress_bar: bool = False,
