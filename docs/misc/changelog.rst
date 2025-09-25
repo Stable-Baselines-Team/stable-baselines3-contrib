@@ -39,6 +39,7 @@ New Features:
 Bug Fixes:
 ^^^^^^^^^^
 - Use the ``FloatSchedule`` and ``LinearSchedule`` classes instead of lambdas in the ARS, PPO, and QRDQN implementations to improve model portability across different operating systems
+- Fixed a bug in the ``MaskableCategoricalDistribution`` and ``MaskableMultiCategoricalDistribution`` classes where the `apply_masking` method was not correctly handling the masks for multi-dimensional action spaces
 
 Deprecations:
 ^^^^^^^^^^^^^
