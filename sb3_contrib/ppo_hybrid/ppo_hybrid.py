@@ -1,5 +1,6 @@
 from typing import Any, ClassVar, Optional, TypeVar, Union
 import torch as th
+from torch.nn import functional as F
 import numpy as np
 from gymnasium import spaces
 from common.hybrid.policies import HybridActorCriticPolicy, HybridActorCriticCnnPolicy, HybridMultiInputActorCriticPolicy
@@ -10,6 +11,7 @@ from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.type_aliases import MaybeCallback, GymEnv, Schedule
 from stable_baselines3.common.utils import obs_as_tensor
 from buffers import HybridActionsRolloutBuffer
+from stable_baselines3.common.utils import explained_variance
 
 SelfHybridPPO = TypeVar("SelfHybridPPO", bound="HybridPPO")
 
@@ -22,6 +24,7 @@ class HybridPPO(PPO):
     }
     
     rollout_buffer: HybridActionsRolloutBuffer
+    policy: HybridActorCriticPolicy
     
     def __init__(
         self,
@@ -210,8 +213,8 @@ class HybridPPO(PPO):
             clip_range_vf = self.clip_range_vf(self._current_progress_remaining)  # type: ignore[operator]
         
         entropy_losses = []
-        pg_losses, value_losses = [], []
-        clip_fractions = []
+        pg_losses_d, pg_losses_c, value_losses = [], [], []
+        clip_fractions_d, clip_fractions_c = [], []
 
         continue_training = True
         # train for n_epochs epochs
@@ -227,10 +230,115 @@ class HybridPPO(PPO):
                 elif isinstance(self.action_space[0], spaces.MultiDiscrete):
                     actions_d = actions_d.reshape(-1, self.action_space[0].nvec.shape[0])
                 
-                values, log_prob, entropy = self.policy.evaluate_actions(rollout_data.observations, actions_d, actions_c)
-                log_prob_d, log_prob_c = log_prob
+                values, log_probs, entropy = self.policy.evaluate_actions(rollout_data.observations, actions_d, actions_c)
+                log_prob_d, log_prob_c = log_probs
                 entropy_d, entropy_c = entropy
+                values = values.flatten()
+
+                # Normalize advantage
+                advantages = rollout_data.advantages
+                # Normalization does not make sense if mini batchsize == 1, see GH issue #325
+                if self.normalize_advantage and len(advantages) > 1:
+                    advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
                 
+                # ratio between old and new policy, for discrete and continuous actions.
+                # Should be one at the first iteration
+                ratio_d = th.exp(log_prob_d - rollout_data.old_log_prob_d)
+                ratio_c = th.exp(log_prob_c - rollout_data.old_log_prob_c)
+
+                # clipped surrogate loss for discrete actions
+                policy_loss_d_1 = advantages * ratio_d
+                policy_loss_d_2 = advantages * th.clamp(ratio_d, 1 - clip_range, 1 + clip_range)
+                policy_loss_d = -th.min(policy_loss_d_1, policy_loss_d_2).mean()
+
+                # clipped surrogate loss for continuous actions
+                policy_loss_c_1 = advantages * ratio_c
+                policy_loss_c_2 = advantages * th.clamp(ratio_c, 1 - clip_range, 1 + clip_range)
+                policy_loss_c = -th.min(policy_loss_c_1, policy_loss_c_2).mean()
+
+                # Logging
+                pg_losses_d.append(policy_loss_d.item())
+                clip_fraction_d = th.mean((th.abs(ratio_d - 1) > clip_range).float()).item()
+                clip_fractions_d.append(clip_fraction_d)
+                pg_losses_c.append(policy_loss_c.item())
+                clip_fraction_c = th.mean((th.abs(ratio_c - 1) > clip_range).float()).item()
+                clip_fractions_c.append(clip_fraction_c)
+
+                # Value loss
+                if self.clip_range_vf is None:
+                    # No clipping
+                    values_pred = values
+                else:
+                    # Clip the difference between old and new value
+                    # NOTE: this depends on the reward scaling
+                    values_pred = rollout_data.old_values + th.clamp(
+                        values - rollout_data.old_values, -clip_range_vf, clip_range_vf
+                    )
+                # Value loss using the TD(gae_lambda) target
+                value_loss = F.mse_loss(rollout_data.returns, values_pred)
+                value_losses.append(value_loss.item())
+
+                # Entropy loss favor exploration
+                if entropy is None:
+                    # Approximate entropy when no analytical form
+                    entropy_loss_d = -th.mean(-log_prob_d)
+                    entropy_loss_c = -th.mean(-log_prob_c)
+                    entropy_loss = entropy_loss_d + entropy_loss_c
+                else:
+                    entropy_loss = -th.mean(entropy_d) - th.mean(entropy_c)
+                entropy_losses.append(entropy_loss.item())
+
+                # total loss function
+                loss = 0.5 * (policy_loss_d + policy_loss_c) + self.ent_coef * entropy_loss + self.vf_coef * value_loss
+
+                # Calculate approximate form of reverse KL Divergence for early stopping
+                # see issue #417: https://github.com/DLR-RM/stable-baselines3/issues/417
+                # and discussion in PR #419: https://github.com/DLR-RM/stable-baselines3/pull/419
+                # and Schulman blog: http://joschu.net/blog/kl-approx.html
+                # Note: using the max KL divergence between discrete and continuous actions to stay conservative
+                with th.no_grad():
+                    log_ratio_d = log_prob_d - rollout_data.old_log_prob_d
+                    log_ratio_c = log_prob_c - rollout_data.old_log_prob_c
+                    approx_kl_div_d = th.mean((th.exp(log_ratio_d) - 1) - log_ratio_d).cpu().numpy()
+                    approx_kl_div_c = th.mean((th.exp(log_ratio_c) - 1) - log_ratio_c).cpu().numpy()
+                    approx_kl_div = max(approx_kl_div_d, approx_kl_div_c)
+                    approx_kl_divs.append(approx_kl_div)
+
+                if self.target_kl is not None and approx_kl_div > 1.5 * self.target_kl:
+                    continue_training = False
+                    if self.verbose >= 1:
+                        print(f"Early stopping at step {epoch} due to reaching max kl: {approx_kl_div:.2f}")
+                    break
+
+                # Optimization step
+                self.policy.optimizer.zero_grad()
+                loss.backward()
+                # Clip grad norm
+                th.nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
+                self.policy.optimizer.step()
+
+            self._n_updates += 1
+            if not continue_training:
+                break
+        
+        explained_var = explained_variance(self.rollout_buffer.values.flatten(), self.rollout_buffer.returns.flatten())
+
+        # Logs
+        self.logger.record("train/entropy_loss", np.mean(entropy_losses))
+        self.logger.record("train/policy_gradient_discrete_loss", np.mean(pg_losses_d))
+        self.logger.record("train/policy_gradient_continuous_loss", np.mean(pg_losses_c))
+        self.logger.record("train/value_loss", np.mean(value_losses))
+        self.logger.record("train/approx_kl", np.mean(approx_kl_divs))
+        self.logger.record("train/clip_fraction_discrete", np.mean(clip_fractions_d))
+        self.logger.record("train/clip_fraction_continuous", np.mean(clip_fractions_c))
+        self.logger.record("train/loss", loss.item())
+        self.logger.record("train/explained_variance", explained_var)
+        if hasattr(self.policy, "log_std"):
+            self.logger.record("train/std", th.exp(self.policy.log_std).mean().item())
+        self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
+        self.logger.record("train/clip_range", clip_range)
+        if self.clip_range_vf is not None:
+            self.logger.record("train/clip_range_vf", clip_range_vf)
 
     def learn(
         self: SelfHybridPPO,

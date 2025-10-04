@@ -65,7 +65,10 @@ class Hybrid(th.distributions.Distribution):
         categorical_log_probs = [dist.log_prob(dist.sample()) for dist in self.categorical_dists]
 
         # TODO: check dimensions
-        return th.sum(th.stack(categorical_log_probs, dim=-1), dim=-1), th.sum(gaussian_log_prob, dim=-1)
+        return (
+            th.sum(th.stack(categorical_log_probs, dim=-1), dim=-1),
+            th.sum(gaussian_log_prob, dim=-1)
+        )
 
     def entropy(self) -> tuple[th.Tensor, th.Tensor]:
         """
