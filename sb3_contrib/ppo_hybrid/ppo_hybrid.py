@@ -7,9 +7,9 @@ from stable_baselines3.ppo import PPO
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.common.callbacks import BaseCallback
-from stable_baselines3.common.buffers import RolloutBuffer
 from stable_baselines3.common.type_aliases import MaybeCallback, GymEnv, Schedule
 from stable_baselines3.common.utils import obs_as_tensor
+from buffers import HybridActionsRolloutBuffer
 
 SelfHybridPPO = TypeVar("SelfHybridPPO", bound="HybridPPO")
 
@@ -20,6 +20,8 @@ class HybridPPO(PPO):
         "CnnPolicy": HybridActorCriticCnnPolicy,
         "MultiInputPolicy": HybridMultiInputActorCriticPolicy,
     }
+    
+    rollout_buffer: HybridActionsRolloutBuffer
     
     def __init__(
         self,
@@ -39,7 +41,7 @@ class HybridPPO(PPO):
         max_grad_norm: float = 0.5,
         use_sde: bool = False,
         sde_sample_freq: int = -1,
-        rollout_buffer_class: Optional[type[RolloutBuffer]] = None,     # TODO: check if custom class needed to accept multiple actions
+        rollout_buffer_class: Optional[type[HybridActionsRolloutBuffer]] = None,     # TODO: check if custom class needed to accept multiple actions
         rollout_buffer_kwargs: Optional[dict[str, Any]] = None,
         target_kl: Optional[float] = None,
         stats_window_size: int = 100,
@@ -83,11 +85,11 @@ class HybridPPO(PPO):
         self,
         env: VecEnv,
         callback: BaseCallback,
-        rollout_buffer: RolloutBuffer,
+        rollout_buffer: HybridActionsRolloutBuffer,
         n_rollout_steps: int,
     ) -> bool:
         """
-        Collect experiences using the current policy and fill a ``RolloutBuffer``.
+        Collect experiences using the current policy and fill a ``HybridActionsRolloutBuffer``.
         The term rollout here refers to the model-free notion and should not
         be used with the concept of rollout used in model-based RL or planning.
 
