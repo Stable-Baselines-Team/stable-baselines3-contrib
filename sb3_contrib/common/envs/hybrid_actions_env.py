@@ -1,3 +1,5 @@
+from typing import Optional, Tuple, Dict
+
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
@@ -16,7 +18,7 @@ class CatchingPointEnv(gym.Env):
         move_dist: float = 0.05,
         catch_radius: float = 0.05,
         max_catches: float = 10,
-        max_steps: float = 200
+        max_steps: float = 500
     ):
         super().__init__()
         self.max_steps = max_steps
@@ -38,27 +40,44 @@ class CatchingPointEnv(gym.Env):
         obs_high= np.array([ arena_size,  arena_size,  arena_size,  arena_size, float(max_catches), 1.0], dtype=np.float32)
         self.observation_space = spaces.Box(obs_low, obs_high, dtype=np.float32)
     
-    def reset(self) -> np.ndarray:
+    def reset(self, *, seed: Optional[int] = None, options: Optional[dict] = None) -> tuple[np.ndarray, dict]:
         """
         Reset the environment to an initial state and return the initial observation.
+
+        :param seed: The seed for random number generation
+        :param options: Additional options for environment reset, e.g., {'difficulty': 'hard'}
+        :return: Tuple of (observation, info)
         """
+        super().reset(seed=seed)
+
+        # Handle options (none used in this environment currently, but following the gymnasium API)
+        if options is not None:
+            # Example of how to handle options if needed:
+            # if 'difficulty' in options:
+            #     self.move_dist = 0.03 if options['difficulty'] == 'hard' else 0.05
+            pass
+
         self.agent_pos = self.np_random.uniform(-self.arena_size, self.arena_size, size=2).astype(np.float32)
         self.target_pos = self.np_random.uniform(-self.arena_size, self.arena_size, size=2).astype(np.float32)
         self.catches_used = 0
         self.step_count = 0
-        return self._get_obs()
+        
+        obs = self._get_obs()
+        info = {}  # Additional info dict, empty for now but could include initialization info
+        return obs, info
 
-    def step(self, action: tuple[np.ndarray, np.ndarray]) -> tuple[np.ndarray, float, bool, dict]:
+    def step(self, action: Tuple[np.ndarray, np.ndarray]) -> Tuple[np.ndarray, float, bool, bool, Dict[str, bool]]:
         """
         Take a step in the environment using the provided action.
         
         :param action: A tuple containing the discrete action and continuous parameters.
-        :return: observation, reward, done, info
+        :return: Tuple of (observation, reward, terminated, truncated, info)
         """
         action_d = int(action[0][0])
         dir_vec = action[1]
         reward = 0.0
-        done = False
+        terminated = False
+        truncated = False
 
         # step penalty
         reward = -0.01
@@ -77,18 +96,18 @@ class CatchingPointEnv(gym.Env):
             dist = np.linalg.norm(self.agent_pos - self.target_pos)
             if dist <= self.catch_radius:
                 reward = 1.0    # caught the target
-                done = True
+                terminated = True  # Natural termination
             else:
                 if self.catches_used >= self.max_catches:
-                    done = True
+                    terminated = True  # Natural termination
 
         self.step_count += 1
         if self.step_count >= self.max_steps:
-            done = True
+            truncated = True  # Episode truncated due to time limit
 
         obs = self._get_obs()
         info = {"caught": (reward > 0)}
-        return obs, float(reward), bool(done), info
+        return obs, float(reward), terminated, truncated, info
 
     def _get_obs(self) -> np.ndarray:
         """
