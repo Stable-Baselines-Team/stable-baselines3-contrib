@@ -178,13 +178,17 @@ class HybridDistribution(Distribution):
         """
 
 
-def make_hybrid_proba_distribution(action_space: spaces.Tuple[spaces.MultiDiscrete, spaces.Box]) -> HybridDistribution:
+def make_hybrid_proba_distribution(action_space: spaces.Tuple) -> HybridDistribution:
     """
     Create a hybrid probability distribution for the given action space.
 
     :param action_space: Tuple Action space containing a MultiDiscrete action space and a Box action space.
     :return: A HybridDistribution object that handles the hybrid action space.
     """
+    assert isinstance(action_space, spaces.Tuple), "Action space must be a Tuple space"
+    assert len(action_space.spaces) == 2, "Action space must contain exactly 2 subspaces"
+    assert isinstance(action_space.spaces[0], spaces.MultiDiscrete), "First subspace must be MultiDiscrete"
+    assert isinstance(action_space.spaces[1], spaces.Box), "Second subspace must be Box"
     assert len(action_space[1].shape) == 1, "Continuous action space must have a monodimensional shape (e.g., (n,))"
     return HybridDistribution(
         categorical_dimensions=len(action_space[0].nvec),

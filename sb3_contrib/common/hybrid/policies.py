@@ -45,7 +45,7 @@ class HybridActorCriticPolicy(BasePolicy):
     def __init__(
         self,
         observation_space: spaces.Space,
-        action_space: spaces.Tuple[spaces.MultiDiscrete, spaces.Box],
+        action_space: spaces.Tuple,  # Type[spaces.MultiDiscrete, spaces.Box]
         lr_schedule: Schedule,
         net_arch: Optional[Union[list[int], dict[str, list[int]]]] = None,
         activation_fn: type[nn.Module] = nn.Tanh,

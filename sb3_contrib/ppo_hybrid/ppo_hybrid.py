@@ -3,14 +3,14 @@ import torch as th
 from torch.nn import functional as F
 import numpy as np
 from gymnasium import spaces
-from common.hybrid.policies import HybridActorCriticPolicy, HybridActorCriticCnnPolicy, HybridMultiInputActorCriticPolicy
+from sb3_contrib.common.hybrid.policies import HybridActorCriticPolicy, HybridActorCriticCnnPolicy, HybridMultiInputActorCriticPolicy
 from stable_baselines3.ppo import PPO
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.type_aliases import MaybeCallback, GymEnv, Schedule
 from stable_baselines3.common.utils import obs_as_tensor
-from buffers import HybridActionsRolloutBuffer
+from sb3_contrib.ppo_hybrid.buffers import HybridActionsRolloutBuffer
 from stable_baselines3.common.utils import explained_variance
 
 SelfHybridPPO = TypeVar("SelfHybridPPO", bound="HybridPPO")

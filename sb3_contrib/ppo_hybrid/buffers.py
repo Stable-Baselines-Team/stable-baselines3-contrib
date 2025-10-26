@@ -20,14 +20,18 @@ class HybridActionsRolloutBufferSamples(NamedTuple):
     returns: th.Tensor
 
 
-def get_action_dim(action_space: spaces.Tuple[spaces.MultiDiscrete, spaces.Box]) -> tuple[int, int]:
+def get_action_dim(action_space: spaces.Tuple) -> tuple[int, int]:
     """
     Get the dimension of the action space,
-    assumed to be the one of HybridPPO (spaces.Tuple[spaces.MultiDiscrete, spaces.Box]).
+    assumed to be the one of HybridPPO (Tuple[MultiDiscrete, Box]).
 
-    :param action_space: action_space
+    :param action_space: Tuple action space containing MultiDiscrete and Box spaces
     :return: (dim_d, dim_c) where dim_d is the discrete action dimension and dim_c the continuous action dimension.
     """
+    assert isinstance(action_space, spaces.Tuple), "Action space must be a Tuple space"
+    assert len(action_space.spaces) == 2, "Action space must contain exactly 2 subspaces"
+    assert isinstance(action_space.spaces[0], spaces.MultiDiscrete), "First subspace must be MultiDiscrete"
+    assert isinstance(action_space.spaces[1], spaces.Box), "Second subspace must be Box"
     return (
         len(action_space.nvec),  # discrete action dimension
         int(np.prod(action_space.shape)) # continuous action dimension
@@ -46,7 +50,7 @@ class HybridActionsRolloutBuffer(RolloutBuffer):
             self,
             buffer_size: int,
             observation_space: spaces.Space,
-            action_space: spaces.Tuple[spaces.MultiDiscrete, spaces.Box],
+            action_space: spaces.Tuple,  # Type[spaces.MultiDiscrete, spaces.Box]
             device: Union[th.device, str] = "auto",
             gae_lambda: float = 1,
             gamma: float = 0.99,

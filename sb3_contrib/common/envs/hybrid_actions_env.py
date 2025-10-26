@@ -13,10 +13,10 @@ class CatchingPointEnv(gym.Env):
     def __init__(
         self,
         arena_size: float = 1.0,
-        move_dist=0.05,
-        catch_radius=0.05,
-        max_catches=10,
-        max_steps=200
+        move_dist: float = 0.05,
+        catch_radius: float = 0.05,
+        max_catches: float = 10,
+        max_steps: float = 200
     ):
         super().__init__()
         self.max_steps = max_steps
