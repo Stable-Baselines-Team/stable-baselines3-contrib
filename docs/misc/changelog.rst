@@ -3,6 +3,28 @@
 Changelog
 ==========
 
+Release 2.7.1a3 (WIP)
+--------------------------
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+
+New Features:
+^^^^^^^^^^^^^
+
+Bug Fixes:
+^^^^^^^^^^
+- Fix tensorboard log name for ``MaskablePPO``
+
+Deprecations:
+^^^^^^^^^^^^^
+
+Others:
+^^^^^^^
+
+Documentation:
+^^^^^^^^^^^^^^
+
 Release 2.7.0 (2025-07-25)
 --------------------------
 
