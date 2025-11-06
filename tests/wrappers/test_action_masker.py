@@ -22,7 +22,7 @@ class IdentityEnvDiscrete(IdentityEnv):
         return [i == self.state for i in range(self.action_space.n)]
 
 
-def action_mask_fn(env: IdentityEnvDiscrete):  # -> list[int]
+def action_mask_fn(env):  # -> list[int]
     assert isinstance(env.action_space, spaces.Discrete)
     return [i == env.state for i in range(env.action_space.n)]
 
