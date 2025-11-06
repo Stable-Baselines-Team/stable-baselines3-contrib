@@ -20,7 +20,7 @@ class InvalidActionEnvDiscrete(IdentityEnv[int]):
             dim = 1
         assert n_invalid_actions < dim, f"Too many invalid actions: {n_invalid_actions} < {dim}"
 
-        space = spaces.Discrete(dim)
+        space = spaces.Discrete(dim)  # type: ignore[var-annotated]
         self.n_invalid_actions = n_invalid_actions
         self.possible_actions = np.arange(space.n, dtype=int)
         self.invalid_actions: list[int] = []

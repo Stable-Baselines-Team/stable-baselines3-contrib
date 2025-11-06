@@ -1,6 +1,6 @@
 <img src="docs/\_static/img/logo.png" align="right" width="40%"/>
 
-[![CI](https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/workflows/CI/badge.svg)](https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/actions) [![codestyle](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![CI](https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/actions/workflows/ci.yml/badge.svg)](https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/actions/workflows/ci.yml) [![codestyle](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 # Stable-Baselines3 - Contrib (SB3-Contrib)
 
