@@ -146,7 +146,9 @@ class TestMaskableCategorical:
                 if masked_actions.any():
                     masked_probs = dist.probs[masked_actions]
                     # After PR #302, masked probabilities should be exactly or very close to 0
-                    assert th.allclose(masked_probs, th.zeros_like(masked_probs), atol=1e-7), f"Masked probs not near zero: {masked_probs[:10]}"
+                    assert th.allclose(
+                        masked_probs, th.zeros_like(masked_probs), atol=1e-7
+                    ), f"Masked probs not near zero: {masked_probs[:10]}"
 
             # Test with None mask (removing masking)
             dist.apply_masking(None)
@@ -229,12 +231,12 @@ class TestMaskableCategorical:
     def test_masked_actions_have_zero_probability(self):
         """
         Test that masked actions have exactly zero probability with proper masking.
-        
+
         This test verifies that masked actions get zero probability, which is important
         for the fix in PR #302. While both -1e8 and -inf produce zero probabilities
         after softmax due to underflow, using -inf is mathematically more correct
         and avoids potential numerical issues in edge cases.
-        
+
         Related to issue #81 and PR #302.
         """
         # Test with various logit scales
@@ -259,7 +261,9 @@ class TestMaskableCategorical:
                 masked_probs = dist.probs[masked_indices]
                 # Both old (-1e8) and new (-inf) implementations should produce 0 here
                 # due to softmax underflow, but -inf is more robust
-                assert th.allclose(masked_probs, th.zeros_like(masked_probs), atol=1e-10), f"Masked actions should have ~0 probability, got: {masked_probs[:10]}"
+                assert th.allclose(
+                    masked_probs, th.zeros_like(masked_probs), atol=1e-10
+                ), f"Masked actions should have ~0 probability, got: {masked_probs[:10]}"
 
             # Verify unmasked actions have non-zero probabilities
             unmasked_probs = dist.probs[mask]
@@ -272,11 +276,11 @@ class TestMaskableCategorical:
     def test_entropy_numerical_stability_with_masking(self):
         """
         Test entropy calculation numerical stability with masked actions.
-        
+
         This specifically tests the improved entropy calculation from PR #302.
         The old entropy calculation could have issues with -1e8 logits, while
         the new calculation properly handles -inf values.
-        
+
         Related to issue #81 and PR #302.
         """
         # Test with various scenarios including edge cases
@@ -307,7 +311,9 @@ class TestMaskableCategorical:
             single_action_mask = mask.sum(dim=-1) == 1
             if single_action_mask.any():
                 single_action_entropy = entropy[single_action_mask]
-                assert th.allclose(single_action_entropy, th.zeros_like(single_action_entropy), atol=1e-4), f"Single action entropy should be ~0, got: {single_action_entropy}"
+                assert th.allclose(
+                    single_action_entropy, th.zeros_like(single_action_entropy), atol=1e-4
+                ), f"Single action entropy should be ~0, got: {single_action_entropy}"
 
 
 class TestMaskableCategoricalDistribution:
