@@ -1,10 +1,11 @@
 from typing import Any, ClassVar, Optional, TypeVar, Union
+import warnings
 import torch as th
 from torch.nn import functional as F
 import numpy as np
 from gymnasium import spaces
 from sb3_contrib.common.hybrid.policies import HybridActorCriticPolicy, HybridActorCriticCnnPolicy, HybridMultiInputActorCriticPolicy
-from stable_baselines3.ppo import PPO
+from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.common.callbacks import BaseCallback
@@ -12,11 +13,12 @@ from stable_baselines3.common.type_aliases import MaybeCallback, GymEnv, Schedul
 from stable_baselines3.common.utils import obs_as_tensor
 from sb3_contrib.ppo_hybrid.buffers import HybridActionsRolloutBuffer
 from stable_baselines3.common.utils import explained_variance
+from stable_baselines3.common.utils import FloatSchedule
 
 SelfHybridPPO = TypeVar("SelfHybridPPO", bound="HybridPPO")
 
 
-class HybridPPO(PPO):
+class HybridPPO(OnPolicyAlgorithm):
     policy_aliases: ClassVar[dict[str, type[BasePolicy]]] = {
         "MlpPolicy": HybridActorCriticPolicy,
         "CnnPolicy": HybridActorCriticCnnPolicy,
@@ -56,33 +58,102 @@ class HybridPPO(PPO):
         _init_setup_model: bool = True,
     ):
         super().__init__(
-            policy,
-            env,
-            learning_rate,
-            n_steps,
-            batch_size,
-            n_epochs,
-            gamma,
-            gae_lambda,
-            clip_range,
-            clip_range_vf,
-            normalize_advantage,
-            ent_coef,
-            vf_coef,
-            max_grad_norm,
-            use_sde,
-            sde_sample_freq,
-            rollout_buffer_class,
-            rollout_buffer_kwargs,
-            target_kl,
-            stats_window_size,
-            tensorboard_log,
-            policy_kwargs,
-            verbose,
-            seed,
-            device,
-            _init_setup_model,
+            policy=policy,
+            env=env,
+            learning_rate=learning_rate,
+            n_steps=n_steps,
+            gamma=gamma,
+            gae_lambda=gae_lambda,
+            ent_coef=ent_coef,
+            vf_coef=vf_coef,
+            max_grad_norm=max_grad_norm,
+            use_sde=use_sde,
+            sde_sample_freq=sde_sample_freq,
+            rollout_buffer_class=rollout_buffer_class,
+            rollout_buffer_kwargs=rollout_buffer_kwargs,
+            stats_window_size=stats_window_size,
+            tensorboard_log=tensorboard_log,
+            policy_kwargs=policy_kwargs,
+            verbose=verbose,
+            seed=seed,
+            device=device,
+            _init_setup_model=_init_setup_model,
+            supported_action_spaces=(spaces.Tuple,),
         )
+
+        # Sanity check, otherwise it will lead to noisy gradient and NaN
+        # because of the advantage normalization
+        if normalize_advantage:
+            assert (
+                batch_size > 1
+            ), "`batch_size` must be greater than 1. See https://github.com/DLR-RM/stable-baselines3/issues/440"
+        
+        if self.env is not None:
+            # Check that `n_steps * n_envs > 1` to avoid NaN
+            # when doing advantage normalization
+            buffer_size = self.env.num_envs * self.n_steps
+            assert buffer_size > 1 or (
+                not normalize_advantage
+            ), f"`n_steps * n_envs` must be greater than 1. Currently n_steps={self.n_steps} and n_envs={self.env.num_envs}"
+            # Check that the rollout buffer size is a multiple of the mini-batch size
+            untruncated_batches = buffer_size // batch_size
+            if buffer_size % batch_size > 0:
+                warnings.warn(
+                    f"You have specified a mini-batch size of {batch_size},"
+                    f" but because the `RolloutBuffer` is of size `n_steps * n_envs = {buffer_size}`,"
+                    f" after every {untruncated_batches} untruncated mini-batches,"
+                    f" there will be a truncated mini-batch of size {buffer_size % batch_size}\n"
+                    f"We recommend using a `batch_size` that is a factor of `n_steps * n_envs`.\n"
+                    f"Info: (n_steps={self.n_steps} and n_envs={self.env.num_envs})"
+                )
+        
+        self.batch_size = batch_size
+        self.n_epochs = n_epochs
+        self.clip_range = clip_range
+        self.clip_range_vf = clip_range_vf
+        self.normalize_advantage = normalize_advantage
+        self.target_kl = target_kl
+
+        if _init_setup_model:
+            self._setup_model()
+    
+    def _setup_model(self) -> None:
+        self._setup_lr_schedule()
+        self.set_random_seed(self.seed)
+
+        if self.rollout_buffer_class is None:
+            # TODO: mauybe extend if buffers for Dict obs is implemented
+            self.rollout_buffer_class = HybridActionsRolloutBuffer
+        
+        self.rollout_buffer = self.rollout_buffer_class(
+            self.n_steps,
+            self.observation_space,
+            self.action_space,
+            self.device,
+            gamma=self.gamma,
+            gae_lambda=self.gae_lambda,
+            n_envs=self.n_envs,
+            **self.rollout_buffer_kwargs,
+        )
+
+        self.policy = self.policy_class(
+            self.observation_space,
+            self.action_space,
+            self.lr_schedule,
+            **self.policy_kwargs,
+        )
+        self.policy = self.policy.to(self.device)
+
+        if not isinstance(self.policy, HybridActorCriticPolicy):
+            raise ValueError("Policy must subclass HybridActorCriticPolicy")
+
+        # Initialize schedules for policy/value clipping
+        self.clip_range = FloatSchedule(self.clip_range)
+        if self.clip_range_vf is not None:
+            if isinstance(self.clip_range_vf, (float, int)):
+                assert self.clip_range_vf > 0, "`clip_range_vf` must be positive, " "pass `None` to deactivate vf clipping"
+
+            self.clip_range_vf = FloatSchedule(self.clip_range_vf)
 
     def collect_rollouts(
         self,
