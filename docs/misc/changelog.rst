@@ -31,10 +31,12 @@ Release 2.7.0 (2025-07-25)
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
 - Upgraded to Stable-Baselines3 >= 2.7.0
+- Changed default policy architecture for ARS/CEM to ``[32]`` instead of ``[64, 64]``
 
 New Features:
 ^^^^^^^^^^^^^
 - Added support for n-step returns for off-policy algorithms via the `n_steps` parameter
+- Added noisy Cross Entropy Method (CEM)
 
 Bug Fixes:
 ^^^^^^^^^^
@@ -378,6 +380,9 @@ Bug Fixes:
 
 Deprecations:
 ^^^^^^^^^^^^^
+
+Others:
+^^^^^^^
 
 Release 1.5.0 (2022-03-25)
 -------------------------------
