@@ -13,7 +13,7 @@ SelfMaskableCategoricalDistribution = TypeVar("SelfMaskableCategoricalDistributi
 SelfMaskableMultiCategoricalDistribution = TypeVar(
     "SelfMaskableMultiCategoricalDistribution", bound="MaskableMultiCategoricalDistribution"
 )
-MaybeMasks = Union[th.Tensor, np.ndarray, None]
+MaybeMasks = Union[th.Tensor, np.ndarray, None]  # noqa: UP007
 
 
 class MaskableCategorical(Categorical):

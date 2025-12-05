@@ -1,5 +1,5 @@
-from typing import Any, ClassVar, TypeVar
 from collections.abc import Callable
+from typing import Any, ClassVar, TypeVar
 
 import numpy as np
 import torch as th

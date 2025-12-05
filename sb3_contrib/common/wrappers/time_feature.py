@@ -5,7 +5,7 @@ import numpy as np
 from gymnasium import spaces
 from gymnasium.core import ActType
 
-TimeFeatureObs = Union[np.ndarray, dict[str, np.ndarray]]
+TimeFeatureObs = Union[np.ndarray, dict[str, np.ndarray]]  # noqa: UP007
 
 
 class TimeFeatureWrapper(gym.Wrapper[TimeFeatureObs, ActType, TimeFeatureObs, ActType]):
