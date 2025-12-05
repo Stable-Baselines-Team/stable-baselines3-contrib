@@ -3,6 +3,32 @@
 Changelog
 ==========
 
+Release 2.8.0a0 (WIP)
+--------------------------
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Removed support for Python 3.9, please upgrade to Python >= 3.10
+- Upgraded to Stable-Baselines3 >= 2.8.0
+- Set ``strict=True`` for every call to ``zip(...)``
+
+
+New Features:
+^^^^^^^^^^^^^
+- Added official support for Python 3.13
+
+Bug Fixes:
+^^^^^^^^^^
+
+Deprecations:
+^^^^^^^^^^^^^
+
+Others:
+^^^^^^^
+
+Documentation:
+^^^^^^^^^^^^^^
+
 Release 2.7.1 (2025-12-05)
 --------------------------
 
