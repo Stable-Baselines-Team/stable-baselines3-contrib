@@ -137,7 +137,7 @@ class ARS(BaseAlgorithm):
         # Mimic Monitor Wrapper
         infos = [
             {"episode": {"r": episode_reward, "l": episode_length}}
-            for episode_reward, episode_length in zip(episode_rewards, episode_lengths)
+            for episode_reward, episode_length in zip(episode_rewards, episode_lengths, strict=True)
         ]
 
         self._update_info_buffer(infos)

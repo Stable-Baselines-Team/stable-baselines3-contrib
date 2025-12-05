@@ -120,9 +120,9 @@ class AsyncEval:
             start_method = "forkserver" if forkserver_available else "spawn"
         ctx = mp.get_context(start_method)
 
-        self.remotes, self.work_remotes = zip(*[ctx.Pipe() for _ in range(n_envs)])
+        self.remotes, self.work_remotes = zip(*[ctx.Pipe() for _ in range(n_envs)], strict=True)
         self.processes = []
-        for work_remote, remote, worker_env in zip(self.work_remotes, self.remotes, envs_fn):
+        for work_remote, remote, worker_env in zip(self.work_remotes, self.remotes, envs_fn, strict=True):
             args = (
                 work_remote,
                 remote,

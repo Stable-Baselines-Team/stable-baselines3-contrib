@@ -34,7 +34,7 @@ def pad(
     :return: (n_seq, max_length, *tensor_shape)
     """
     # Create sequences given start and end
-    seq = [th.tensor(tensor[start : end + 1], device=device) for start, end in zip(seq_start_indices, seq_end_indices)]
+    seq = [th.tensor(tensor[start : end + 1], device=device) for start, end in zip(seq_start_indices, seq_end_indices, strict=True)]
     return th.nn.utils.rnn.pad_sequence(seq, batch_first=True, padding_value=padding_value)
 
 

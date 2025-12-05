@@ -212,7 +212,7 @@ class MaskableMultiCategoricalDistribution(MaskableDistribution):
 
         # Extract each discrete action and compute log prob for their respective distributions
         return th.stack(
-            [dist.log_prob(action) for dist, action in zip(self.distributions, th.unbind(actions, dim=1))], dim=1
+            [dist.log_prob(action) for dist, action in zip(self.distributions, th.unbind(actions, dim=1), strict=True)], dim=1
         ).sum(dim=1)
 
     def entropy(self) -> th.Tensor:
@@ -248,7 +248,7 @@ class MaskableMultiCategoricalDistribution(MaskableDistribution):
             # Then split columnwise for each discrete action
             split_masks = th.split(masks_tensor, list(self.action_dims), dim=1)  # type: ignore[assignment]
 
-        for distribution, mask in zip(self.distributions, split_masks):
+        for distribution, mask in zip(self.distributions, split_masks, strict=True):
             distribution.apply_masking(mask)
 
 

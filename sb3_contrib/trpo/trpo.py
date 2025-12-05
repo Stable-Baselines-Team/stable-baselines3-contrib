@@ -314,7 +314,7 @@ class TRPO(OnPolicyAlgorithm):
                 for _ in range(self.line_search_max_iter):
                     start_idx = 0
                     # Applying the scaled step direction
-                    for param, original_param, shape in zip(actor_params, original_actor_params, grad_shape):
+                    for param, original_param, shape in zip(actor_params, original_actor_params, grad_shape, strict=True):
                         n_params = param.numel()
                         param.data = (
                             original_param.data
@@ -349,7 +349,7 @@ class TRPO(OnPolicyAlgorithm):
 
                 if not is_line_search_success:
                     # If the line-search wasn't successful we revert to the original parameters
-                    for param, original_param in zip(actor_params, original_actor_params):
+                    for param, original_param in zip(actor_params, original_actor_params, strict=True):
                         param.data = original_param.data.clone()
 
                     policy_objective_values.append(policy_objective.item())
