@@ -1,4 +1,3 @@
-from typing import Optional
 
 import gymnasium as gym
 import numpy as np
@@ -51,7 +50,7 @@ class CartPoleNoVelEnv(CartPoleEnv):
         xpos, _xvel, thetapos, _thetavel = full_obs
         return np.array([xpos, thetapos])
 
-    def reset(self, *, seed: Optional[int] = None, options: Optional[dict] = None):
+    def reset(self, *, seed: int | None = None, options: dict | None = None):
         full_obs, info = super().reset(seed=seed, options=options)
         return CartPoleNoVelEnv._pos_obs(full_obs), info
 

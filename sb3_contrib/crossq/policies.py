@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Any, Optional, Union
+from typing import Any
 
 import torch as th
 from gymnasium import spaces
@@ -362,7 +362,7 @@ class CrossQPolicy(BasePolicy):
         observation_space: spaces.Space,
         action_space: spaces.Box,
         lr_schedule: Schedule,
-        net_arch: Optional[Union[list[int], dict[str, list[int]]]] = None,
+        net_arch: list[int] | dict[str, list[int]] | None = None,
         activation_fn: type[nn.Module] = nn.ReLU,
         batch_norm: bool = True,
         batch_norm_momentum: float = 0.01,  # Note: Jax implementation is 1 - momentum = 0.99
@@ -373,10 +373,10 @@ class CrossQPolicy(BasePolicy):
         use_expln: bool = False,
         clip_mean: float = 2.0,
         features_extractor_class: type[BaseFeaturesExtractor] = FlattenExtractor,
-        features_extractor_kwargs: Optional[dict[str, Any]] = None,
+        features_extractor_kwargs: dict[str, Any] | None = None,
         normalize_images: bool = True,
         optimizer_class: type[th.optim.Optimizer] = th.optim.Adam,
-        optimizer_kwargs: Optional[dict[str, Any]] = None,
+        optimizer_kwargs: dict[str, Any] | None = None,
         n_critics: int = 2,
         share_features_extractor: bool = False,
     ):
@@ -501,11 +501,11 @@ class CrossQPolicy(BasePolicy):
         """
         self.actor.reset_noise(batch_size=batch_size)
 
-    def make_actor(self, features_extractor: Optional[BaseFeaturesExtractor] = None) -> Actor:
+    def make_actor(self, features_extractor: BaseFeaturesExtractor | None = None) -> Actor:
         actor_kwargs = self._update_features_extractor(self.actor_kwargs, features_extractor)
         return Actor(**actor_kwargs).to(self.device)
 
-    def make_critic(self, features_extractor: Optional[BaseFeaturesExtractor] = None) -> CrossQCritic:
+    def make_critic(self, features_extractor: BaseFeaturesExtractor | None = None) -> CrossQCritic:
         critic_kwargs = self._update_features_extractor(self.critic_kwargs, features_extractor)
         return CrossQCritic(**critic_kwargs).to(self.device)
 

@@ -1,4 +1,4 @@
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 import torch as th
@@ -66,7 +66,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         observation_space: spaces.Space,
         action_space: spaces.Space,
         lr_schedule: Schedule,
-        net_arch: Optional[Union[list[int], dict[str, list[int]]]] = None,
+        net_arch: list[int] | dict[str, list[int]] | None = None,
         activation_fn: type[nn.Module] = nn.Tanh,
         ortho_init: bool = True,
         use_sde: bool = False,
@@ -75,16 +75,16 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
         use_expln: bool = False,
         squash_output: bool = False,
         features_extractor_class: type[BaseFeaturesExtractor] = FlattenExtractor,
-        features_extractor_kwargs: Optional[dict[str, Any]] = None,
+        features_extractor_kwargs: dict[str, Any] | None = None,
         share_features_extractor: bool = True,
         normalize_images: bool = True,
         optimizer_class: type[th.optim.Optimizer] = th.optim.Adam,
-        optimizer_kwargs: Optional[dict[str, Any]] = None,
+        optimizer_kwargs: dict[str, Any] | None = None,
         lstm_hidden_size: int = 256,
         n_lstm_layers: int = 1,
         shared_lstm: bool = False,
         enable_critic_lstm: bool = True,
-        lstm_kwargs: Optional[dict[str, Any]] = None,
+        lstm_kwargs: dict[str, Any] | None = None,
     ):
         self.lstm_output_dim = lstm_hidden_size
         super().__init__(
@@ -366,11 +366,11 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
 
     def predict(
         self,
-        observation: Union[np.ndarray, dict[str, np.ndarray]],
-        state: Optional[tuple[np.ndarray, ...]] = None,
-        episode_start: Optional[np.ndarray] = None,
+        observation: np.ndarray | dict[str, np.ndarray],
+        state: tuple[np.ndarray, ...] | None = None,
+        episode_start: np.ndarray | None = None,
         deterministic: bool = False,
-    ) -> tuple[np.ndarray, Optional[tuple[np.ndarray, ...]]]:
+    ) -> tuple[np.ndarray, tuple[np.ndarray, ...] | None]:
         """
         Get the policy action from an observation (and optional hidden state).
         Includes sugar-coating to handle different observations (e.g. normalizing images).
@@ -475,7 +475,7 @@ class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
         observation_space: spaces.Space,
         action_space: spaces.Space,
         lr_schedule: Schedule,
-        net_arch: Optional[Union[list[int], dict[str, list[int]]]] = None,
+        net_arch: list[int] | dict[str, list[int]] | None = None,
         activation_fn: type[nn.Module] = nn.Tanh,
         ortho_init: bool = True,
         use_sde: bool = False,
@@ -484,16 +484,16 @@ class RecurrentActorCriticCnnPolicy(RecurrentActorCriticPolicy):
         use_expln: bool = False,
         squash_output: bool = False,
         features_extractor_class: type[BaseFeaturesExtractor] = NatureCNN,
-        features_extractor_kwargs: Optional[dict[str, Any]] = None,
+        features_extractor_kwargs: dict[str, Any] | None = None,
         share_features_extractor: bool = True,
         normalize_images: bool = True,
         optimizer_class: type[th.optim.Optimizer] = th.optim.Adam,
-        optimizer_kwargs: Optional[dict[str, Any]] = None,
+        optimizer_kwargs: dict[str, Any] | None = None,
         lstm_hidden_size: int = 256,
         n_lstm_layers: int = 1,
         shared_lstm: bool = False,
         enable_critic_lstm: bool = True,
-        lstm_kwargs: Optional[dict[str, Any]] = None,
+        lstm_kwargs: dict[str, Any] | None = None,
     ):
         super().__init__(
             observation_space,
@@ -565,7 +565,7 @@ class RecurrentMultiInputActorCriticPolicy(RecurrentActorCriticPolicy):
         observation_space: spaces.Space,
         action_space: spaces.Space,
         lr_schedule: Schedule,
-        net_arch: Optional[Union[list[int], dict[str, list[int]]]] = None,
+        net_arch: list[int] | dict[str, list[int]] | None = None,
         activation_fn: type[nn.Module] = nn.Tanh,
         ortho_init: bool = True,
         use_sde: bool = False,
@@ -574,16 +574,16 @@ class RecurrentMultiInputActorCriticPolicy(RecurrentActorCriticPolicy):
         use_expln: bool = False,
         squash_output: bool = False,
         features_extractor_class: type[BaseFeaturesExtractor] = CombinedExtractor,
-        features_extractor_kwargs: Optional[dict[str, Any]] = None,
+        features_extractor_kwargs: dict[str, Any] | None = None,
         share_features_extractor: bool = True,
         normalize_images: bool = True,
         optimizer_class: type[th.optim.Optimizer] = th.optim.Adam,
-        optimizer_kwargs: Optional[dict[str, Any]] = None,
+        optimizer_kwargs: dict[str, Any] | None = None,
         lstm_hidden_size: int = 256,
         n_lstm_layers: int = 1,
         shared_lstm: bool = False,
         enable_critic_lstm: bool = True,
-        lstm_kwargs: Optional[dict[str, Any]] = None,
+        lstm_kwargs: dict[str, Any] | None = None,
     ):
         super().__init__(
             observation_space,

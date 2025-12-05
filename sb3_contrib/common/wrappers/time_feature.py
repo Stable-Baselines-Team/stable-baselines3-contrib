@@ -80,7 +80,7 @@ class TimeFeatureWrapper(gym.Wrapper[TimeFeatureObs, ActType, TimeFeatureObs, Ac
         obs, reward, done, truncated, info = self.env.step(action)
         return self._get_obs(obs), reward, done, truncated, info
 
-    def _get_obs(self, obs: Union[np.ndarray, dict[str, np.ndarray]]) -> Union[np.ndarray, dict[str, np.ndarray]]:
+    def _get_obs(self, obs: np.ndarray | dict[str, np.ndarray]) -> np.ndarray | dict[str, np.ndarray]:
         """
         Concatenate the time feature to the current observation.
 

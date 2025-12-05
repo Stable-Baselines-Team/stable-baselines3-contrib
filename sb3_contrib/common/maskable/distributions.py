@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Optional, TypeVar, Union
+from typing import TypeVar, Union
 
 import numpy as np
 import torch as th
@@ -34,12 +34,12 @@ class MaskableCategorical(Categorical):
 
     def __init__(
         self,
-        probs: Optional[th.Tensor] = None,
-        logits: Optional[th.Tensor] = None,
-        validate_args: Optional[bool] = None,
+        probs: th.Tensor | None = None,
+        logits: th.Tensor | None = None,
+        validate_args: bool | None = None,
         masks: MaybeMasks = None,
     ):
-        self.masks: Optional[th.Tensor] = None
+        self.masks: th.Tensor | None = None
         super().__init__(probs, logits, validate_args)
         self._original_logits = self.logits
         self.apply_masking(masks)
@@ -112,7 +112,7 @@ class MaskableCategoricalDistribution(MaskableDistribution):
 
     def __init__(self, action_dim: int):
         super().__init__()
-        self.distribution: Optional[MaskableCategorical] = None
+        self.distribution: MaskableCategorical | None = None
         self.action_dim = action_dim
 
     def proba_distribution_net(self, latent_dim: int) -> nn.Module:

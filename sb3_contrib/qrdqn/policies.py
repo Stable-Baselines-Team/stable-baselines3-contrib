@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 import torch as th
 from gymnasium import spaces
@@ -36,7 +36,7 @@ class QuantileNetwork(BasePolicy):
         features_extractor: BaseFeaturesExtractor,
         features_dim: int,
         n_quantiles: int = 200,
-        net_arch: Optional[list[int]] = None,
+        net_arch: list[int] | None = None,
         activation_fn: type[nn.Module] = nn.ReLU,
         normalize_images: bool = True,
     ):
@@ -119,13 +119,13 @@ class QRDQNPolicy(BasePolicy):
         action_space: spaces.Discrete,
         lr_schedule: Schedule,
         n_quantiles: int = 200,
-        net_arch: Optional[list[int]] = None,
+        net_arch: list[int] | None = None,
         activation_fn: type[nn.Module] = nn.ReLU,
         features_extractor_class: type[BaseFeaturesExtractor] = FlattenExtractor,
-        features_extractor_kwargs: Optional[dict[str, Any]] = None,
+        features_extractor_kwargs: dict[str, Any] | None = None,
         normalize_images: bool = True,
         optimizer_class: type[th.optim.Optimizer] = th.optim.Adam,
-        optimizer_kwargs: Optional[dict[str, Any]] = None,
+        optimizer_kwargs: dict[str, Any] | None = None,
     ):
         super().__init__(
             observation_space,
@@ -242,13 +242,13 @@ class CnnPolicy(QRDQNPolicy):
         action_space: spaces.Discrete,
         lr_schedule: Schedule,
         n_quantiles: int = 200,
-        net_arch: Optional[list[int]] = None,
+        net_arch: list[int] | None = None,
         activation_fn: type[nn.Module] = nn.ReLU,
         features_extractor_class: type[BaseFeaturesExtractor] = NatureCNN,
-        features_extractor_kwargs: Optional[dict[str, Any]] = None,
+        features_extractor_kwargs: dict[str, Any] | None = None,
         normalize_images: bool = True,
         optimizer_class: type[th.optim.Optimizer] = th.optim.Adam,
-        optimizer_kwargs: Optional[dict[str, Any]] = None,
+        optimizer_kwargs: dict[str, Any] | None = None,
     ):
         super().__init__(
             observation_space,
@@ -290,13 +290,13 @@ class MultiInputPolicy(QRDQNPolicy):
         action_space: spaces.Discrete,
         lr_schedule: Schedule,
         n_quantiles: int = 200,
-        net_arch: Optional[list[int]] = None,
+        net_arch: list[int] | None = None,
         activation_fn: type[nn.Module] = nn.ReLU,
         features_extractor_class: type[BaseFeaturesExtractor] = CombinedExtractor,
-        features_extractor_kwargs: Optional[dict[str, Any]] = None,
+        features_extractor_kwargs: dict[str, Any] | None = None,
         normalize_images: bool = True,
         optimizer_class: type[th.optim.Optimizer] = th.optim.Adam,
-        optimizer_kwargs: Optional[dict[str, Any]] = None,
+        optimizer_kwargs: dict[str, Any] | None = None,
     ):
         super().__init__(
             observation_space,

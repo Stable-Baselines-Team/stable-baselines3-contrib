@@ -1,7 +1,7 @@
 import copy
 import warnings
 from functools import partial
-from typing import Any, ClassVar, Optional, TypeVar, Union
+from typing import Any, ClassVar, TypeVar
 
 import numpy as np
 import torch as th
@@ -80,9 +80,9 @@ class TRPO(OnPolicyAlgorithm):
 
     def __init__(
         self,
-        policy: Union[str, type[ActorCriticPolicy]],
-        env: Union[GymEnv, str],
-        learning_rate: Union[float, Schedule] = 1e-3,
+        policy: str | type[ActorCriticPolicy],
+        env: GymEnv | str,
+        learning_rate: float | Schedule = 1e-3,
         n_steps: int = 2048,
         batch_size: int = 128,
         gamma: float = 0.99,
@@ -94,17 +94,17 @@ class TRPO(OnPolicyAlgorithm):
         gae_lambda: float = 0.95,
         use_sde: bool = False,
         sde_sample_freq: int = -1,
-        rollout_buffer_class: Optional[type[RolloutBuffer]] = None,
-        rollout_buffer_kwargs: Optional[dict[str, Any]] = None,
+        rollout_buffer_class: type[RolloutBuffer] | None = None,
+        rollout_buffer_kwargs: dict[str, Any] | None = None,
         normalize_advantage: bool = True,
         target_kl: float = 0.01,
         sub_sampling_factor: int = 1,
         stats_window_size: int = 100,
-        tensorboard_log: Optional[str] = None,
-        policy_kwargs: Optional[dict[str, Any]] = None,
+        tensorboard_log: str | None = None,
+        policy_kwargs: dict[str, Any] | None = None,
         verbose: int = 0,
-        seed: Optional[int] = None,
-        device: Union[th.device, str] = "auto",
+        seed: int | None = None,
+        device: th.device | str = "auto",
         _init_setup_model: bool = True,
     ):
         super().__init__(

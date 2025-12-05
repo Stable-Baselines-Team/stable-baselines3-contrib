@@ -1,4 +1,3 @@
-from typing import Optional
 
 import numpy as np
 from gymnasium import spaces
@@ -12,7 +11,7 @@ class InvalidActionEnvDiscrete(IdentityEnv[int]):
 
     def __init__(
         self,
-        dim: Optional[int] = None,
+        dim: int | None = None,
         ep_length: int = 100,
         n_invalid_actions: int = 0,
     ):
@@ -47,7 +46,7 @@ class InvalidActionEnvMultiDiscrete(IdentityEnv[np.ndarray]):
 
     def __init__(
         self,
-        dims: Optional[list[int]] = None,
+        dims: list[int] | None = None,
         ep_length: int = 100,
         n_invalid_actions: int = 0,
     ):
@@ -89,7 +88,7 @@ class InvalidActionEnvMultiBinary(IdentityEnv[np.ndarray]):
 
     def __init__(
         self,
-        dims: Optional[int] = None,
+        dims: int | None = None,
         ep_length: int = 100,
         n_invalid_actions: int = 0,
     ):

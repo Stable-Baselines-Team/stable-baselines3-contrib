@@ -1,6 +1,6 @@
 import multiprocessing as mp
 from collections import defaultdict
-from typing import Callable, Optional, Union
+from collections.abc import Callable
 
 import numpy as np
 import torch as th
@@ -105,7 +105,7 @@ class AsyncEval:
         self,
         envs_fn: list[Callable[[], VecEnv]],
         train_policy: BasePolicy,
-        start_method: Optional[str] = None,
+        start_method: str | None = None,
         n_eval_episodes: int = 1,
     ):
         self.waiting = False
@@ -151,7 +151,7 @@ class AsyncEval:
             remote.send(("eval", jobs_per_worker[remote_idx]))
         self.waiting = True
 
-    def seed(self, seed: Optional[int] = None) -> list[Union[None, int]]:
+    def seed(self, seed: int | None = None) -> list[None | int]:
         """
         Seed the environments.
 
@@ -166,7 +166,7 @@ class AsyncEval:
             remote.send(("seed", seed + idx))
         return [remote.recv() for remote in self.remotes]
 
-    def set_options(self, options: Optional[Union[list[dict], dict]] = None) -> list[Union[None, int]]:
+    def set_options(self, options: list[dict] | dict | None = None) -> list[None | int]:
         """
         Set environment options for all environments.
         If a dict is passed instead of a list, the same options will be used for all environments.
