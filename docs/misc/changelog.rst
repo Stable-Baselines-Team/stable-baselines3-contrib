@@ -3,8 +3,13 @@
 Changelog
 ==========
 
-Release 2.7.1a3 (WIP)
+Release 2.7.1 (2025-12-05)
 --------------------------
+
+.. warning::
+
+    Stable-Baselines3 (SB3) v2.7.1 will be the last one supporting Python 3.9 (end of life in October 2025).
+    We highly recommended you to upgrade to Python >= 3.10.
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
