@@ -134,7 +134,7 @@ class CrossQ(OffPolicyAlgorithm):
         )
 
         self.target_entropy = target_entropy
-        self.log_ent_coef = None  # type: Optional[th.Tensor]
+        self.log_ent_coef = None  # type: th.Tensor | None
         # Entropy coefficient / Entropy temperature
         # Inverse of the reward scale
         self.ent_coef = ent_coef
