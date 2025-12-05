@@ -13,7 +13,6 @@ from stable_baselines3.common.torch_layers import (
     NatureCNN,
 )
 from stable_baselines3.common.type_aliases import Schedule
-from stable_baselines3.common.utils import zip_strict
 from torch import nn
 
 from sb3_contrib.common.recurrent.type_aliases import RNNStates
@@ -195,7 +194,7 @@ class RecurrentActorCriticPolicy(ActorCriticPolicy):
 
         lstm_output = []
         # Iterate over the sequence
-        for features, episode_start in zip_strict(features_sequence, episode_starts):
+        for features, episode_start in zip(features_sequence, episode_starts, strict=True):
             hidden, lstm_states = lstm(
                 features.unsqueeze(dim=0),
                 (
