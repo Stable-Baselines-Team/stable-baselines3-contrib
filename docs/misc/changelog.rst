@@ -3,8 +3,41 @@
 Changelog
 ==========
 
-Release 2.7.1a3 (WIP)
+Release 2.8.0a1 (WIP)
 --------------------------
+
+Breaking Changes:
+^^^^^^^^^^^^^^^^^
+- Removed support for Python 3.9, please upgrade to Python >= 3.10
+- Upgraded to Stable-Baselines3 >= 2.8.0
+- Set ``strict=True`` for every call to ``zip(...)``
+
+
+New Features:
+^^^^^^^^^^^^^
+- Added official support for Python 3.13
+
+Bug Fixes:
+^^^^^^^^^^
+- Fix RecurrentPPO and MaskablePPO forward and predict do not reshape action before clip it (@immortal-boy)
+- Do not call ``forward()`` method directly in ``RecurrentPPO`` (@immortal-boy)
+
+Deprecations:
+^^^^^^^^^^^^^
+
+Others:
+^^^^^^^
+
+Documentation:
+^^^^^^^^^^^^^^
+
+Release 2.7.1 (2025-12-05)
+--------------------------
+
+.. warning::
+
+    Stable-Baselines3 (SB3) v2.7.1 will be the last one supporting Python 3.9 (end of life in October 2025).
+    We highly recommended you to upgrade to Python >= 3.10.
 
 Breaking Changes:
 ^^^^^^^^^^^^^^^^^
@@ -625,3 +658,4 @@ Contributors:
 
 @ku2482 @guyk1971 @minhlong94 @ayeright @kronion @glmcdona @cyprienc @sgillen @Gregwar @rnederstigt @qgallouedec
 @mlodel @CppMaster @burakdmb @honglu2875 @ZikangXiong @AlexPasqua @jonasreiher @icheered @Armandpl @danielpalen @corentinlger
+@immortal-boy

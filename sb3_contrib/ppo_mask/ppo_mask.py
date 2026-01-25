@@ -1,4 +1,4 @@
-from typing import Any, ClassVar, Optional, TypeVar, Union
+from typing import Any, ClassVar, TypeVar
 
 import numpy as np
 import torch as th
@@ -75,29 +75,29 @@ class MaskablePPO(OnPolicyAlgorithm):
 
     def __init__(
         self,
-        policy: Union[str, type[MaskableActorCriticPolicy]],
-        env: Union[GymEnv, str],
-        learning_rate: Union[float, Schedule] = 3e-4,
+        policy: str | type[MaskableActorCriticPolicy],
+        env: GymEnv | str,
+        learning_rate: float | Schedule = 3e-4,
         n_steps: int = 2048,
-        batch_size: Optional[int] = 64,
+        batch_size: int | None = 64,
         n_epochs: int = 10,
         gamma: float = 0.99,
         gae_lambda: float = 0.95,
-        clip_range: Union[float, Schedule] = 0.2,
-        clip_range_vf: Union[None, float, Schedule] = None,
+        clip_range: float | Schedule = 0.2,
+        clip_range_vf: None | float | Schedule = None,
         normalize_advantage: bool = True,
         ent_coef: float = 0.0,
         vf_coef: float = 0.5,
         max_grad_norm: float = 0.5,
-        rollout_buffer_class: Optional[type[RolloutBuffer]] = None,
-        rollout_buffer_kwargs: Optional[dict[str, Any]] = None,
-        target_kl: Optional[float] = None,
+        rollout_buffer_class: type[RolloutBuffer] | None = None,
+        rollout_buffer_kwargs: dict[str, Any] | None = None,
+        target_kl: float | None = None,
         stats_window_size: int = 100,
-        tensorboard_log: Optional[str] = None,
-        policy_kwargs: Optional[dict[str, Any]] = None,
+        tensorboard_log: str | None = None,
+        policy_kwargs: dict[str, Any] | None = None,
         verbose: int = 0,
-        seed: Optional[int] = None,
-        device: Union[th.device, str] = "auto",
+        seed: int | None = None,
+        device: th.device | str = "auto",
         _init_setup_model: bool = True,
     ):
         super().__init__(
@@ -285,12 +285,12 @@ class MaskablePPO(OnPolicyAlgorithm):
 
     def predict(  # type: ignore[override]
         self,
-        observation: Union[np.ndarray, dict[str, np.ndarray]],
-        state: Optional[tuple[np.ndarray, ...]] = None,
-        episode_start: Optional[np.ndarray] = None,
+        observation: np.ndarray | dict[str, np.ndarray],
+        state: tuple[np.ndarray, ...] | None = None,
+        episode_start: np.ndarray | None = None,
         deterministic: bool = False,
-        action_masks: Optional[np.ndarray] = None,
-    ) -> tuple[np.ndarray, Optional[tuple[np.ndarray, ...]]]:
+        action_masks: np.ndarray | None = None,
+    ) -> tuple[np.ndarray, tuple[np.ndarray, ...] | None]:
         """
         Get the policy action from an observation (and optional hidden state).
         Includes sugar-coating to handle different observations (e.g. normalizing images).

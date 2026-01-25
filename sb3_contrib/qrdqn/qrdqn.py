@@ -1,5 +1,5 @@
 import warnings
-from typing import Any, ClassVar, Optional, TypeVar, Union
+from typing import Any, ClassVar, TypeVar
 
 import numpy as np
 import torch as th
@@ -75,31 +75,31 @@ class QRDQN(OffPolicyAlgorithm):
 
     def __init__(
         self,
-        policy: Union[str, type[QRDQNPolicy]],
-        env: Union[GymEnv, str],
-        learning_rate: Union[float, Schedule] = 5e-5,
+        policy: str | type[QRDQNPolicy],
+        env: GymEnv | str,
+        learning_rate: float | Schedule = 5e-5,
         buffer_size: int = 1000000,  # 1e6
         learning_starts: int = 100,
         batch_size: int = 32,
         tau: float = 1.0,
         gamma: float = 0.99,
-        train_freq: Union[int, tuple[int, str]] = 4,
+        train_freq: int | tuple[int, str] = 4,
         gradient_steps: int = 1,
-        replay_buffer_class: Optional[type[ReplayBuffer]] = None,
-        replay_buffer_kwargs: Optional[dict[str, Any]] = None,
+        replay_buffer_class: type[ReplayBuffer] | None = None,
+        replay_buffer_kwargs: dict[str, Any] | None = None,
         optimize_memory_usage: bool = False,
         n_steps: int = 1,
         target_update_interval: int = 10000,
         exploration_fraction: float = 0.005,
         exploration_initial_eps: float = 1.0,
         exploration_final_eps: float = 0.01,
-        max_grad_norm: Optional[float] = None,
+        max_grad_norm: float | None = None,
         stats_window_size: int = 100,
-        tensorboard_log: Optional[str] = None,
-        policy_kwargs: Optional[dict[str, Any]] = None,
+        tensorboard_log: str | None = None,
+        policy_kwargs: dict[str, Any] | None = None,
         verbose: int = 0,
-        seed: Optional[int] = None,
-        device: Union[th.device, str] = "auto",
+        seed: int | None = None,
+        device: th.device | str = "auto",
         _init_setup_model: bool = True,
     ):
         super().__init__(
@@ -240,11 +240,11 @@ class QRDQN(OffPolicyAlgorithm):
 
     def predict(
         self,
-        observation: Union[np.ndarray, dict[str, np.ndarray]],
-        state: Optional[tuple[np.ndarray, ...]] = None,
-        episode_start: Optional[np.ndarray] = None,
+        observation: np.ndarray | dict[str, np.ndarray],
+        state: tuple[np.ndarray, ...] | None = None,
+        episode_start: np.ndarray | None = None,
         deterministic: bool = False,
-    ) -> tuple[np.ndarray, Optional[tuple[np.ndarray, ...]]]:
+    ) -> tuple[np.ndarray, tuple[np.ndarray, ...] | None]:
         """
         Get the policy action from an observation (and optional hidden state).
         Includes sugar-coating to handle different observations (e.g. normalizing images).

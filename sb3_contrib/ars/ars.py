@@ -3,7 +3,7 @@ import sys
 import time
 import warnings
 from functools import partial
-from typing import Any, ClassVar, Optional, TypeVar, Union
+from typing import Any, ClassVar, TypeVar
 
 import numpy as np
 import torch as th
@@ -57,21 +57,21 @@ class ARS(BaseAlgorithm):
 
     def __init__(
         self,
-        policy: Union[str, type[ARSPolicy]],
-        env: Union[GymEnv, str],
+        policy: str | type[ARSPolicy],
+        env: GymEnv | str,
         n_delta: int = 8,
-        n_top: Optional[int] = None,
-        learning_rate: Union[float, Schedule] = 0.02,
-        delta_std: Union[float, Schedule] = 0.05,
+        n_top: int | None = None,
+        learning_rate: float | Schedule = 0.02,
+        delta_std: float | Schedule = 0.05,
         zero_policy: bool = True,
         alive_bonus_offset: float = 0,
         n_eval_episodes: int = 1,
-        policy_kwargs: Optional[dict[str, Any]] = None,
+        policy_kwargs: dict[str, Any] | None = None,
         stats_window_size: int = 100,
-        tensorboard_log: Optional[str] = None,
-        seed: Optional[int] = None,
+        tensorboard_log: str | None = None,
+        seed: int | None = None,
         verbose: int = 0,
-        device: Union[th.device, str] = "cpu",
+        device: th.device | str = "cpu",
         _init_setup_model: bool = True,
     ):
         super().__init__(
@@ -137,7 +137,7 @@ class ARS(BaseAlgorithm):
         # Mimic Monitor Wrapper
         infos = [
             {"episode": {"r": episode_reward, "l": episode_length}}
-            for episode_reward, episode_length in zip(episode_rewards, episode_lengths)
+            for episode_reward, episode_length in zip(episode_rewards, episode_lengths, strict=True)
         ]
 
         self._update_info_buffer(infos)
@@ -163,7 +163,7 @@ class ARS(BaseAlgorithm):
         callback.on_step()
 
     def evaluate_candidates(
-        self, candidate_weights: th.Tensor, callback: BaseCallback, async_eval: Optional[AsyncEval]
+        self, candidate_weights: th.Tensor, callback: BaseCallback, async_eval: AsyncEval | None
     ) -> th.Tensor:
         """
         Evaluate each candidate.
@@ -257,7 +257,7 @@ class ARS(BaseAlgorithm):
         self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
         self.logger.dump(step=self.num_timesteps)
 
-    def _do_one_update(self, callback: BaseCallback, async_eval: Optional[AsyncEval]) -> None:
+    def _do_one_update(self, callback: BaseCallback, async_eval: AsyncEval | None) -> None:
         """
         Sample new candidates, evaluate them and then update current policy.
 
@@ -312,7 +312,7 @@ class ARS(BaseAlgorithm):
         log_interval: int = 1,
         tb_log_name: str = "ARS",
         reset_num_timesteps: bool = True,
-        async_eval: Optional[AsyncEval] = None,
+        async_eval: AsyncEval | None = None,
         progress_bar: bool = False,
     ) -> SelfARS:
         """
@@ -353,9 +353,9 @@ class ARS(BaseAlgorithm):
 
     def set_parameters(
         self,
-        load_path_or_dict: Union[str, dict[str, dict]],
+        load_path_or_dict: str | dict[str, dict],
         exact_match: bool = True,
-        device: Union[th.device, str] = "auto",
+        device: th.device | str = "auto",
     ) -> None:
         # Patched set_parameters() to handle ARS linear policy saved with sb3-contrib < 1.7.0
         params = None

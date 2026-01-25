@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Optional, TypeVar, Union
+from typing import TypeVar, Union
 
 import numpy as np
 import torch as th
@@ -13,7 +13,7 @@ SelfMaskableCategoricalDistribution = TypeVar("SelfMaskableCategoricalDistributi
 SelfMaskableMultiCategoricalDistribution = TypeVar(
     "SelfMaskableMultiCategoricalDistribution", bound="MaskableMultiCategoricalDistribution"
 )
-MaybeMasks = Union[th.Tensor, np.ndarray, None]
+MaybeMasks = Union[th.Tensor, np.ndarray, None]  # noqa: UP007
 
 
 class MaskableCategorical(Categorical):
@@ -34,12 +34,12 @@ class MaskableCategorical(Categorical):
 
     def __init__(
         self,
-        probs: Optional[th.Tensor] = None,
-        logits: Optional[th.Tensor] = None,
-        validate_args: Optional[bool] = None,
+        probs: th.Tensor | None = None,
+        logits: th.Tensor | None = None,
+        validate_args: bool | None = None,
         masks: MaybeMasks = None,
     ):
-        self.masks: Optional[th.Tensor] = None
+        self.masks: th.Tensor | None = None
         super().__init__(probs, logits, validate_args)
         self._original_logits = self.logits
         self.apply_masking(masks)
@@ -110,9 +110,10 @@ class MaskableCategoricalDistribution(MaskableDistribution):
     :param action_dim: Number of discrete actions
     """
 
+    distribution: MaskableCategorical
+
     def __init__(self, action_dim: int):
         super().__init__()
-        self.distribution: Optional[MaskableCategorical] = None
         self.action_dim = action_dim
 
     def proba_distribution_net(self, latent_dim: int) -> nn.Module:
@@ -137,19 +138,15 @@ class MaskableCategoricalDistribution(MaskableDistribution):
         return self
 
     def log_prob(self, actions: th.Tensor) -> th.Tensor:
-        assert self.distribution is not None, "Must set distribution parameters"
         return self.distribution.log_prob(actions)
 
     def entropy(self) -> th.Tensor:
-        assert self.distribution is not None, "Must set distribution parameters"
         return self.distribution.entropy()
 
     def sample(self) -> th.Tensor:
-        assert self.distribution is not None, "Must set distribution parameters"
         return self.distribution.sample()
 
     def mode(self) -> th.Tensor:
-        assert self.distribution is not None, "Must set distribution parameters"
         return th.argmax(self.distribution.probs, dim=1)
 
     def actions_from_params(self, action_logits: th.Tensor, deterministic: bool = False) -> th.Tensor:
@@ -163,7 +160,6 @@ class MaskableCategoricalDistribution(MaskableDistribution):
         return actions, log_prob
 
     def apply_masking(self, masks: MaybeMasks) -> None:
-        assert self.distribution is not None, "Must set distribution parameters"
         self.distribution.apply_masking(masks)
 
 
@@ -212,7 +208,7 @@ class MaskableMultiCategoricalDistribution(MaskableDistribution):
 
         # Extract each discrete action and compute log prob for their respective distributions
         return th.stack(
-            [dist.log_prob(action) for dist, action in zip(self.distributions, th.unbind(actions, dim=1))], dim=1
+            [dist.log_prob(action) for dist, action in zip(self.distributions, th.unbind(actions, dim=1), strict=True)], dim=1
         ).sum(dim=1)
 
     def entropy(self) -> th.Tensor:
@@ -248,7 +244,7 @@ class MaskableMultiCategoricalDistribution(MaskableDistribution):
             # Then split columnwise for each discrete action
             split_masks = th.split(masks_tensor, list(self.action_dims), dim=1)  # type: ignore[assignment]
 
-        for distribution, mask in zip(self.distributions, split_masks):
+        for distribution, mask in zip(self.distributions, split_masks, strict=True):
             distribution.apply_masking(mask)
 
 
