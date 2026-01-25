@@ -134,8 +134,8 @@ class HybridActorCriticPolicy(BasePolicy):
     def _build(self, lr_schedule: Schedule) -> None:
         self._build_mlp_extractor()
 
-        # Create action net and valule net
-        self.action_net, self.log_std = self.action_dist.proba_distribution_net(latent_dim=self.mlp_extractor.latent_dim_pi)
+        # Create action net and value net
+        self.action_net = self.action_dist.proba_distribution_net(latent_dim=self.mlp_extractor.latent_dim_pi)
         self.value_net = nn.Linear(self.mlp_extractor.latent_dim_vf, 1)
 
         # Init weights: use orthogonal initialization
@@ -201,6 +201,32 @@ class HybridActorCriticPolicy(BasePolicy):
         """
         action_logits: tuple[list[th.Tensor], th.Tensor] = self.action_net(latent_pi)
         return self.action_dist.proba_distribution(action_logits=action_logits)
+    
+    def get_distribution(self, obs: PyTorchObs) -> HybridDistribution:
+        """
+        Get the current policy distribution given an observation.
+
+        :param obs: Observation
+        :return: The action distribution
+        """
+        features = self.extract_features(obs)
+        if self.share_features_extractor:
+            latent_pi = self.mlp_extractor.forward_actor(features)
+        else:
+            pi_features, vf_features = features
+            latent_pi = self.mlp_extractor.forward_actor(pi_features)
+        distribution = self._get_action_dist_from_latent(latent_pi)
+        return distribution
+    
+    def _predict(self, observation: PyTorchObs, deterministic: bool = False) -> th.Tensor:
+        """
+        Get the action according to the policy for a given observation.
+
+        :param observation: Observation
+        :param deterministic: Whether to use stochastic or deterministic actions
+        :return: Taken action according to the policy
+        """
+        return self.get_distribution(observation).get_actions(deterministic=deterministic)
     
     def evaluate_actions(
             self,

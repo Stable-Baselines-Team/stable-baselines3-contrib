@@ -33,8 +33,8 @@ def get_action_dim(action_space: spaces.Tuple) -> tuple[int, int]:
     assert isinstance(action_space.spaces[0], spaces.MultiDiscrete), "First subspace must be MultiDiscrete"
     assert isinstance(action_space.spaces[1], spaces.Box), "Second subspace must be Box"
     return (
-        action_space[0].shape[0],   # discrete action dimension
-        action_space[1].shape[0]    # continuous action dimension
+        len(action_space.spaces[0].nvec),  # discrete action dimension
+        int(np.prod(action_space.spaces[1].shape)) # continuous action dimension
     )
 
 
@@ -78,16 +78,23 @@ class HybridActionsRolloutBuffer(RolloutBuffer):
         self.reset()
     
     def reset(self) -> None:
-        super().reset()
-        # override actions and log_probs to handle hybrid actions
+        self.observations = np.zeros((self.buffer_size, self.n_envs, *self.obs_shape), dtype=self.observation_space.dtype)
         self.actions = {
             'd': np.zeros((self.buffer_size, self.n_envs, self.action_dim[0]), dtype=np.float32),
             'c': np.zeros((self.buffer_size, self.n_envs, self.action_dim[1]), dtype=np.float32)
         }
+        self.rewards = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
+        self.returns = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
+        self.episode_starts = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
+        self.values = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
         self.log_probs = {
             'd': np.zeros((self.buffer_size, self.n_envs), dtype=np.float32),
             'c': np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
         }
+        self.advantages = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
+        self.generator_ready = False
+        self.pos = 0
+        self.full = False
     
     def add(
         self,
@@ -125,8 +132,8 @@ class HybridActionsRolloutBuffer(RolloutBuffer):
         
         # Adapted from RolloutBuffer:
         # Reshape to handle multi-dim and discrete action spaces, see GH #970 #1392
-        action_d = action_d.reshape((self.n_envs, self.action_dim))
-        action_c = action_c.reshape((self.n_envs, self.action_dim))
+        action_d = action_d.reshape((self.n_envs, self.action_dim[0]))
+        action_c = action_c.reshape((self.n_envs, self.action_dim[1]))
         
         self.observations[self.pos] = np.array(obs)
         self.actions['d'][self.pos] = np.array(action_d)
@@ -185,7 +192,3 @@ class HybridActionsRolloutBuffer(RolloutBuffer):
             self.returns[batch_inds].flatten(),
         )
         return HybridActionsRolloutBufferSamples(*tuple(map(self.to_torch, data)))
-
-
-# TODO: implement
-# class HybridActionsRolloutBuffer(HybridActionsRolloutBuffer):

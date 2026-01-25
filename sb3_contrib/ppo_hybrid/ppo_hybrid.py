@@ -57,6 +57,9 @@ class HybridPPO(OnPolicyAlgorithm):
         device: Union[th.device, str] = "auto",
         _init_setup_model: bool = True,
     ):
+        self.clip_range = clip_range
+        self.clip_range_vf = clip_range_vf
+        
         super().__init__(
             policy=policy,
             env=env,
@@ -109,8 +112,6 @@ class HybridPPO(OnPolicyAlgorithm):
         
         self.batch_size = batch_size
         self.n_epochs = n_epochs
-        self.clip_range = clip_range
-        self.clip_range_vf = clip_range_vf
         self.normalize_advantage = normalize_advantage
         self.target_kl = target_kl
 

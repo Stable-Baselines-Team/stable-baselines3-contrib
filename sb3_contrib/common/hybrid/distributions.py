@@ -17,6 +17,13 @@ class HybridDistributionNet(nn.Module):
     """
 
     def __init__(self, latent_dim: int, categorical_dimensions: np.ndarray, n_continuous: int):
+        """
+        Constructor.
+        
+        :param latent_dim: Dimension of the latent vector from the policy network
+        :param categorical_dimensions: Array specifying the number of discrete actions for each categorical distribution
+        :param n_continuous: Number of continuous actions
+        """
         super().__init__()
         # For discrete action space
         self.categorical_nets = nn.ModuleList([nn.Linear(latent_dim, out_dim) for out_dim in categorical_dimensions])
@@ -103,7 +110,7 @@ class HybridDistribution(Distribution):
 
         Subclasses must define this, but the arguments and return type vary between
         concrete classes."""
-        action_net = HybridDistributionNet(latent_dim, self.categorical_dimensions)
+        action_net = HybridDistributionNet(latent_dim, self.categorical_dimensions, self.n_continuous)
         return action_net
 
     def proba_distribution(self: SelfHybridDistribution, action_logits: tuple[list[th.Tensor], th.Tensor]) -> SelfHybridDistribution:
@@ -191,7 +198,7 @@ def make_hybrid_proba_distribution(action_space: spaces.Tuple) -> HybridDistribu
     assert isinstance(action_space.spaces[1], spaces.Box), "Second subspace must be Box"
     assert len(action_space[1].shape) == 1, "Continuous action space must have a monodimensional shape (e.g., (n,))"
     return HybridDistribution(
-        categorical_dimensions=len(action_space[0].nvec),
+        categorical_dimensions=action_space[0].nvec,
         n_continuous=action_space[1].shape[0]
     )
 
