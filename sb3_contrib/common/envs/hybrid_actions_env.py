@@ -58,7 +58,8 @@ class CatchingPointEnv(gym.Env):
         action_d = int(action[0][0])
         dir_vec = action[1]
         reward = 0.0
-        done = False
+        terminated = False
+        truncated = False
 
         # step penalty
         reward = -0.01
@@ -77,18 +78,18 @@ class CatchingPointEnv(gym.Env):
             dist = np.linalg.norm(self.agent_pos - self.target_pos)
             if dist <= self.catch_radius:
                 reward = 1.0    # caught the target
-                done = True
+                terminated = True   # target caught: natural termination
             else:
                 if self.catches_used >= self.max_catches:
-                    done = True
+                    terminated = True   # max catches reached: natural termination
 
         self.step_count += 1
         if self.step_count >= self.max_steps:
-            done = True
+            truncated = True    # max steps reached: truncation
 
         obs = self._get_obs()
         info = {"caught": (reward > 0)}
-        return obs, float(reward), bool(done), info
+        return obs, float(reward), terminated, truncated, info
 
     def _get_obs(self) -> np.ndarray:
         """
