@@ -38,7 +38,7 @@ class CatchingPointEnv(gym.Env):
         obs_high= np.array([ arena_size,  arena_size,  arena_size,  arena_size, float(max_catches), 1.0], dtype=np.float32)
         self.observation_space = spaces.Box(obs_low, obs_high, dtype=np.float32)
     
-    def reset(self) -> np.ndarray:
+    def reset(self, **kwargs) -> tuple[np.ndarray, dict]:
         """
         Reset the environment to an initial state and return the initial observation.
         """
@@ -46,7 +46,7 @@ class CatchingPointEnv(gym.Env):
         self.target_pos = self.np_random.uniform(-self.arena_size, self.arena_size, size=2).astype(np.float32)
         self.catches_used = 0
         self.step_count = 0
-        return self._get_obs()
+        return self._get_obs(), {}
 
     def step(self, action: tuple[np.ndarray, np.ndarray]) -> tuple[np.ndarray, float, bool, dict]:
         """
