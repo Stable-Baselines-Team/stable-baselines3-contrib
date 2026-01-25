@@ -33,8 +33,8 @@ def get_action_dim(action_space: spaces.Tuple) -> tuple[int, int]:
     assert isinstance(action_space.spaces[0], spaces.MultiDiscrete), "First subspace must be MultiDiscrete"
     assert isinstance(action_space.spaces[1], spaces.Box), "Second subspace must be Box"
     return (
-        len(action_space.nvec),  # discrete action dimension
-        int(np.prod(action_space.shape)) # continuous action dimension
+        action_space[0].shape[0],   # discrete action dimension
+        action_space[1].shape[0]    # continuous action dimension
     )
 
 
