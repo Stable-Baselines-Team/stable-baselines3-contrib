@@ -390,8 +390,8 @@ class TQC(OffPolicyAlgorithm):
             if self.num_timesteps > learning_starts and True:
                 # Note: we assume n_envs = 1 for now
                 # TODO: handle for n_envs
-                aleatoric_threshold = 0.005
-                epistemic_threshold = 0.005
+                aleatoric_threshold = 0.00005
+                epistemic_threshold = 0.00005
                 with th.no_grad():
                     quantiles = self.critic(
                         self.replay_buffer.to_torch(self._last_obs, copy=False),
@@ -406,8 +406,8 @@ class TQC(OffPolicyAlgorithm):
                     mean_diff = th.abs(critics_mean[:, 0] - critics_mean[:, 1]).max().item()
                     if mean_diff < epistemic_threshold and aleatoric_uncertainty < aleatoric_threshold:
                         no_uncertainty_env_indices = [0]
-                    if self.num_timesteps % 500 == 0 or no_uncertainty_env_indices:
-                        print(f"{self.num_timesteps=} {mean_diff=:.2f} {aleatoric_uncertainty=:.2f}")
+                    if self.num_timesteps % 1000 == 0 or no_uncertainty_env_indices:
+                        print(f"{self.num_timesteps=} {mean_diff=:.5f} {aleatoric_uncertainty=:.5f}")
 
             # Rescale and perform action
             new_obs, rewards, dones, infos = env.step(actions)
