@@ -65,7 +65,7 @@ class HybridActionsRolloutBuffer(RolloutBuffer):
         self.action_space = action_space
         self.obs_shape = get_obs_shape(observation_space)  # type: ignore[assignment]
 
-        self.action_dim = get_action_dim(action_space)
+        self.action_dim: tuple[int, int] = get_action_dim(action_space)
         self.pos = 0
         self.full = False
         self.device = get_device(device)
@@ -91,6 +91,9 @@ class HybridActionsRolloutBuffer(RolloutBuffer):
             'd': np.zeros((self.buffer_size, self.n_envs), dtype=np.float32),
             'c': np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
         }
+        # single advantages buffer for discrete and continuous actions
+        # because it's estimated using only the values and rewards (not dependent on actions directly)
+        # (see Eq. 7 in Hybrid PPO paper)
         self.advantages = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
         self.generator_ready = False
         self.pos = 0

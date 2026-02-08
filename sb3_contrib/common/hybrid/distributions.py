@@ -64,13 +64,13 @@ class Hybrid(th.distributions.Distribution):
         gaussian_samples = self.gaussian_dist.sample()
         return th.stack(categorical_samples, dim=-1), gaussian_samples
         
-    def log_prob(self) -> tuple[th.Tensor, th.Tensor]:
+    def log_prob(self, discrete_actions: th.Tensor, continuous_actions: th.Tensor) -> tuple[th.Tensor, th.Tensor]:
         """
         Returns the log probability of the given actions, both discrete and continuous.
         """
-        gaussian_log_prob = self.gaussian_dist.log_prob(self.gaussian_dist.sample())
-        categorical_log_probs = [dist.log_prob(dist.sample()) for dist in self.categorical_dists]
-
+        discrete_action_list = discrete_actions.unbind(dim=-1)
+        categorical_log_probs = [dist.log_prob(action_d) for dist, action_d in zip(self.categorical_dists, discrete_action_list)]
+        gaussian_log_prob = self.gaussian_dist.log_prob(continuous_actions)
         # TODO: check dimensions
         return (
             th.sum(th.stack(categorical_log_probs, dim=-1), dim=-1),
@@ -129,7 +129,7 @@ class HybridDistribution(Distribution):
         :return: The log likelihood of the distribution for discrete and continuous distributions
         """
         assert self.distribution is not None, "Must set distribution parameters"
-        return self.distribution.log_prob(continuous_actions, discrete_actions)
+        return self.distribution.log_prob(discrete_actions, continuous_actions)
 
     def entropy(self) -> tuple[th.Tensor, th.Tensor]:
         """

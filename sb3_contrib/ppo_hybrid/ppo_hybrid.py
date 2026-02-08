@@ -115,6 +115,7 @@ class HybridPPO(OnPolicyAlgorithm):
         self.normalize_advantage = normalize_advantage
         self.target_kl = target_kl
 
+        # NOTE: _setup_model already called in super().__init__(), but PPO and MaskablePPO call it again here, so we copy that behavior
         if _init_setup_model:
             self._setup_model()
     
@@ -123,7 +124,7 @@ class HybridPPO(OnPolicyAlgorithm):
         self.set_random_seed(self.seed)
 
         if self.rollout_buffer_class is None:
-            # TODO: mauybe extend if buffers for Dict obs is implemented
+            # TODO: maybe extend if buffers for Dict obs is implemented
             self.rollout_buffer_class = HybridActionsRolloutBuffer
         
         self.rollout_buffer = self.rollout_buffer_class(
