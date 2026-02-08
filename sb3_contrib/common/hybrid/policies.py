@@ -188,9 +188,32 @@ class HybridActorCriticPolicy(BasePolicy):
         values = self.value_net(latent_vf)
         distribution = self._get_action_dist_from_latent(latent_pi)
         actions_d, actions_c = distribution.get_actions(deterministic=deterministic)
-        log_prob_d = distribution.log_prob(actions_d)
-        log_prob_c = distribution.log_prob(actions_c)
+        log_prob_d, log_prob_c = distribution.log_prob(actions_d, actions_c)
         return actions_d, actions_c, values, log_prob_d, log_prob_c
+
+    def extract_features(  # type: ignore[override]
+        self, obs: PyTorchObs, features_extractor: Optional[BaseFeaturesExtractor] = None
+    ) -> Union[th.Tensor, tuple[th.Tensor, th.Tensor]]:
+        """
+        Preprocess the observation if needed and extract features.
+
+        :param obs: Observation
+        :param features_extractor: The features extractor to use. If None, then ``self.features_extractor`` is used.
+        :return: The extracted features. If features extractor is not shared, returns a tuple with the
+            features for the actor and the features for the critic.
+        """
+        if self.share_features_extractor:
+            return super().extract_features(obs, features_extractor or self.features_extractor)
+        else:
+            if features_extractor is not None:
+                warnings.warn(
+                    "Provided features_extractor will be ignored because the features extractor is not shared.",
+                    UserWarning,
+                )
+
+            pi_features = super().extract_features(obs, self.pi_features_extractor)
+            vf_features = super().extract_features(obs, self.vf_features_extractor)
+            return pi_features, vf_features
     
     def _get_action_dist_from_latent(self, latent_pi: th.Tensor) -> HybridDistribution:
         """
