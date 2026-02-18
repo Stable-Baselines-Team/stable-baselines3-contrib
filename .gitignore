@@ -24,6 +24,7 @@ keys/
 # Virtualenv
 /env
 /venv
+/.venv
 
 
 *.sublime-project

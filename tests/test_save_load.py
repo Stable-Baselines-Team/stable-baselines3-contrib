@@ -13,9 +13,9 @@ from stable_baselines3.common.envs import FakeImageEnv, IdentityEnv, IdentityEnv
 from stable_baselines3.common.utils import get_device
 from stable_baselines3.common.vec_env import DummyVecEnv
 
-from sb3_contrib import ARS, QRDQN, TQC, TRPO, CrossQ
+from sb3_contrib import ARS, QRDQN, TQC, TRPO, CrossQ, REPPO
 
-MODEL_LIST = [ARS, QRDQN, TQC, TRPO, CrossQ]
+MODEL_LIST = [ARS, QRDQN, TQC, TRPO, CrossQ, REPPO]
 
 
 def rand_like(tensor: th.Tensor) -> th.Tensor:
