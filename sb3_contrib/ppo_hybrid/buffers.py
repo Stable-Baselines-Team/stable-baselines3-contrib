@@ -44,7 +44,10 @@ class HybridActionsRolloutBuffer(RolloutBuffer):
     Stores separate actions and log probabilities for discrete and continuous parts.
     """
 
-    actions: dict[str, np.ndarray]
+    actions_d: np.ndarray
+    actions_c: np.ndarray
+    log_probs_d: np.ndarray
+    log_probs_c: np.ndarray
 
     def __init__(
             self,
@@ -79,18 +82,14 @@ class HybridActionsRolloutBuffer(RolloutBuffer):
     
     def reset(self) -> None:
         self.observations = np.zeros((self.buffer_size, self.n_envs, *self.obs_shape), dtype=self.observation_space.dtype)
-        self.actions = {
-            'd': np.zeros((self.buffer_size, self.n_envs, self.action_dim[0]), dtype=np.float32),
-            'c': np.zeros((self.buffer_size, self.n_envs, self.action_dim[1]), dtype=np.float32)
-        }
+        self.actions_d = np.zeros((self.buffer_size, self.n_envs, self.action_dim[0]), dtype=np.float32)
+        self.actions_c = np.zeros((self.buffer_size, self.n_envs, self.action_dim[1]), dtype=np.float32)
         self.rewards = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
         self.returns = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
         self.episode_starts = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
         self.values = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
-        self.log_probs = {
-            'd': np.zeros((self.buffer_size, self.n_envs), dtype=np.float32),
-            'c': np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
-        }
+        self.log_probs_d = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
+        self.log_probs_c = np.zeros((self.buffer_size, self.n_envs), dtype=np.float32)
         # single advantages buffer for discrete and continuous actions
         # because it's estimated using only the values and rewards (not dependent on actions directly)
         # (see Eq. 7 in Hybrid PPO paper)
@@ -138,14 +137,14 @@ class HybridActionsRolloutBuffer(RolloutBuffer):
         action_d = action_d.reshape((self.n_envs, self.action_dim[0]))
         action_c = action_c.reshape((self.n_envs, self.action_dim[1]))
         
-        self.observations[self.pos] = np.array(obs)
-        self.actions['d'][self.pos] = np.array(action_d)
-        self.actions['c'][self.pos] = np.array(action_c)
-        self.rewards[self.pos] = np.array(reward)
-        self.episode_starts[self.pos] = np.array(episode_start)
+        self.observations[self.pos] = obs
+        self.actions_d[self.pos] = action_d
+        self.actions_c[self.pos] = action_c
+        self.rewards[self.pos] = reward
+        self.episode_starts[self.pos] = episode_start
         self.values[self.pos] = value.clone().cpu().numpy().flatten()
-        self.log_probs['d'][self.pos] = log_prob_d.clone().cpu().numpy()
-        self.log_probs['c'][self.pos] = log_prob_c.clone().cpu().numpy()
+        self.log_probs_d[self.pos] = log_prob_d.clone().cpu().numpy()
+        self.log_probs_c[self.pos] = log_prob_c.clone().cpu().numpy()
         self.pos += 1
         if self.pos == self.buffer_size:
             self.full = True
@@ -186,11 +185,11 @@ class HybridActionsRolloutBuffer(RolloutBuffer):
         ) -> HybridActionsRolloutBufferSamples:
         data = (
             self.observations[batch_inds],
-            self.actions['d'][batch_inds],
-            self.actions['c'][batch_inds],
+            self.actions_d[batch_inds],
+            self.actions_c[batch_inds],
             self.values[batch_inds].flatten(),
-            self.log_probs['d'][batch_inds].flatten(),
-            self.log_probs['c'][batch_inds].flatten(),
+            self.log_probs_d[batch_inds].flatten(),
+            self.log_probs_c[batch_inds].flatten(),
             self.advantages[batch_inds].flatten(),
             self.returns[batch_inds].flatten(),
         )
