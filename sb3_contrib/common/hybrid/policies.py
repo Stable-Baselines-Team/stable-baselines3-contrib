@@ -282,6 +282,17 @@ class HybridActorCriticPolicy(BasePolicy):
         entropy: tuple[th.Tensor, th.Tensor] = distribution.entropy()
         values = self.value_net(latent_vf)
         return values, log_prob, entropy
+    
+    def predict_values(self, obs: PyTorchObs) -> th.Tensor:
+        """
+        Get the estimated values according to the current policy given the observations.
+
+        :param obs: Observation
+        :return: the estimated values.
+        """
+        features = super().extract_features(obs, self.vf_features_extractor)
+        latent_vf = self.mlp_extractor.forward_critic(features)
+        return self.value_net(latent_vf)
 
 
 # TODO: check superclass
