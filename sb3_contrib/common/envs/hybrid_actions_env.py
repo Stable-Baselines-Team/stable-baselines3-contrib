@@ -16,7 +16,7 @@ class CatchingPointEnv(gym.Env):
         move_dist: float = 0.05,
         catch_radius: float = 0.05,
         max_catches: float = 10,
-        max_steps: float = 200
+        max_steps: float = 100
     ):
         super().__init__()
         self.max_steps = max_steps
@@ -48,15 +48,32 @@ class CatchingPointEnv(gym.Env):
         self.step_count = 0
         return self._get_obs(), {}
 
-    def step(self, action: tuple[np.ndarray, np.ndarray]) -> tuple[np.ndarray, float, bool, dict]:
+    def step(self, concat_actions: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict]:
         """
-        Take a step in the environment using the provided action.
+        Step the environment with the given actions.
+        Compatible with VecEnv interface.
         
-        :param action: A tuple containing the discrete action and continuous parameters.
+        :param concat_actions: A concatenated array containing both discrete and continuous actions.
+        :return: observation, reward, terminated, truncated, info
+        """
+        # Unstack the concatenated actions back into discrete and continuous
+        n_discrete_actions = self.action_space[0].nvec.size if isinstance(self.action_space[0], spaces.MultiDiscrete) else 1
+        actions_d = concat_actions[:n_discrete_actions].astype(int)
+        actions_c = concat_actions[n_discrete_actions:]
+        
+        # actual step logic
+        return self._step(actions_d, actions_c)
+
+    def _step(self, actions_d: np.ndarray, actions_c: np.ndarray) -> tuple[np.ndarray, float, bool, dict]:
+        """
+        Take a step in the environment using the provided actions.
+        
+        :param actions_d: Discrete action
+        :param actions_c: Continuous action
         :return: observation, reward, done, info
         """
-        action_d = int(action[0][0])
-        dir_vec = action[1]
+        action_d = actions_d.item()  # only 1 discrete action -> extract scalar
+        dir_vec = actions_c
         reward = 0.0
         terminated = False
         truncated = False
@@ -74,6 +91,7 @@ class CatchingPointEnv(gym.Env):
         
         # CATCH
         else:
+            reward -= 0.05    # catch attempt penalty
             self.catches_used += 1
             dist = np.linalg.norm(self.agent_pos - self.target_pos)
             if dist <= self.catch_radius:
@@ -81,10 +99,12 @@ class CatchingPointEnv(gym.Env):
                 terminated = True   # target caught: natural termination
             else:
                 if self.catches_used >= self.max_catches:
+                    reward = -1.0   # failed to catch within max catches
                     terminated = True   # max catches reached: natural termination
 
         self.step_count += 1
         if self.step_count >= self.max_steps:
+            reward = -1.0   # failed to catch within max steps
             truncated = True    # max steps reached: truncation
 
         obs = self._get_obs()
@@ -95,11 +115,11 @@ class CatchingPointEnv(gym.Env):
         """
         Get the current observation.
         """
-        step_norm = self.step_count / self.max_steps
-        catches_left = self.max_catches - self.catches_used
+        steps_left_norm = self.step_count / self.max_steps
+        catches_left_norm = (self.max_catches - self.catches_used) / self.max_catches
         obs = np.concatenate((
             self.agent_pos,
             self.target_pos,
-            np.array([catches_left, step_norm], dtype=np.float32)
-        ))
+            np.array([catches_left_norm, steps_left_norm])
+        ), dtype=np.float32)
         return obs

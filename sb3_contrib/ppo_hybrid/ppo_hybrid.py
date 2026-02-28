@@ -214,7 +214,13 @@ class HybridPPO(OnPolicyAlgorithm):
                 # as we are sampling from an unbounded Gaussian distribution
                 clipped_actions_c = np.clip(actions_c, self.action_space[1].low, self.action_space[1].high)
             
-            new_obs, rewards, dones, infos = env.step(actions_d, clipped_actions_c)
+            # concat discrete and continuous actions to make them compatible with vectorized envs
+            concat_actions = np.concatenate([
+                actions_d.reshape(env.num_envs, -1),        # TODO: check if reshape is needed
+                clipped_actions_c.reshape(env.num_envs, -1) # TODO: check if reshape is needed
+            ], axis=1)
+
+            new_obs, rewards, dones, infos = env.step(concat_actions)
 
             self.num_timesteps += env.num_envs
 
