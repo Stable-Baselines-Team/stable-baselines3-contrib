@@ -6,7 +6,7 @@
 
 Please read [Stable-Baselines3 installation guide](https://stable-baselines3.readthedocs.io/en/master/guide/install.html) first.
 
-### Stable Release
+## Stable Release
 
 To install Stable Baselines3 contrib with pip, execute:
 

@@ -8,9 +8,9 @@
 # ARS
 
 Augmented Random Search (ARS) is a simple reinforcement algorithm that uses a direct random search over policy
-parameters. It can be surprisingly effective compared to more sophisticated algorithms. In the [original paper](https://arxiv.org/abs/1803.07055) the authors showed that linear policies trained with ARS were competitive with deep reinforcement learning for the MuJuCo locomotion tasks.
+parameters. It can be surprisingly effective compared to more sophisticated algorithms. In the [original paper](https://arxiv.org/abs/1803.07055) the authors showed that linear policies trained with ARS were competitive with deep reinforcement learning for the MuJoCo locomotion tasks.
 
-SB3s implementation allows for linear policies without bias or squashing function, it also allows for training MLP policies, which include linear policies with bias and squashing functions as a special case.
+SB3's implementation allows for linear policies without bias or squashing function, it also allows for training MLP policies, which include linear policies with bias and squashing functions as a special case.
 
 Normally one wants to train ARS with several seeds to properly evaluate.
 
