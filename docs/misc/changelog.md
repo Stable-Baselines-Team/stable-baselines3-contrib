@@ -24,7 +24,7 @@
 ### Others:
 
 ### Documentation:
-- Switched to mardown documentation (using MyST parser)
+- Switched to markdown documentation (using MyST parser)
 
 
 ## Release 2.7.1 (2025-12-05)
@@ -278,7 +278,7 @@ will create **separate** networks with the same architecture, to be consistent w
 
 ### Deprecations:
 
-- You should now explicitely pass a `features_extractor` parameter when calling `extract_features()`
+- You should now explicitly pass a `features_extractor` parameter when calling `extract_features()`
 - Deprecated shared layers in `MlpExtractor` (@AlexPasqua)
 
 ### Others:
@@ -373,11 +373,11 @@ will create **separate** networks with the same architecture, to be consistent w
 
 ### New Features:
 
-- Allow PPO to turn of advantage normalization (see [PR #61](https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/pull/61)) (@vwxyzjn)
+- Allow PPO to turn off advantage normalization (see [PR #61](https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/pull/61)) (@vwxyzjn)
 
 ### Bug Fixes:
 
-- Removed explict calls to `forward()` method as per pytorch guidelines
+- Removed explicit calls to `forward()` method as per pytorch guidelines
 
 ### Deprecations:
 

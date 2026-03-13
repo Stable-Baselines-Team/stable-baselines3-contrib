@@ -157,7 +157,6 @@ Results are shown for two MicroRTS benchmarks: MicrortsMining4x4F9-v0 (600K step
 
 #### With masking
 
-______________________________________________________________________
 
 ```{image} /images/10x10_mask.png
 ```

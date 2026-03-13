@@ -66,7 +66,7 @@ while True:
     obs, reward, terminated, truncated, info = env.step(action)
     env.render()
     if terminated or truncated:
-      obs, _ = env.reset()
+        obs, _ = env.reset()
 ```
 
 ## Results
