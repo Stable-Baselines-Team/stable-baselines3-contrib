@@ -1,7 +1,8 @@
-.. _utils:
+(utils)=
 
-Utils
-=====
+# Utils
 
+```{eval-rst}
 .. automodule:: sb3_contrib.common.utils
   :members:
+```
