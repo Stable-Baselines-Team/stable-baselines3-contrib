@@ -1,7 +1,8 @@
-.. _th_layers:
+(th-layers)=
 
-Torch Layers
-============
+# Torch Layers
 
+```{eval-rst}
 .. automodule:: sb3_contrib.common.torch_layers
   :members:
+```

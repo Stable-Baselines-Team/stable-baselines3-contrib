@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 import torch as th
 from gymnasium import spaces
@@ -26,7 +26,7 @@ class ARSPolicy(BasePolicy):
         self,
         observation_space: spaces.Space,
         action_space: spaces.Space,
-        net_arch: Optional[list[int]] = None,
+        net_arch: list[int] | None = None,
         activation_fn: type[nn.Module] = nn.ReLU,
         with_bias: bool = True,
         squash_output: bool = True,

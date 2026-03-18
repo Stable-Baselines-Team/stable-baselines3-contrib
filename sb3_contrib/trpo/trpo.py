@@ -1,7 +1,7 @@
 import copy
 import warnings
 from functools import partial
-from typing import Any, ClassVar, Optional, TypeVar, Union
+from typing import Any, ClassVar, TypeVar
 
 import numpy as np
 import torch as th
@@ -80,9 +80,9 @@ class TRPO(OnPolicyAlgorithm):
 
     def __init__(
         self,
-        policy: Union[str, type[ActorCriticPolicy]],
-        env: Union[GymEnv, str],
-        learning_rate: Union[float, Schedule] = 1e-3,
+        policy: str | type[ActorCriticPolicy],
+        env: GymEnv | str,
+        learning_rate: float | Schedule = 1e-3,
         n_steps: int = 2048,
         batch_size: int = 128,
         gamma: float = 0.99,
@@ -94,17 +94,17 @@ class TRPO(OnPolicyAlgorithm):
         gae_lambda: float = 0.95,
         use_sde: bool = False,
         sde_sample_freq: int = -1,
-        rollout_buffer_class: Optional[type[RolloutBuffer]] = None,
-        rollout_buffer_kwargs: Optional[dict[str, Any]] = None,
+        rollout_buffer_class: type[RolloutBuffer] | None = None,
+        rollout_buffer_kwargs: dict[str, Any] | None = None,
         normalize_advantage: bool = True,
         target_kl: float = 0.01,
         sub_sampling_factor: int = 1,
         stats_window_size: int = 100,
-        tensorboard_log: Optional[str] = None,
-        policy_kwargs: Optional[dict[str, Any]] = None,
+        tensorboard_log: str | None = None,
+        policy_kwargs: dict[str, Any] | None = None,
         verbose: int = 0,
-        seed: Optional[int] = None,
-        device: Union[th.device, str] = "auto",
+        seed: int | None = None,
+        device: th.device | str = "auto",
         _init_setup_model: bool = True,
     ):
         super().__init__(
@@ -300,10 +300,10 @@ class TRPO(OnPolicyAlgorithm):
 
             # Maximal step length
             line_search_max_step_size = 2 * self.target_kl
-            line_search_max_step_size /= th.matmul(
-                search_direction, hessian_vector_product_fn(search_direction, retain_graph=False)
+            line_search_max_step_size /= float(
+                th.matmul(search_direction, hessian_vector_product_fn(search_direction, retain_graph=False))
             )
-            line_search_max_step_size = th.sqrt(line_search_max_step_size)  # type: ignore[assignment, arg-type]
+            line_search_max_step_size = np.sqrt(line_search_max_step_size)
 
             line_search_backtrack_coeff = 1.0
             original_actor_params = [param.detach().clone() for param in actor_params]
@@ -314,7 +314,7 @@ class TRPO(OnPolicyAlgorithm):
                 for _ in range(self.line_search_max_iter):
                     start_idx = 0
                     # Applying the scaled step direction
-                    for param, original_param, shape in zip(actor_params, original_actor_params, grad_shape):
+                    for param, original_param, shape in zip(actor_params, original_actor_params, grad_shape, strict=True):
                         n_params = param.numel()
                         param.data = (
                             original_param.data
@@ -349,7 +349,7 @@ class TRPO(OnPolicyAlgorithm):
 
                 if not is_line_search_success:
                     # If the line-search wasn't successful we revert to the original parameters
-                    for param, original_param in zip(actor_params, original_actor_params):
+                    for param, original_param in zip(actor_params, original_actor_params, strict=True):
                         param.data = original_param.data.clone()
 
                     policy_objective_values.append(policy_objective.item())

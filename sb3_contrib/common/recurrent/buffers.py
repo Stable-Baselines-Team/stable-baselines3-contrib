@@ -1,6 +1,5 @@
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from functools import partial
-from typing import Callable, Optional, Union
 
 import numpy as np
 import torch as th
@@ -34,7 +33,10 @@ def pad(
     :return: (n_seq, max_length, *tensor_shape)
     """
     # Create sequences given start and end
-    seq = [th.tensor(tensor[start : end + 1], device=device) for start, end in zip(seq_start_indices, seq_end_indices)]
+    seq = [
+        th.tensor(tensor[start : end + 1], device=device)
+        for start, end in zip(seq_start_indices, seq_end_indices, strict=True)
+    ]
     return th.nn.utils.rnn.pad_sequence(seq, batch_first=True, padding_value=padding_value)
 
 
@@ -117,7 +119,7 @@ class RecurrentRolloutBuffer(RolloutBuffer):
         observation_space: spaces.Space,
         action_space: spaces.Space,
         hidden_state_shape: tuple[int, int, int, int],
-        device: Union[th.device, str] = "auto",
+        device: th.device | str = "auto",
         gae_lambda: float = 1,
         gamma: float = 0.99,
         n_envs: int = 1,
@@ -144,7 +146,7 @@ class RecurrentRolloutBuffer(RolloutBuffer):
 
         super().add(*args, **kwargs)
 
-    def get(self, batch_size: Optional[int] = None) -> Generator[RecurrentRolloutBufferSamples, None, None]:
+    def get(self, batch_size: int | None = None) -> Generator[RecurrentRolloutBufferSamples, None, None]:
         assert self.full, "Rollout buffer must be full before sampling from it"
 
         # Prepare the data
@@ -200,7 +202,7 @@ class RecurrentRolloutBuffer(RolloutBuffer):
         self,
         batch_inds: np.ndarray,
         env_change: np.ndarray,
-        env: Optional[VecNormalize] = None,
+        env: VecNormalize | None = None,
     ) -> RecurrentRolloutBufferSamples:
         # Retrieve sequence starts and utility function
         self.seq_start_indices, self.pad, self.pad_and_flatten = create_sequencers(
@@ -264,7 +266,7 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
         observation_space: spaces.Space,
         action_space: spaces.Space,
         hidden_state_shape: tuple[int, int, int, int],
-        device: Union[th.device, str] = "auto",
+        device: th.device | str = "auto",
         gae_lambda: float = 1,
         gamma: float = 0.99,
         n_envs: int = 1,
@@ -291,7 +293,7 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
 
         super().add(*args, **kwargs)
 
-    def get(self, batch_size: Optional[int] = None) -> Generator[RecurrentDictRolloutBufferSamples, None, None]:
+    def get(self, batch_size: int | None = None) -> Generator[RecurrentDictRolloutBufferSamples, None, None]:
         assert self.full, "Rollout buffer must be full before sampling from it"
 
         # Prepare the data
@@ -344,7 +346,7 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
         self,
         batch_inds: np.ndarray,
         env_change: np.ndarray,
-        env: Optional[VecNormalize] = None,
+        env: VecNormalize | None = None,
     ) -> RecurrentDictRolloutBufferSamples:
         # Retrieve sequence starts and utility function
         self.seq_start_indices, self.pad, self.pad_and_flatten = create_sequencers(

@@ -1,6 +1,6 @@
 import warnings
 from functools import partial
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 import torch as th
@@ -47,15 +47,15 @@ class MaskableActorCriticPolicy(BasePolicy):
         observation_space: spaces.Space,
         action_space: spaces.Space,
         lr_schedule: Schedule,
-        net_arch: Optional[Union[list[int], dict[str, list[int]]]] = None,
+        net_arch: list[int] | dict[str, list[int]] | None = None,
         activation_fn: type[nn.Module] = nn.Tanh,
         ortho_init: bool = True,
         features_extractor_class: type[BaseFeaturesExtractor] = FlattenExtractor,
-        features_extractor_kwargs: Optional[dict[str, Any]] = None,
+        features_extractor_kwargs: dict[str, Any] | None = None,
         share_features_extractor: bool = True,
         normalize_images: bool = True,
         optimizer_class: type[th.optim.Optimizer] = th.optim.Adam,
-        optimizer_kwargs: Optional[dict[str, Any]] = None,
+        optimizer_kwargs: dict[str, Any] | None = None,
     ):
         if optimizer_kwargs is None:
             optimizer_kwargs = {}
@@ -114,7 +114,7 @@ class MaskableActorCriticPolicy(BasePolicy):
         self,
         obs: th.Tensor,
         deterministic: bool = False,
-        action_masks: Optional[np.ndarray] = None,
+        action_masks: np.ndarray | None = None,
     ) -> tuple[th.Tensor, th.Tensor, th.Tensor]:
         """
         Forward pass in all the networks (actor and critic)
@@ -139,11 +139,12 @@ class MaskableActorCriticPolicy(BasePolicy):
             distribution.apply_masking(action_masks)
         actions = distribution.get_actions(deterministic=deterministic)
         log_prob = distribution.log_prob(actions)
+        actions = actions.reshape((-1, *self.action_space.shape))  # type: ignore[misc]
         return actions, values, log_prob
 
     def extract_features(  # type: ignore[override]
-        self, obs: PyTorchObs, features_extractor: Optional[BaseFeaturesExtractor] = None
-    ) -> Union[th.Tensor, tuple[th.Tensor, th.Tensor]]:
+        self, obs: PyTorchObs, features_extractor: BaseFeaturesExtractor | None = None
+    ) -> th.Tensor | tuple[th.Tensor, th.Tensor]:
         """
         Preprocess the observation if needed and extract features.
 
@@ -253,7 +254,7 @@ class MaskableActorCriticPolicy(BasePolicy):
         self,
         observation: PyTorchObs,
         deterministic: bool = False,
-        action_masks: Optional[np.ndarray] = None,
+        action_masks: np.ndarray | None = None,
     ) -> th.Tensor:
         """
         Get the action according to the policy for a given observation.
@@ -267,12 +268,12 @@ class MaskableActorCriticPolicy(BasePolicy):
 
     def predict(
         self,
-        observation: Union[np.ndarray, dict[str, np.ndarray]],
-        state: Optional[tuple[np.ndarray, ...]] = None,
-        episode_start: Optional[np.ndarray] = None,
+        observation: np.ndarray | dict[str, np.ndarray],
+        state: tuple[np.ndarray, ...] | None = None,
+        episode_start: np.ndarray | None = None,
         deterministic: bool = False,
-        action_masks: Optional[np.ndarray] = None,
-    ) -> tuple[np.ndarray, Optional[tuple[np.ndarray, ...]]]:
+        action_masks: np.ndarray | None = None,
+    ) -> tuple[np.ndarray, tuple[np.ndarray, ...] | None]:
         """
         Get the policy action from an observation (and optional hidden state).
         Includes sugar-coating to handle different observations (e.g. normalizing images).
@@ -304,7 +305,7 @@ class MaskableActorCriticPolicy(BasePolicy):
         with th.no_grad():
             actions = self._predict(obs_tensor, deterministic=deterministic, action_masks=action_masks)
             # Convert to numpy
-            actions = actions.cpu().numpy()  # type: ignore[assignment]
+            actions = actions.cpu().numpy().reshape((-1, *self.action_space.shape))  # type: ignore[assignment, misc]
 
         if isinstance(self.action_space, spaces.Box):
             if self.squash_output:
@@ -325,8 +326,8 @@ class MaskableActorCriticPolicy(BasePolicy):
         self,
         obs: th.Tensor,
         actions: th.Tensor,
-        action_masks: Optional[th.Tensor] = None,
-    ) -> tuple[th.Tensor, th.Tensor, Optional[th.Tensor]]:
+        action_masks: th.Tensor | None = None,
+    ) -> tuple[th.Tensor, th.Tensor, th.Tensor | None]:
         """
         Evaluate actions according to the current policy,
         given the observations.
@@ -351,7 +352,7 @@ class MaskableActorCriticPolicy(BasePolicy):
         values = self.value_net(latent_vf)
         return values, log_prob, distribution.entropy()
 
-    def get_distribution(self, obs: PyTorchObs, action_masks: Optional[np.ndarray] = None) -> MaskableDistribution:
+    def get_distribution(self, obs: PyTorchObs, action_masks: np.ndarray | None = None) -> MaskableDistribution:
         """
         Get the current policy distribution given the observations.
 
@@ -406,15 +407,15 @@ class MaskableActorCriticCnnPolicy(MaskableActorCriticPolicy):
         observation_space: spaces.Space,
         action_space: spaces.Space,
         lr_schedule: Schedule,
-        net_arch: Optional[Union[list[int], dict[str, list[int]]]] = None,
+        net_arch: list[int] | dict[str, list[int]] | None = None,
         activation_fn: type[nn.Module] = nn.Tanh,
         ortho_init: bool = True,
         features_extractor_class: type[BaseFeaturesExtractor] = NatureCNN,
-        features_extractor_kwargs: Optional[dict[str, Any]] = None,
+        features_extractor_kwargs: dict[str, Any] | None = None,
         share_features_extractor: bool = True,
         normalize_images: bool = True,
         optimizer_class: type[th.optim.Optimizer] = th.optim.Adam,
-        optimizer_kwargs: Optional[dict[str, Any]] = None,
+        optimizer_kwargs: dict[str, Any] | None = None,
     ):
         super().__init__(
             observation_space,
@@ -460,15 +461,15 @@ class MaskableMultiInputActorCriticPolicy(MaskableActorCriticPolicy):
         observation_space: spaces.Dict,
         action_space: spaces.Space,
         lr_schedule: Schedule,
-        net_arch: Optional[Union[list[int], dict[str, list[int]]]] = None,
+        net_arch: list[int] | dict[str, list[int]] | None = None,
         activation_fn: type[nn.Module] = nn.Tanh,
         ortho_init: bool = True,
         features_extractor_class: type[BaseFeaturesExtractor] = CombinedExtractor,
-        features_extractor_kwargs: Optional[dict[str, Any]] = None,
+        features_extractor_kwargs: dict[str, Any] | None = None,
         share_features_extractor: bool = True,
         normalize_images: bool = True,
         optimizer_class: type[th.optim.Optimizer] = th.optim.Adam,
-        optimizer_kwargs: Optional[dict[str, Any]] = None,
+        optimizer_kwargs: dict[str, Any] | None = None,
     ):
         super().__init__(
             observation_space,

@@ -1,5 +1,5 @@
 from collections.abc import Generator
-from typing import NamedTuple, Optional, Union
+from typing import NamedTuple
 
 import numpy as np
 import torch as th
@@ -50,7 +50,7 @@ class MaskableRolloutBuffer(RolloutBuffer):
         buffer_size: int,
         observation_space: spaces.Space,
         action_space: spaces.Space,
-        device: Union[th.device, str] = "auto",
+        device: th.device | str = "auto",
         gae_lambda: float = 1,
         gamma: float = 0.99,
         n_envs: int = 1,
@@ -76,7 +76,7 @@ class MaskableRolloutBuffer(RolloutBuffer):
 
         super().reset()
 
-    def add(self, *args, action_masks: Optional[np.ndarray] = None, **kwargs) -> None:
+    def add(self, *args, action_masks: np.ndarray | None = None, **kwargs) -> None:
         """
         :param action_masks: Masks applied to constrain the choice of possible actions.
         """
@@ -85,7 +85,7 @@ class MaskableRolloutBuffer(RolloutBuffer):
 
         super().add(*args, **kwargs)
 
-    def get(self, batch_size: Optional[int] = None) -> Generator[MaskableRolloutBufferSamples, None, None]:  # type: ignore[override]
+    def get(self, batch_size: int | None = None) -> Generator[MaskableRolloutBufferSamples, None, None]:  # type: ignore[override]
         assert self.full, ""
         indices = np.random.permutation(self.buffer_size * self.n_envs)
         # Prepare the data
@@ -111,7 +111,7 @@ class MaskableRolloutBuffer(RolloutBuffer):
             yield self._get_samples(indices[start_idx : start_idx + batch_size])
             start_idx += batch_size
 
-    def _get_samples(self, batch_inds: np.ndarray, env: Optional[VecNormalize] = None) -> MaskableRolloutBufferSamples:  # type: ignore[override]
+    def _get_samples(self, batch_inds: np.ndarray, env: VecNormalize | None = None) -> MaskableRolloutBufferSamples:  # type: ignore[override]
         data = (
             self.observations[batch_inds],
             self.actions[batch_inds],
@@ -156,7 +156,7 @@ class MaskableDictRolloutBuffer(DictRolloutBuffer):
         buffer_size: int,
         observation_space: spaces.Dict,
         action_space: spaces.Space,
-        device: Union[th.device, str] = "auto",
+        device: th.device | str = "auto",
         gae_lambda: float = 1,
         gamma: float = 0.99,
         n_envs: int = 1,
@@ -182,7 +182,7 @@ class MaskableDictRolloutBuffer(DictRolloutBuffer):
 
         super().reset()
 
-    def add(self, *args, action_masks: Optional[np.ndarray] = None, **kwargs) -> None:
+    def add(self, *args, action_masks: np.ndarray | None = None, **kwargs) -> None:
         """
         :param action_masks: Masks applied to constrain the choice of possible actions.
         """
@@ -191,7 +191,7 @@ class MaskableDictRolloutBuffer(DictRolloutBuffer):
 
         super().add(*args, **kwargs)
 
-    def get(self, batch_size: Optional[int] = None) -> Generator[MaskableDictRolloutBufferSamples, None, None]:  # type: ignore[override]
+    def get(self, batch_size: int | None = None) -> Generator[MaskableDictRolloutBufferSamples, None, None]:  # type: ignore[override]
         assert self.full, ""
         indices = np.random.permutation(self.buffer_size * self.n_envs)
         # Prepare the data
@@ -214,7 +214,7 @@ class MaskableDictRolloutBuffer(DictRolloutBuffer):
             yield self._get_samples(indices[start_idx : start_idx + batch_size])
             start_idx += batch_size
 
-    def _get_samples(self, batch_inds: np.ndarray, env: Optional[VecNormalize] = None) -> MaskableDictRolloutBufferSamples:  # type: ignore[override]
+    def _get_samples(self, batch_inds: np.ndarray, env: VecNormalize | None = None) -> MaskableDictRolloutBufferSamples:  # type: ignore[override]
         return MaskableDictRolloutBufferSamples(
             observations={key: self.to_torch(obs[batch_inds]) for (key, obs) in self.observations.items()},
             actions=self.to_torch(self.actions[batch_inds]),
