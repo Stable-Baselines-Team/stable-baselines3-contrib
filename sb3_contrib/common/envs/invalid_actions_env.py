@@ -20,7 +20,7 @@ class InvalidActionEnvDiscrete(IdentityEnv[int]):
 
         space = spaces.Discrete(dim)  # type: ignore[var-annotated]
         self.n_invalid_actions = n_invalid_actions
-        self.possible_actions = np.arange(space.n, dtype=int)
+        self.possible_actions = np.arange(int(space.n), dtype=int)
         self.invalid_actions: list[int] = []
         super().__init__(space=space, ep_length=ep_length)
 
