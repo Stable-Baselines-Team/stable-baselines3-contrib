@@ -11,7 +11,7 @@ from stable_baselines3.common.torch_layers import (
     create_mlp,
     get_actor_critic_arch,
 )
-from stable_baselines3.common.type_aliases import Schedule
+from stable_baselines3.common.type_aliases import PyTorchObs, Schedule
 from torch import nn
 from torch.distributions import Categorical
 
@@ -75,9 +75,9 @@ class Actor(BasePolicy):
         self.full_std = full_std
         self.clip_mean = clip_mean
 
-        num_actions = self.action_space.n
+        num_actions = int(self.action_space.n)
 
-        latent_pi_net = create_mlp(features_dim, num_actions.item(), net_arch, activation_fn)
+        latent_pi_net = create_mlp(features_dim, num_actions, net_arch, activation_fn)
         self.latent_pi = nn.Sequential(*latent_pi_net)
 
         self.output_activation = nn.Softmax(dim=1)
@@ -100,7 +100,7 @@ class Actor(BasePolicy):
         )
         return data
 
-    def forward(self, obs: th.Tensor, deterministic: bool = False) -> th.Tensor:
+    def forward(self, obs: PyTorchObs, deterministic: bool = False) -> th.Tensor:
         features = self.extract_features(obs, self.features_extractor)
 
         action_probabilities = self.output_activation(self.latent_pi(features))
@@ -114,7 +114,7 @@ class Actor(BasePolicy):
 
         return action
 
-    def action_log_prob(self, obs: th.Tensor) -> tuple[th.Tensor, th.Tensor]:
+    def action_log_prob(self, obs: PyTorchObs) -> tuple[th.Tensor, th.Tensor]:
         features = self.extract_features(obs, self.features_extractor)
 
         action_prob = self.output_activation(self.latent_pi(features))
@@ -125,7 +125,7 @@ class Actor(BasePolicy):
         log_action_prob = th.log(action_prob + z)
         return action_prob, log_action_prob
 
-    def _predict(self, observation: th.Tensor, deterministic: bool = False) -> th.Tensor:
+    def _predict(self, observation: PyTorchObs, deterministic: bool = False) -> th.Tensor:
         return self(observation, deterministic)
 
 
@@ -177,13 +177,13 @@ class DiscreteCritic(BaseModel):
             normalize_images=normalize_images,
         )
 
-        num_actions = self.action_space.n
+        num_actions = int(self.action_space.n)
 
         self.share_features_extractor = share_features_extractor
         self.n_critics = n_critics
         self.q_networks = []
         for idx in range(n_critics):
-            q_net_list = create_mlp(features_dim, num_actions.item(), net_arch, activation_fn)
+            q_net_list = create_mlp(features_dim, num_actions, net_arch, activation_fn)
             q_net = nn.Sequential(*q_net_list)
             self.add_module(f"qf{idx}", q_net)
             self.q_networks.append(q_net)
@@ -191,7 +191,7 @@ class DiscreteCritic(BaseModel):
     def get_crit_params(self, n):
         return self.q_networks[n].parameters()
 
-    def forward(self, obs: th.Tensor) -> tuple[th.Tensor, ...]:
+    def forward(self, obs: PyTorchObs) -> tuple[th.Tensor, ...]:
         # Learn the features extractor using the policy loss only
         # when the features_extractor is shared with the actor
         if self.features_extractor is not None:
@@ -360,10 +360,10 @@ class SACDPolicy(BasePolicy):
         critic_kwargs = self._update_features_extractor(self.critic_kwargs, features_extractor)
         return DiscreteCritic(**critic_kwargs).to(self.device)
 
-    def forward(self, obs: th.Tensor, deterministic: bool = False) -> th.Tensor:
+    def forward(self, obs: PyTorchObs, deterministic: bool = False) -> th.Tensor:
         return self._predict(obs, deterministic=deterministic)
 
-    def _predict(self, observation: th.Tensor, deterministic: bool = False) -> th.Tensor:
+    def _predict(self, observation: PyTorchObs, deterministic: bool = False) -> th.Tensor:
         return self.actor(observation, deterministic)
 
     def set_training_mode(self, mode: bool) -> None:

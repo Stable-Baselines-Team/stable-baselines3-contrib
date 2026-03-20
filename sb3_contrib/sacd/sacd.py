@@ -145,7 +145,7 @@ class SACD(OffPolicyAlgorithm):
         )
 
         self.target_entropy = target_entropy
-        self.log_ent_coef = None  # type: Optional[th.Tensor]
+        self.log_ent_coef = None  # type: th.Tensor | None
         # Entropy coefficient / Entropy temperature
         # Inverse of the reward scale
         self.ent_coef = ent_coef
@@ -251,7 +251,7 @@ class SACD(OffPolicyAlgorithm):
 
             # Compute entropy loss
             if self.ent_coef_optimizer is not None and self.log_ent_coef is not None:
-                ent_coef_loss = -(self.log_ent_coef * (log_action_prob + self.target_entropy).detach()).mean()
+                ent_coef_loss = -(self.log_ent_coef * (log_action_prob + self.target_entropy).detach()).mean()  # type: ignore[operator]
                 ent_coef_losses.append(ent_coef_loss.item())
                 self.take_optimisation_step(self.ent_coef_optimizer, None, ent_coef_loss, None)
                 self.ent_coef_tensor = th.exp(self.log_ent_coef.detach())
