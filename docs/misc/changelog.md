@@ -2,7 +2,7 @@
 
 # Changelog
 
-## Release 2.8.0a1 (WIP)
+## Release 2.8.0a4 (WIP)
 
 ### Breaking Changes:
 
@@ -16,8 +16,8 @@
 
 ### Bug Fixes:
 
-- Fix `MaskablePPO` inaccurate `n_updates` counting when `target_kl` early exits the training loop
-- Fix RecurrentPPO and MaskablePPO forward and predict do not reshape action before clip it (@immortal-boy)
+- Fix `MaskablePPO` and `RecurrentPPO` inaccurate `n_updates` counting when `target_kl` early exits the training loop
+- Fix `RecurrentPPO` and `MaskablePPO` forward and predict do not reshape action before clip it (@immortal-boy)
 - Do not call `forward()` method directly in `RecurrentPPO` (@immortal-boy)
 
 ### Deprecations:
