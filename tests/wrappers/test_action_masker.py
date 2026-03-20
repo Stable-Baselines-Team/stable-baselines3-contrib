@@ -1,5 +1,3 @@
-from typing import List
-
 import pytest
 from gymnasium import spaces
 from stable_baselines3.common.envs import IdentityEnv
@@ -8,7 +6,7 @@ from sb3_contrib.common.wrappers import ActionMasker
 
 
 class IdentityEnvDiscrete(IdentityEnv):
-    def __init__(self, dim: int = 1, ep_length: int = 100):
+    def __init__(self, dim=1, ep_length=100):
         """
         Identity environment for testing purposes
 
@@ -19,12 +17,12 @@ class IdentityEnvDiscrete(IdentityEnv):
         self.useless_property = 1
         super().__init__(ep_length=ep_length, space=space)
 
-    def _action_masks(self) -> List[int]:
+    def _action_masks(self):  #  -> list[bool]
         assert isinstance(self.action_space, spaces.Discrete)
         return [i == self.state for i in range(self.action_space.n)]
 
 
-def action_mask_fn(env: IdentityEnvDiscrete) -> List[int]:
+def action_mask_fn(env):  # -> list[int]
     assert isinstance(env.action_space, spaces.Discrete)
     return [i == env.state for i in range(env.action_space.n)]
 
@@ -76,5 +74,5 @@ def test_action_masks_returns_expected_result():
 
     # Only one valid action expected
     masks = env.action_masks()
-    masks[env.state] = not masks[env.state]  # Bit-flip the one expected valid action
+    masks[env.unwrapped.state] = not masks[env.unwrapped.state]  # Bit-flip the one expected valid action
     assert all([not mask for mask in masks])

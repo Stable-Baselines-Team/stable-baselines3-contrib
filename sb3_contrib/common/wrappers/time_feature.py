@@ -1,11 +1,11 @@
-from typing import Any, Dict, SupportsFloat, Tuple, Union
+from typing import Any, SupportsFloat, Union
 
 import gymnasium as gym
 import numpy as np
 from gymnasium import spaces
 from gymnasium.core import ActType
 
-TimeFeatureObs = Union[np.ndarray, Dict[str, np.ndarray]]
+TimeFeatureObs = Union[np.ndarray, dict[str, np.ndarray]]  # noqa: UP007
 
 
 class TimeFeatureWrapper(gym.Wrapper[TimeFeatureObs, ActType, TimeFeatureObs, ActType]):
@@ -44,6 +44,7 @@ class TimeFeatureWrapper(gym.Wrapper[TimeFeatureObs, ActType, TimeFeatureObs, Ac
         low, high = obs_space.low, obs_space.high
         low, high = np.concatenate((low, [0.0])), np.concatenate((high, [1.0]))  # type: ignore[arg-type]
         self.dtype = obs_space.dtype
+        low, high = low.astype(self.dtype), high.astype(self.dtype)
 
         if isinstance(env.observation_space, spaces.Dict):
             env.observation_space.spaces["observation"] = spaces.Box(
@@ -69,17 +70,17 @@ class TimeFeatureWrapper(gym.Wrapper[TimeFeatureObs, ActType, TimeFeatureObs, Ac
         self._current_step = 0
         self._test_mode = test_mode
 
-    def reset(self, **kwargs) -> Tuple[TimeFeatureObs, Dict[str, Any]]:
+    def reset(self, **kwargs) -> tuple[TimeFeatureObs, dict[str, Any]]:
         self._current_step = 0
         obs, info = self.env.reset(**kwargs)
         return self._get_obs(obs), info
 
-    def step(self, action: ActType) -> Tuple[TimeFeatureObs, SupportsFloat, bool, bool, Dict[str, Any]]:
+    def step(self, action: ActType) -> tuple[TimeFeatureObs, SupportsFloat, bool, bool, dict[str, Any]]:
         self._current_step += 1
         obs, reward, done, truncated, info = self.env.step(action)
         return self._get_obs(obs), reward, done, truncated, info
 
-    def _get_obs(self, obs: Union[np.ndarray, Dict[str, np.ndarray]]) -> Union[np.ndarray, Dict[str, np.ndarray]]:
+    def _get_obs(self, obs: np.ndarray | dict[str, np.ndarray]) -> np.ndarray | dict[str, np.ndarray]:
         """
         Concatenate the time feature to the current observation.
 

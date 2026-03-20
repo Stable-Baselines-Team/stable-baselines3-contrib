@@ -3,7 +3,7 @@ import sys
 import time
 import warnings
 from functools import partial
-from typing import Any, ClassVar, Dict, Optional, Type, TypeVar, Union
+from typing import Any, ClassVar, TypeVar
 
 import numpy as np
 import torch as th
@@ -15,7 +15,7 @@ from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.policies import BasePolicy
 from stable_baselines3.common.save_util import load_from_zip_file
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule
-from stable_baselines3.common.utils import get_schedule_fn, safe_mean
+from stable_baselines3.common.utils import FloatSchedule, safe_mean
 
 from sb3_contrib.ars.policies import ARSPolicy, LinearPolicy, MlpPolicy
 from sb3_contrib.common.vec_env.async_eval import AsyncEval
@@ -40,7 +40,7 @@ class ARS(BaseAlgorithm):
     :param zero_policy: Boolean determining if the passed policy should have it's weights zeroed before training.
     :param alive_bonus_offset: Constant added to the reward at each step, used to cancel out alive bonuses.
     :param n_eval_episodes: Number of episodes to evaluate each candidate.
-    :param policy_kwargs: Keyword arguments to pass to the policy on creation
+    :param policy_kwargs: Keyword arguments to pass to the policy on creation. See :ref:`ars_policies`
     :param stats_window_size: Window size for the rollout logging, specifying the number of episodes to average
         the reported success rate, mean episode length, and mean reward over
     :param tensorboard_log: String with the directory to put tensorboard logs:
@@ -50,28 +50,28 @@ class ARS(BaseAlgorithm):
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
 
-    policy_aliases: ClassVar[Dict[str, Type[BasePolicy]]] = {
+    policy_aliases: ClassVar[dict[str, type[BasePolicy]]] = {
         "MlpPolicy": MlpPolicy,
         "LinearPolicy": LinearPolicy,
     }
 
     def __init__(
         self,
-        policy: Union[str, Type[ARSPolicy]],
-        env: Union[GymEnv, str],
+        policy: str | type[ARSPolicy],
+        env: GymEnv | str,
         n_delta: int = 8,
-        n_top: Optional[int] = None,
-        learning_rate: Union[float, Schedule] = 0.02,
-        delta_std: Union[float, Schedule] = 0.05,
+        n_top: int | None = None,
+        learning_rate: float | Schedule = 0.02,
+        delta_std: float | Schedule = 0.05,
         zero_policy: bool = True,
         alive_bonus_offset: float = 0,
         n_eval_episodes: int = 1,
-        policy_kwargs: Optional[Dict[str, Any]] = None,
+        policy_kwargs: dict[str, Any] | None = None,
         stats_window_size: int = 100,
-        tensorboard_log: Optional[str] = None,
-        seed: Optional[int] = None,
+        tensorboard_log: str | None = None,
+        seed: int | None = None,
         verbose: int = 0,
-        device: Union[th.device, str] = "cpu",
+        device: th.device | str = "cpu",
         _init_setup_model: bool = True,
     ):
         super().__init__(
@@ -90,7 +90,7 @@ class ARS(BaseAlgorithm):
 
         self.n_delta = n_delta
         self.pop_size = 2 * n_delta
-        self.delta_std_schedule = get_schedule_fn(delta_std)
+        self.delta_std_schedule = FloatSchedule(delta_std)
         self.n_eval_episodes = n_eval_episodes
 
         if n_top is None:
@@ -137,15 +137,15 @@ class ARS(BaseAlgorithm):
         # Mimic Monitor Wrapper
         infos = [
             {"episode": {"r": episode_reward, "l": episode_length}}
-            for episode_reward, episode_length in zip(episode_rewards, episode_lengths)
+            for episode_reward, episode_length in zip(episode_rewards, episode_lengths, strict=True)
         ]
 
         self._update_info_buffer(infos)
 
     def _trigger_callback(
         self,
-        _locals: Dict[str, Any],
-        _globals: Dict[str, Any],
+        _locals: dict[str, Any],
+        _globals: dict[str, Any],
         callback: BaseCallback,
         n_envs: int,
     ) -> None:
@@ -163,7 +163,7 @@ class ARS(BaseAlgorithm):
         callback.on_step()
 
     def evaluate_candidates(
-        self, candidate_weights: th.Tensor, callback: BaseCallback, async_eval: Optional[AsyncEval]
+        self, candidate_weights: th.Tensor, callback: BaseCallback, async_eval: AsyncEval | None
     ) -> th.Tensor:
         """
         Evaluate each candidate.
@@ -243,7 +243,7 @@ class ARS(BaseAlgorithm):
 
         return candidate_returns
 
-    def _log_and_dump(self) -> None:
+    def dump_logs(self) -> None:
         """
         Dump information to the logger.
         """
@@ -257,7 +257,7 @@ class ARS(BaseAlgorithm):
         self.logger.record("time/total_timesteps", self.num_timesteps, exclude="tensorboard")
         self.logger.dump(step=self.num_timesteps)
 
-    def _do_one_update(self, callback: BaseCallback, async_eval: Optional[AsyncEval]) -> None:
+    def _do_one_update(self, callback: BaseCallback, async_eval: AsyncEval | None) -> None:
         """
         Sample new candidates, evaluate them and then update current policy.
 
@@ -312,7 +312,7 @@ class ARS(BaseAlgorithm):
         log_interval: int = 1,
         tb_log_name: str = "ARS",
         reset_num_timesteps: bool = True,
-        async_eval: Optional[AsyncEval] = None,
+        async_eval: AsyncEval | None = None,
         progress_bar: bool = False,
     ) -> SelfARS:
         """
@@ -342,7 +342,7 @@ class ARS(BaseAlgorithm):
             self._update_current_progress_remaining(self.num_timesteps, total_timesteps)
             self._do_one_update(callback, async_eval)
             if log_interval is not None and self._n_updates % log_interval == 0:
-                self._log_and_dump()
+                self.dump_logs()
 
         if async_eval is not None:
             async_eval.close()
@@ -353,9 +353,9 @@ class ARS(BaseAlgorithm):
 
     def set_parameters(
         self,
-        load_path_or_dict: Union[str, Dict[str, Dict]],
+        load_path_or_dict: str | dict[str, dict],
         exact_match: bool = True,
-        device: Union[th.device, str] = "auto",
+        device: th.device | str = "auto",
     ) -> None:
         # Patched set_parameters() to handle ARS linear policy saved with sb3-contrib < 1.7.0
         params = None

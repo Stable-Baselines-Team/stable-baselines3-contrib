@@ -1,6 +1,6 @@
 import warnings
 from functools import partial
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any
 
 import numpy as np
 import torch as th
@@ -13,7 +13,7 @@ from stable_baselines3.common.torch_layers import (
     MlpExtractor,
     NatureCNN,
 )
-from stable_baselines3.common.type_aliases import Schedule
+from stable_baselines3.common.type_aliases import PyTorchObs, Schedule
 from torch import nn
 
 from sb3_contrib.common.maskable.distributions import MaskableDistribution, make_masked_proba_distribution
@@ -47,15 +47,15 @@ class MaskableActorCriticPolicy(BasePolicy):
         observation_space: spaces.Space,
         action_space: spaces.Space,
         lr_schedule: Schedule,
-        net_arch: Optional[Union[List[int], Dict[str, List[int]]]] = None,
-        activation_fn: Type[nn.Module] = nn.Tanh,
+        net_arch: list[int] | dict[str, list[int]] | None = None,
+        activation_fn: type[nn.Module] = nn.Tanh,
         ortho_init: bool = True,
-        features_extractor_class: Type[BaseFeaturesExtractor] = FlattenExtractor,
-        features_extractor_kwargs: Optional[Dict[str, Any]] = None,
+        features_extractor_class: type[BaseFeaturesExtractor] = FlattenExtractor,
+        features_extractor_kwargs: dict[str, Any] | None = None,
         share_features_extractor: bool = True,
         normalize_images: bool = True,
-        optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
-        optimizer_kwargs: Optional[Dict[str, Any]] = None,
+        optimizer_class: type[th.optim.Optimizer] = th.optim.Adam,
+        optimizer_kwargs: dict[str, Any] | None = None,
     ):
         if optimizer_kwargs is None:
             optimizer_kwargs = {}
@@ -114,8 +114,8 @@ class MaskableActorCriticPolicy(BasePolicy):
         self,
         obs: th.Tensor,
         deterministic: bool = False,
-        action_masks: Optional[np.ndarray] = None,
-    ) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
+        action_masks: np.ndarray | None = None,
+    ) -> tuple[th.Tensor, th.Tensor, th.Tensor]:
         """
         Forward pass in all the networks (actor and critic)
 
@@ -139,22 +139,34 @@ class MaskableActorCriticPolicy(BasePolicy):
             distribution.apply_masking(action_masks)
         actions = distribution.get_actions(deterministic=deterministic)
         log_prob = distribution.log_prob(actions)
+        actions = actions.reshape((-1, *self.action_space.shape))  # type: ignore[misc]
         return actions, values, log_prob
 
-    def extract_features(self, obs: th.Tensor) -> Union[th.Tensor, Tuple[th.Tensor, th.Tensor]]:
+    def extract_features(  # type: ignore[override]
+        self, obs: PyTorchObs, features_extractor: BaseFeaturesExtractor | None = None
+    ) -> th.Tensor | tuple[th.Tensor, th.Tensor]:
         """
         Preprocess the observation if needed and extract features.
+
         :param obs: Observation
-        :return: the output of the features extractor(s)
+        :param features_extractor: The features extractor to use. If None, then ``self.features_extractor`` is used.
+        :return: The extracted features. If features extractor is not shared, returns a tuple with the
+            features for the actor and the features for the critic.
         """
         if self.share_features_extractor:
-            return super().extract_features(obs, self.features_extractor)
+            return super().extract_features(obs, features_extractor or self.features_extractor)
         else:
+            if features_extractor is not None:
+                warnings.warn(
+                    "Provided features_extractor will be ignored because the features extractor is not shared.",
+                    UserWarning,
+                )
+
             pi_features = super().extract_features(obs, self.pi_features_extractor)
             vf_features = super().extract_features(obs, self.vf_features_extractor)
             return pi_features, vf_features
 
-    def _get_constructor_parameters(self) -> Dict[str, Any]:
+    def _get_constructor_parameters(self) -> dict[str, Any]:
         data = super()._get_constructor_parameters()
 
         data.update(
@@ -222,7 +234,11 @@ class MaskableActorCriticPolicy(BasePolicy):
                 module.apply(partial(self.init_weights, gain=gain))
 
         # Setup optimizer with initial learning rate
-        self.optimizer = self.optimizer_class(self.parameters(), lr=lr_schedule(1), **self.optimizer_kwargs)
+        self.optimizer = self.optimizer_class(
+            self.parameters(),
+            lr=lr_schedule(1),  # type: ignore[call-arg]
+            **self.optimizer_kwargs,
+        )
 
     def _get_action_dist_from_latent(self, latent_pi: th.Tensor) -> MaskableDistribution:
         """
@@ -234,11 +250,11 @@ class MaskableActorCriticPolicy(BasePolicy):
         action_logits = self.action_net(latent_pi)
         return self.action_dist.proba_distribution(action_logits=action_logits)
 
-    def _predict(
+    def _predict(  # type: ignore[override]
         self,
-        observation: th.Tensor,
+        observation: PyTorchObs,
         deterministic: bool = False,
-        action_masks: Optional[np.ndarray] = None,
+        action_masks: np.ndarray | None = None,
     ) -> th.Tensor:
         """
         Get the action according to the policy for a given observation.
@@ -252,12 +268,12 @@ class MaskableActorCriticPolicy(BasePolicy):
 
     def predict(
         self,
-        observation: Union[np.ndarray, Dict[str, np.ndarray]],
-        state: Optional[Tuple[np.ndarray, ...]] = None,
-        episode_start: Optional[np.ndarray] = None,
+        observation: np.ndarray | dict[str, np.ndarray],
+        state: tuple[np.ndarray, ...] | None = None,
+        episode_start: np.ndarray | None = None,
         deterministic: bool = False,
-        action_masks: Optional[np.ndarray] = None,
-    ) -> Tuple[np.ndarray, Optional[Tuple[np.ndarray, ...]]]:
+        action_masks: np.ndarray | None = None,
+    ) -> tuple[np.ndarray, tuple[np.ndarray, ...] | None]:
         """
         Get the policy action from an observation (and optional hidden state).
         Includes sugar-coating to handle different observations (e.g. normalizing images).
@@ -273,35 +289,45 @@ class MaskableActorCriticPolicy(BasePolicy):
         # Switch to eval mode (this affects batch norm / dropout)
         self.set_training_mode(False)
 
-        observation, vectorized_env = self.obs_to_tensor(observation)
+        # Check for common mistake that the user does not mix Gym/VecEnv API
+        # Tuple obs are not supported by SB3, so we can safely do that check
+        if isinstance(observation, tuple) and len(observation) == 2 and isinstance(observation[1], dict):
+            raise ValueError(
+                "You have passed a tuple to the predict() function instead of a Numpy array or a Dict. "
+                "You are probably mixing Gym API with SB3 VecEnv API: `obs, info = env.reset()` (Gym) "
+                "vs `obs = vec_env.reset()` (SB3 VecEnv). "
+                "See related issue https://github.com/DLR-RM/stable-baselines3/issues/1694 "
+                "and documentation for more information: https://stable-baselines3.readthedocs.io/en/master/guide/vec_envs.html#vecenv-api-vs-gym-api"
+            )
+
+        obs_tensor, vectorized_env = self.obs_to_tensor(observation)
 
         with th.no_grad():
-            actions = self._predict(observation, deterministic=deterministic, action_masks=action_masks)
+            actions = self._predict(obs_tensor, deterministic=deterministic, action_masks=action_masks)
             # Convert to numpy
-            actions = actions.cpu().numpy()
+            actions = actions.cpu().numpy().reshape((-1, *self.action_space.shape))  # type: ignore[assignment, misc]
 
         if isinstance(self.action_space, spaces.Box):
             if self.squash_output:
                 # Rescale to proper domain when using squashing
-                actions = self.unscale_action(actions)
+                actions = self.unscale_action(actions)  # type: ignore[assignment, arg-type]
             else:
                 # Actions could be on arbitrary scale, so clip the actions to avoid
                 # out of bound error (e.g. if sampling from a Gaussian distribution)
-                actions = np.clip(actions, self.action_space.low, self.action_space.high)
+                actions = np.clip(actions, self.action_space.low, self.action_space.high)  # type: ignore[assignment, arg-type]
 
         if not vectorized_env:
-            if state is not None:
-                raise ValueError("Error: The environment must be vectorized when using recurrent policies.")
+            assert isinstance(actions, np.ndarray)
             actions = actions.squeeze(axis=0)
 
-        return actions, None
+        return actions, state  # type: ignore[return-value]
 
     def evaluate_actions(
         self,
         obs: th.Tensor,
         actions: th.Tensor,
-        action_masks: Optional[np.ndarray] = None,
-    ) -> Tuple[th.Tensor, th.Tensor, th.Tensor]:
+        action_masks: th.Tensor | None = None,
+    ) -> tuple[th.Tensor, th.Tensor, th.Tensor | None]:
         """
         Evaluate actions according to the current policy,
         given the observations.
@@ -326,7 +352,7 @@ class MaskableActorCriticPolicy(BasePolicy):
         values = self.value_net(latent_vf)
         return values, log_prob, distribution.entropy()
 
-    def get_distribution(self, obs: th.Tensor, action_masks: Optional[np.ndarray] = None) -> MaskableDistribution:
+    def get_distribution(self, obs: PyTorchObs, action_masks: np.ndarray | None = None) -> MaskableDistribution:
         """
         Get the current policy distribution given the observations.
 
@@ -341,7 +367,7 @@ class MaskableActorCriticPolicy(BasePolicy):
             distribution.apply_masking(action_masks)
         return distribution
 
-    def predict_values(self, obs: th.Tensor) -> th.Tensor:
+    def predict_values(self, obs: PyTorchObs) -> th.Tensor:
         """
         Get the estimated values according to the current policy given the observations.
 
@@ -381,15 +407,15 @@ class MaskableActorCriticCnnPolicy(MaskableActorCriticPolicy):
         observation_space: spaces.Space,
         action_space: spaces.Space,
         lr_schedule: Schedule,
-        net_arch: Optional[Union[List[int], Dict[str, List[int]]]] = None,
-        activation_fn: Type[nn.Module] = nn.Tanh,
+        net_arch: list[int] | dict[str, list[int]] | None = None,
+        activation_fn: type[nn.Module] = nn.Tanh,
         ortho_init: bool = True,
-        features_extractor_class: Type[BaseFeaturesExtractor] = NatureCNN,
-        features_extractor_kwargs: Optional[Dict[str, Any]] = None,
+        features_extractor_class: type[BaseFeaturesExtractor] = NatureCNN,
+        features_extractor_kwargs: dict[str, Any] | None = None,
         share_features_extractor: bool = True,
         normalize_images: bool = True,
-        optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
-        optimizer_kwargs: Optional[Dict[str, Any]] = None,
+        optimizer_class: type[th.optim.Optimizer] = th.optim.Adam,
+        optimizer_kwargs: dict[str, Any] | None = None,
     ):
         super().__init__(
             observation_space,
@@ -435,15 +461,15 @@ class MaskableMultiInputActorCriticPolicy(MaskableActorCriticPolicy):
         observation_space: spaces.Dict,
         action_space: spaces.Space,
         lr_schedule: Schedule,
-        net_arch: Optional[Union[List[int], Dict[str, List[int]]]] = None,
-        activation_fn: Type[nn.Module] = nn.Tanh,
+        net_arch: list[int] | dict[str, list[int]] | None = None,
+        activation_fn: type[nn.Module] = nn.Tanh,
         ortho_init: bool = True,
-        features_extractor_class: Type[BaseFeaturesExtractor] = CombinedExtractor,
-        features_extractor_kwargs: Optional[Dict[str, Any]] = None,
+        features_extractor_class: type[BaseFeaturesExtractor] = CombinedExtractor,
+        features_extractor_kwargs: dict[str, Any] | None = None,
         share_features_extractor: bool = True,
         normalize_images: bool = True,
-        optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
-        optimizer_kwargs: Optional[Dict[str, Any]] = None,
+        optimizer_class: type[th.optim.Optimizer] = th.optim.Adam,
+        optimizer_kwargs: dict[str, Any] | None = None,
     ):
         super().__init__(
             observation_space,

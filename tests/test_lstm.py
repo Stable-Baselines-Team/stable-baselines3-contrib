@@ -1,11 +1,9 @@
-from typing import Dict, Optional
-
 import gymnasium as gym
 import numpy as np
 import pytest
 from gymnasium import spaces
 from gymnasium.envs.classic_control import CartPoleEnv
-from gymnasium.wrappers.time_limit import TimeLimit
+from gymnasium.wrappers import TimeLimit
 from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.env_util import make_vec_env
@@ -43,7 +41,7 @@ class CartPoleNoVelEnv(CartPoleEnv):
                 self.x_threshold * 2,
                 self.theta_threshold_radians * 2,
             ]
-        )
+        ).astype(np.float32)
         self.observation_space = spaces.Box(-high, high, dtype=np.float32)
 
     @staticmethod
@@ -51,7 +49,7 @@ class CartPoleNoVelEnv(CartPoleEnv):
         xpos, _xvel, thetapos, _thetavel = full_obs
         return np.array([xpos, thetapos])
 
-    def reset(self, *, seed: Optional[int] = None, options: Optional[Dict] = None):
+    def reset(self, *, seed: int | None = None, options: dict | None = None):
         full_obs, info = super().reset(seed=seed, options=options)
         return CartPoleNoVelEnv._pos_obs(full_obs), info
 
@@ -246,3 +244,22 @@ def test_ppo_lstm_performance():
     # In CartPole-v1, a non-recurrent policy can easily get >= 450.
     # In CartPoleNoVelEnv, a non-recurrent policy doesn't get more than ~50.
     evaluate_policy(model, env, reward_threshold=450)
+
+
+class MultiDimensionalActionSpaceEnv(gym.Env):
+    def __init__(self):
+        self.observation_space = spaces.Box(low=-1, high=1, shape=(10,), dtype=np.float32)
+        self.action_space = spaces.Box(low=-1, high=1, shape=(2, 2), dtype=np.float32)
+
+    def reset(self, seed=None, options=None):
+        super().reset(seed=seed)
+        return self.observation_space.sample(), {}
+
+    def step(self, action):
+        return self.observation_space.sample(), 1, np.random.rand() > 0.8, False, {}
+
+
+def test_ppo_multi_dimensional_action_space():
+    env = MultiDimensionalActionSpaceEnv()
+    model = RecurrentPPO("MlpLstmPolicy", env, n_steps=64, n_epochs=2).learn(64)
+    evaluate_policy(model, model.get_env())

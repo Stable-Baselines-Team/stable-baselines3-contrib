@@ -1,5 +1,5 @@
+from collections.abc import Callable, Generator
 from functools import partial
-from typing import Callable, Generator, Optional, Tuple, Union
 
 import numpy as np
 import torch as th
@@ -33,7 +33,10 @@ def pad(
     :return: (n_seq, max_length, *tensor_shape)
     """
     # Create sequences given start and end
-    seq = [th.tensor(tensor[start : end + 1], device=device) for start, end in zip(seq_start_indices, seq_end_indices)]
+    seq = [
+        th.tensor(tensor[start : end + 1], device=device)
+        for start, end in zip(seq_start_indices, seq_end_indices, strict=True)
+    ]
     return th.nn.utils.rnn.pad_sequence(seq, batch_first=True, padding_value=padding_value)
 
 
@@ -64,7 +67,7 @@ def create_sequencers(
     episode_starts: np.ndarray,
     env_change: np.ndarray,
     device: th.device,
-) -> Tuple[np.ndarray, Callable, Callable]:
+) -> tuple[np.ndarray, Callable, Callable]:
     """
     Create the utility function to chunk data into
     sequences and pad them to create fixed size tensors.
@@ -115,8 +118,8 @@ class RecurrentRolloutBuffer(RolloutBuffer):
         buffer_size: int,
         observation_space: spaces.Space,
         action_space: spaces.Space,
-        hidden_state_shape: Tuple[int, int, int, int],
-        device: Union[th.device, str] = "auto",
+        hidden_state_shape: tuple[int, int, int, int],
+        device: th.device | str = "auto",
         gae_lambda: float = 1,
         gamma: float = 0.99,
         n_envs: int = 1,
@@ -143,7 +146,7 @@ class RecurrentRolloutBuffer(RolloutBuffer):
 
         super().add(*args, **kwargs)
 
-    def get(self, batch_size: Optional[int] = None) -> Generator[RecurrentRolloutBufferSamples, None, None]:
+    def get(self, batch_size: int | None = None) -> Generator[RecurrentRolloutBufferSamples, None, None]:
         assert self.full, "Rollout buffer must be full before sampling from it"
 
         # Prepare the data
@@ -199,7 +202,7 @@ class RecurrentRolloutBuffer(RolloutBuffer):
         self,
         batch_inds: np.ndarray,
         env_change: np.ndarray,
-        env: Optional[VecNormalize] = None,
+        env: VecNormalize | None = None,
     ) -> RecurrentRolloutBufferSamples:
         # Retrieve sequence starts and utility function
         self.seq_start_indices, self.pad, self.pad_and_flatten = create_sequencers(
@@ -230,7 +233,7 @@ class RecurrentRolloutBuffer(RolloutBuffer):
         return RecurrentRolloutBufferSamples(
             # (batch_size, obs_dim) -> (n_seq, max_length, obs_dim) -> (n_seq * max_length, obs_dim)
             observations=self.pad(self.observations[batch_inds]).reshape((padded_batch_size, *self.obs_shape)),
-            actions=self.pad(self.actions[batch_inds]).reshape((padded_batch_size,) + self.actions.shape[1:]),
+            actions=self.pad(self.actions[batch_inds]).reshape((padded_batch_size, *self.actions.shape[1:])),
             old_values=self.pad_and_flatten(self.values[batch_inds]),
             old_log_prob=self.pad_and_flatten(self.log_probs[batch_inds]),
             advantages=self.pad_and_flatten(self.advantages[batch_inds]),
@@ -262,8 +265,8 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
         buffer_size: int,
         observation_space: spaces.Space,
         action_space: spaces.Space,
-        hidden_state_shape: Tuple[int, int, int, int],
-        device: Union[th.device, str] = "auto",
+        hidden_state_shape: tuple[int, int, int, int],
+        device: th.device | str = "auto",
         gae_lambda: float = 1,
         gamma: float = 0.99,
         n_envs: int = 1,
@@ -290,7 +293,7 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
 
         super().add(*args, **kwargs)
 
-    def get(self, batch_size: Optional[int] = None) -> Generator[RecurrentDictRolloutBufferSamples, None, None]:
+    def get(self, batch_size: int | None = None) -> Generator[RecurrentDictRolloutBufferSamples, None, None]:
         assert self.full, "Rollout buffer must be full before sampling from it"
 
         # Prepare the data
@@ -343,7 +346,7 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
         self,
         batch_inds: np.ndarray,
         env_change: np.ndarray,
-        env: Optional[VecNormalize] = None,
+        env: VecNormalize | None = None,
     ) -> RecurrentDictRolloutBufferSamples:
         # Retrieve sequence starts and utility function
         self.seq_start_indices, self.pad, self.pad_and_flatten = create_sequencers(
@@ -373,7 +376,7 @@ class RecurrentDictRolloutBuffer(DictRolloutBuffer):
 
         return RecurrentDictRolloutBufferSamples(
             observations=observations,
-            actions=self.pad(self.actions[batch_inds]).reshape((padded_batch_size,) + self.actions.shape[1:]),
+            actions=self.pad(self.actions[batch_inds]).reshape((padded_batch_size, *self.actions.shape[1:])),
             old_values=self.pad_and_flatten(self.values[batch_inds]),
             old_log_prob=self.pad_and_flatten(self.log_probs[batch_inds]),
             advantages=self.pad_and_flatten(self.advantages[batch_inds]),

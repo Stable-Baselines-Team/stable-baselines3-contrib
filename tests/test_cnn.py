@@ -6,7 +6,6 @@ import numpy as np
 import pytest
 import torch as th
 from stable_baselines3.common.envs import FakeImageEnv
-from stable_baselines3.common.utils import zip_strict
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize, VecTransposeImage, is_vecenv_wrapped
 
 from sb3_contrib import QRDQN, TQC, TRPO, MaskablePPO, RecurrentPPO
@@ -76,12 +75,12 @@ def patch_qrdqn_names_(model):
 
 
 def params_should_match(params, other_params):
-    for param, other_param in zip_strict(params, other_params):
+    for param, other_param in zip(params, other_params, strict=True):
         assert th.allclose(param, other_param)
 
 
 def params_should_differ(params, other_params):
-    for param, other_param in zip_strict(params, other_params):
+    for param, other_param in zip(params, other_params, strict=True):
         assert not th.allclose(param, other_param)
 
 

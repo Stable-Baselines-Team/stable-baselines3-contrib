@@ -82,19 +82,19 @@ class TestMaskableCategoricalDistribution:
 
         DIMS = 2
         dist = MaskableCategoricalDistribution(DIMS)
-        with pytest.raises(AssertionError):
+        with pytest.raises(AttributeError):
             dist.log_prob(th.randint(DIMS - 1, (1, 3)))
 
-        with pytest.raises(AssertionError):
+        with pytest.raises(AttributeError):
             dist.entropy()
 
-        with pytest.raises(AssertionError):
+        with pytest.raises(AttributeError):
             dist.sample()
 
-        with pytest.raises(AssertionError):
+        with pytest.raises(AttributeError):
             dist.mode()
 
-        with pytest.raises(AssertionError):
+        with pytest.raises(AttributeError):
             dist.apply_masking(None)
 
         # But now we can

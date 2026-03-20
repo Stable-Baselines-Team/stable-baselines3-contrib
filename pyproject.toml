@@ -1,31 +1,25 @@
 [tool.ruff]
 # Same as Black.
 line-length = 127
-# Assume Python 3.8
-target-version = "py38"
+# Assume Python 3.10
+target-version = "py310"
+
+[tool.ruff.lint]
 select = ["E", "F", "B", "UP", "C90", "RUF"]
 # B028: Ignore explicit stacklevel`
 # RUF013: Too many false positives (implicit optional)
 ignore = ["B028", "RUF013"]
 
-[tool.ruff.per-file-ignores]
+[tool.ruff.lint.per-file-ignores]
 # ClassVar, implicit optional check not needed for tests
-"./tests/*.py"= ["RUF012", "RUF013"]
+"./tests/*.py" = ["RUF012", "RUF013"]
 
-[tool.ruff.mccabe]
+[tool.ruff.lint.mccabe]
 # Unlike Flake8, ruff default to a complexity level of 10.
 max-complexity = 15
 
 [tool.black]
 line-length = 127
-
-[tool.isort]
-profile = "black"
-line_length = 127
-src_paths = ["sb3_contrib"]
-
-[tool.pytype]
-inputs = ['sb3_contrib']
 
 [tool.mypy]
 ignore_missing_imports = true
@@ -36,28 +30,20 @@ exclude = """(?x)(
 	| sb3_contrib/ars/ars.py$
 	| sb3_contrib/common/recurrent/policies.py$
 	| sb3_contrib/common/recurrent/buffers.py$
-	| sb3_contrib/common/maskable/distributions.py$
-	| sb3_contrib/common/maskable/callbacks.py$
-	| sb3_contrib/common/maskable/policies.py$
-	| sb3_contrib/common/maskable/buffers.py$
-	| sb3_contrib/common/vec_env/async_eval.py$
-	| sb3_contrib/ppo_mask/ppo_mask.py$
 	| tests/test_train_eval_mode.py$
   )"""
 
 [tool.pytest.ini_options]
 # Deterministic ordering for tests; useful for pytest-xdist.
-env = [
-	"PYTHONHASHSEED=0"
-]
+# env = ["PYTHONHASHSEED=0"]
 
 filterwarnings = [
     # Tensorboard warnings
     "ignore::DeprecationWarning:tensorboard",
+    # tqdm warning about rich being experimental
+    "ignore:rich is experimental",
 ]
-markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')"
-]
+markers = ["slow: marks tests as slow (deselect with '-m \"not slow\"')"]
 
 [tool.coverage.run]
 disable_warnings = ["couldnt-parse"]
@@ -65,4 +51,11 @@ branch = false
 omit = ["tests/*", "setup.py"]
 
 [tool.coverage.report]
-exclude_lines = [ "pragma: no cover", "raise NotImplementedError()", "if typing.TYPE_CHECKING:"]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError()",
+    "if typing.TYPE_CHECKING:",
+]
+
+# [tool.pyright]
+# extraPaths = ["../torchy-baselines/"]

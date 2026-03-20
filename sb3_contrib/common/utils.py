@@ -1,4 +1,4 @@
-from typing import Callable, Optional, Sequence
+from collections.abc import Callable, Sequence
 
 import torch as th
 from torch import nn
@@ -7,7 +7,7 @@ from torch import nn
 def quantile_huber_loss(
     current_quantiles: th.Tensor,
     target_quantiles: th.Tensor,
-    cum_prob: Optional[th.Tensor] = None,
+    cum_prob: th.Tensor | None = None,
     sum_over_quantiles: bool = True,
 ) -> th.Tensor:
     """

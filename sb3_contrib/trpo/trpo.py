@@ -1,11 +1,12 @@
 import copy
 import warnings
 from functools import partial
-from typing import Any, ClassVar, Dict, List, Optional, Tuple, Type, TypeVar, Union
+from typing import Any, ClassVar, TypeVar
 
 import numpy as np
 import torch as th
 from gymnasium import spaces
+from stable_baselines3.common.buffers import RolloutBuffer
 from stable_baselines3.common.distributions import kl_divergence
 from stable_baselines3.common.on_policy_algorithm import OnPolicyAlgorithm
 from stable_baselines3.common.policies import ActorCriticPolicy, BasePolicy
@@ -53,6 +54,8 @@ class TRPO(OnPolicyAlgorithm):
         instead of action noise exploration (default: False)
     :param sde_sample_freq: Sample a new noise matrix every n steps when using gSDE
         Default: -1 (only sample at the beginning of the rollout)
+    :param rollout_buffer_class: Rollout buffer class to use. If ``None``, it will be automatically selected.
+    :param rollout_buffer_kwargs: Keyword arguments to pass to the rollout buffer on creation
     :param normalize_advantage: Whether to normalize or not the advantage
     :param target_kl: Target Kullback-Leibler divergence between updates.
         Should be small for stability. Values like 0.01, 0.05.
@@ -61,7 +64,7 @@ class TRPO(OnPolicyAlgorithm):
     :param stats_window_size: Window size for the rollout logging, specifying the number of episodes to average
         the reported success rate, mean episode length, and mean reward over
     :param tensorboard_log: the log location for tensorboard (if None, no logging)
-    :param policy_kwargs: additional arguments to be passed to the policy on creation
+    :param policy_kwargs: additional arguments to be passed to the policy on creation. See :ref:`trpo_policies`
     :param verbose: the verbosity level: 0 no output, 1 info, 2 debug
     :param seed: Seed for the pseudo random generators
     :param device: Device (cpu, cuda, ...) on which the code should be run.
@@ -69,7 +72,7 @@ class TRPO(OnPolicyAlgorithm):
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
 
-    policy_aliases: ClassVar[Dict[str, Type[BasePolicy]]] = {
+    policy_aliases: ClassVar[dict[str, type[BasePolicy]]] = {
         "MlpPolicy": MlpPolicy,
         "CnnPolicy": CnnPolicy,
         "MultiInputPolicy": MultiInputPolicy,
@@ -77,9 +80,9 @@ class TRPO(OnPolicyAlgorithm):
 
     def __init__(
         self,
-        policy: Union[str, Type[ActorCriticPolicy]],
-        env: Union[GymEnv, str],
-        learning_rate: Union[float, Schedule] = 1e-3,
+        policy: str | type[ActorCriticPolicy],
+        env: GymEnv | str,
+        learning_rate: float | Schedule = 1e-3,
         n_steps: int = 2048,
         batch_size: int = 128,
         gamma: float = 0.99,
@@ -91,15 +94,17 @@ class TRPO(OnPolicyAlgorithm):
         gae_lambda: float = 0.95,
         use_sde: bool = False,
         sde_sample_freq: int = -1,
+        rollout_buffer_class: type[RolloutBuffer] | None = None,
+        rollout_buffer_kwargs: dict[str, Any] | None = None,
         normalize_advantage: bool = True,
         target_kl: float = 0.01,
         sub_sampling_factor: int = 1,
         stats_window_size: int = 100,
-        tensorboard_log: Optional[str] = None,
-        policy_kwargs: Optional[Dict[str, Any]] = None,
+        tensorboard_log: str | None = None,
+        policy_kwargs: dict[str, Any] | None = None,
         verbose: int = 0,
-        seed: Optional[int] = None,
-        device: Union[th.device, str] = "auto",
+        seed: int | None = None,
+        device: th.device | str = "auto",
         _init_setup_model: bool = True,
     ):
         super().__init__(
@@ -114,6 +119,8 @@ class TRPO(OnPolicyAlgorithm):
             max_grad_norm=0.0,
             use_sde=use_sde,
             sde_sample_freq=sde_sample_freq,
+            rollout_buffer_class=rollout_buffer_class,
+            rollout_buffer_kwargs=rollout_buffer_kwargs,
             stats_window_size=stats_window_size,
             tensorboard_log=tensorboard_log,
             policy_kwargs=policy_kwargs,
@@ -168,7 +175,7 @@ class TRPO(OnPolicyAlgorithm):
 
     def _compute_actor_grad(
         self, kl_div: th.Tensor, policy_objective: th.Tensor
-    ) -> Tuple[List[nn.Parameter], th.Tensor, th.Tensor, List[Tuple[int, ...]]]:
+    ) -> tuple[list[nn.Parameter], th.Tensor, th.Tensor, list[tuple[int, ...]]]:
         """
         Compute actor gradients for kl div and surrogate objectives.
 
@@ -184,10 +191,10 @@ class TRPO(OnPolicyAlgorithm):
         # Contains the shape of the gradients of the KL divergence w.r.t each parameter
         # This way the flattened gradient can be reshaped back into the original shapes and applied to
         # the parameters
-        grad_shape: List[Tuple[int, ...]] = []
+        grad_shape: list[tuple[int, ...]] = []
         # Contains the parameters which have non-zeros KL divergence gradients
         # The list is used during the line-search to apply the step to each parameters
-        actor_params: List[nn.Parameter] = []
+        actor_params: list[nn.Parameter] = []
 
         for name, param in self.policy.named_parameters():
             # Skip parameters related to value function based on name
@@ -254,11 +261,6 @@ class TRPO(OnPolicyAlgorithm):
                 # Convert discrete action from float to long
                 actions = rollout_data.actions.long().flatten()
 
-            # Re-sample the noise matrix because the log_std has changed
-            if self.use_sde:
-                # batch_size is only used for the value function
-                self.policy.reset_noise(actions.shape[0])
-
             with th.no_grad():
                 # Note: is copy enough, no need for deepcopy?
                 # If using gSDE and deepcopy, we need to use `old_distribution.distribution`
@@ -298,10 +300,10 @@ class TRPO(OnPolicyAlgorithm):
 
             # Maximal step length
             line_search_max_step_size = 2 * self.target_kl
-            line_search_max_step_size /= th.matmul(
-                search_direction, hessian_vector_product_fn(search_direction, retain_graph=False)
+            line_search_max_step_size /= float(
+                th.matmul(search_direction, hessian_vector_product_fn(search_direction, retain_graph=False))
             )
-            line_search_max_step_size = th.sqrt(line_search_max_step_size)  # type: ignore[assignment, arg-type]
+            line_search_max_step_size = np.sqrt(line_search_max_step_size)
 
             line_search_backtrack_coeff = 1.0
             original_actor_params = [param.detach().clone() for param in actor_params]
@@ -312,7 +314,7 @@ class TRPO(OnPolicyAlgorithm):
                 for _ in range(self.line_search_max_iter):
                     start_idx = 0
                     # Applying the scaled step direction
-                    for param, original_param, shape in zip(actor_params, original_actor_params, grad_shape):
+                    for param, original_param, shape in zip(actor_params, original_actor_params, grad_shape, strict=True):
                         n_params = param.numel()
                         param.data = (
                             original_param.data
@@ -347,7 +349,7 @@ class TRPO(OnPolicyAlgorithm):
 
                 if not is_line_search_success:
                     # If the line-search wasn't successful we revert to the original parameters
-                    for param, original_param in zip(actor_params, original_actor_params):
+                    for param, original_param in zip(actor_params, original_actor_params, strict=True):
                         param.data = original_param.data.clone()
 
                     policy_objective_values.append(policy_objective.item())
@@ -386,7 +388,7 @@ class TRPO(OnPolicyAlgorithm):
         self.logger.record("train/n_updates", self._n_updates, exclude="tensorboard")
 
     def hessian_vector_product(
-        self, params: List[nn.Parameter], grad_kl: th.Tensor, vector: th.Tensor, retain_graph: bool = True
+        self, params: list[nn.Parameter], grad_kl: th.Tensor, vector: th.Tensor, retain_graph: bool = True
     ) -> th.Tensor:
         """
         Computes the matrix-vector product with the Fisher information matrix.

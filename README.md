@@ -1,6 +1,6 @@
 <img src="docs/\_static/img/logo.png" align="right" width="40%"/>
 
-[![CI](https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/workflows/CI/badge.svg)](https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/actions) [![codestyle](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![CI](https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/actions/workflows/ci.yml/badge.svg)](https://github.com/Stable-Baselines-Team/stable-baselines3-contrib/actions/workflows/ci.yml) [![codestyle](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 # Stable-Baselines3 - Contrib (SB3-Contrib)
 
@@ -31,6 +31,7 @@ See documentation for the full list of included features.
 - [PPO with recurrent policy (RecurrentPPO aka PPO LSTM)](https://ppo-details.cleanrl.dev//2021/11/05/ppo-implementation-details/)
 - [Truncated Quantile Critics (TQC)](https://arxiv.org/abs/2005.04269)
 - [Trust Region Policy Optimization (TRPO)](https://arxiv.org/abs/1502.05477)
+- [Batch Normalization in Deep Reinforcement Learning (CrossQ)](https://openreview.net/forum?id=PczQtTsTIX)
 
 **Gym Wrappers**:
 - [Time Feature Wrapper](https://arxiv.org/abs/1712.00378)
