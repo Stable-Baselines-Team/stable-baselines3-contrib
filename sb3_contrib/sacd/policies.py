@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any
 
 import torch as th
 from gymnasium import spaces
@@ -45,10 +45,10 @@ class Actor(BasePolicy):
         self,
         observation_space: spaces.Space,
         action_space: spaces.Box,
-        net_arch: List[int],
+        net_arch: list[int],
         features_extractor: nn.Module,
         features_dim: int,
-        activation_fn: Type[nn.Module] = nn.Softmax,
+        activation_fn: type[nn.Module] = nn.Softmax,
         use_sde: bool = False,
         log_std_init: float = -3,
         full_std: bool = True,
@@ -82,7 +82,7 @@ class Actor(BasePolicy):
 
         self.output_activation = nn.Softmax(dim=1)
 
-    def _get_constructor_parameters(self) -> Dict[str, Any]:
+    def _get_constructor_parameters(self) -> dict[str, Any]:
         data = super()._get_constructor_parameters()
 
         data.update(
@@ -114,7 +114,7 @@ class Actor(BasePolicy):
 
         return action
 
-    def action_log_prob(self, obs: th.Tensor) -> Tuple[th.Tensor, th.Tensor]:
+    def action_log_prob(self, obs: th.Tensor) -> tuple[th.Tensor, th.Tensor]:
         features = self.extract_features(obs, self.features_extractor)
 
         action_prob = self.output_activation(self.latent_pi(features))
@@ -162,10 +162,10 @@ class DiscreteCritic(BaseModel):
         self,
         observation_space: spaces.Space,
         action_space: spaces.Discrete,
-        net_arch: List[int],
+        net_arch: list[int],
         features_extractor: BaseFeaturesExtractor,
         features_dim: int,
-        activation_fn: Type[nn.Module] = nn.ReLU,
+        activation_fn: type[nn.Module] = nn.ReLU,
         normalize_images: bool = True,
         n_critics: int = 2,
         share_features_extractor: bool = True,
@@ -191,7 +191,7 @@ class DiscreteCritic(BaseModel):
     def get_crit_params(self, n):
         return self.q_networks[n].parameters()
 
-    def forward(self, obs: th.Tensor) -> Tuple[th.Tensor, ...]:
+    def forward(self, obs: th.Tensor) -> tuple[th.Tensor, ...]:
         # Learn the features extractor using the policy loss only
         # when the features_extractor is shared with the actor
         if self.features_extractor is not None:
@@ -238,17 +238,17 @@ class SACDPolicy(BasePolicy):
         observation_space: spaces.Space,
         action_space: spaces.Box,
         lr_schedule: Schedule,
-        net_arch: Optional[Union[List[int], Dict[str, List[int]]]] = None,
-        activation_fn: Type[nn.Module] = nn.ReLU,
+        net_arch: list[int] | dict[str, list[int]] | None = None,
+        activation_fn: type[nn.Module] = nn.ReLU,
         use_sde: bool = False,
         log_std_init: float = -3,
         use_expln: bool = False,
         clip_mean: float = 2.0,
-        features_extractor_class: Type[BaseFeaturesExtractor] = FlattenExtractor,
-        features_extractor_kwargs: Optional[Dict[str, Any]] = None,
+        features_extractor_class: type[BaseFeaturesExtractor] = FlattenExtractor,
+        features_extractor_kwargs: dict[str, Any] | None = None,
         normalize_images: bool = True,
-        optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
-        optimizer_kwargs: Optional[Dict[str, Any]] = None,
+        optimizer_class: type[th.optim.Optimizer] = th.optim.Adam,
+        optimizer_kwargs: dict[str, Any] | None = None,
         n_critics: int = 2,
         share_features_extractor: bool = False,
     ):
@@ -331,7 +331,7 @@ class SACDPolicy(BasePolicy):
         # Target networks should always be in eval mode
         self.critic_target.set_training_mode(False)
 
-    def _get_constructor_parameters(self) -> Dict[str, Any]:
+    def _get_constructor_parameters(self) -> dict[str, Any]:
         data = super()._get_constructor_parameters()
 
         data.update(
@@ -352,11 +352,11 @@ class SACDPolicy(BasePolicy):
         )
         return data
 
-    def make_actor(self, features_extractor: Optional[BaseFeaturesExtractor] = None) -> Actor:
+    def make_actor(self, features_extractor: BaseFeaturesExtractor | None = None) -> Actor:
         actor_kwargs = self._update_features_extractor(self.actor_kwargs, features_extractor)
         return Actor(**actor_kwargs).to(self.device)
 
-    def make_critic(self, features_extractor: Optional[BaseFeaturesExtractor] = None) -> DiscreteCritic:
+    def make_critic(self, features_extractor: BaseFeaturesExtractor | None = None) -> DiscreteCritic:
         critic_kwargs = self._update_features_extractor(self.critic_kwargs, features_extractor)
         return DiscreteCritic(**critic_kwargs).to(self.device)
 
@@ -414,17 +414,17 @@ class CnnPolicy(SACDPolicy):
         observation_space: spaces.Space,
         action_space: spaces.Box,
         lr_schedule: Schedule,
-        net_arch: Optional[Union[List[int], Dict[str, List[int]]]] = None,
-        activation_fn: Type[nn.Module] = nn.ReLU,
+        net_arch: list[int] | dict[str, list[int]] | None = None,
+        activation_fn: type[nn.Module] = nn.ReLU,
         use_sde: bool = False,
         log_std_init: float = -3,
         use_expln: bool = False,
         clip_mean: float = 2.0,
-        features_extractor_class: Type[BaseFeaturesExtractor] = NatureCNN,
-        features_extractor_kwargs: Optional[Dict[str, Any]] = None,
+        features_extractor_class: type[BaseFeaturesExtractor] = NatureCNN,
+        features_extractor_kwargs: dict[str, Any] | None = None,
         normalize_images: bool = True,
-        optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
-        optimizer_kwargs: Optional[Dict[str, Any]] = None,
+        optimizer_class: type[th.optim.Optimizer] = th.optim.Adam,
+        optimizer_kwargs: dict[str, Any] | None = None,
         n_critics: int = 2,
         share_features_extractor: bool = False,
     ):
@@ -480,17 +480,17 @@ class MultiInputPolicy(SACDPolicy):
         observation_space: spaces.Space,
         action_space: spaces.Box,
         lr_schedule: Schedule,
-        net_arch: Optional[Union[List[int], Dict[str, List[int]]]] = None,
-        activation_fn: Type[nn.Module] = nn.ReLU,
+        net_arch: list[int] | dict[str, list[int]] | None = None,
+        activation_fn: type[nn.Module] = nn.ReLU,
         use_sde: bool = False,
         log_std_init: float = -3,
         use_expln: bool = False,
         clip_mean: float = 2.0,
-        features_extractor_class: Type[BaseFeaturesExtractor] = CombinedExtractor,
-        features_extractor_kwargs: Optional[Dict[str, Any]] = None,
+        features_extractor_class: type[BaseFeaturesExtractor] = CombinedExtractor,
+        features_extractor_kwargs: dict[str, Any] | None = None,
         normalize_images: bool = True,
-        optimizer_class: Type[th.optim.Optimizer] = th.optim.Adam,
-        optimizer_kwargs: Optional[Dict[str, Any]] = None,
+        optimizer_class: type[th.optim.Optimizer] = th.optim.Adam,
+        optimizer_kwargs: dict[str, Any] | None = None,
         n_critics: int = 2,
         share_features_extractor: bool = False,
     ):

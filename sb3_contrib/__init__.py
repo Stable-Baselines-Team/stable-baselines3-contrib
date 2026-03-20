@@ -16,11 +16,11 @@ with open(version_file) as file_handler:
 
 __all__ = [
     "ARS",
-    "CrossQ",
-    "MaskablePPO",
     "QRDQN",
-    "RecurrentPPO",
     "SACD",
     "TQC",
     "TRPO",
+    "CrossQ",
+    "MaskablePPO",
+    "RecurrentPPO",
 ]

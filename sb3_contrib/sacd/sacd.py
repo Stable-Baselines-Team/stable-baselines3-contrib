@@ -1,4 +1,4 @@
-from typing import Any, ClassVar, Dict, List, Optional, Tuple, Type, TypeVar, Union
+from typing import Any, ClassVar, TypeVar
 
 import numpy as np
 import torch as th
@@ -75,7 +75,7 @@ class SACD(OffPolicyAlgorithm):
     :param _init_setup_model: Whether or not to build the network at the creation of the instance
     """
 
-    policy_aliases: ClassVar[Dict[str, Type[BasePolicy]]] = {
+    policy_aliases: ClassVar[dict[str, type[BasePolicy]]] = {
         "MlpPolicy": MlpPolicy,
         "CnnPolicy": CnnPolicy,
         "MultiInputPolicy": MultiInputPolicy,
@@ -87,33 +87,33 @@ class SACD(OffPolicyAlgorithm):
 
     def __init__(
         self,
-        policy: Union[str, Type[SACDPolicy]],
-        env: Union[GymEnv, str],
-        learning_rate: Union[float, Schedule] = 3e-4,
+        policy: str | type[SACDPolicy],
+        env: GymEnv | str,
+        learning_rate: float | Schedule = 3e-4,
         buffer_size: int = 1_000_000,  # 1e6
         learning_starts: int = 400,
         batch_size: int = 256,
         tau: float = 0.005,
         gamma: float = 0.99,
-        train_freq: Union[int, Tuple[int, str]] = 1,
+        train_freq: int | tuple[int, str] = 1,
         gradient_steps: int = 1,
-        action_noise: Optional[ActionNoise] = None,
-        replay_buffer_class: Optional[Type[ReplayBuffer]] = None,
-        replay_buffer_kwargs: Optional[Dict[str, Any]] = None,
+        action_noise: ActionNoise | None = None,
+        replay_buffer_class: type[ReplayBuffer] | None = None,
+        replay_buffer_kwargs: dict[str, Any] | None = None,
         optimize_memory_usage: bool = False,
-        ent_coef: Union[str, float] = "auto",
+        ent_coef: str | float = "auto",
         target_update_interval: int = 1,
-        target_entropy: Union[str, float] = "auto",
+        target_entropy: str | float = "auto",
         use_sde: bool = False,
         sde_sample_freq: int = -1,
         use_sde_at_warmup: bool = False,
         stats_window_size: int = 100,
         max_grad_norm=5.0,
-        tensorboard_log: Optional[str] = None,
-        policy_kwargs: Optional[Dict[str, Any]] = None,
+        tensorboard_log: str | None = None,
+        policy_kwargs: dict[str, Any] | None = None,
         verbose: int = 0,
-        seed: Optional[int] = None,
-        device: Union[th.device, str] = "auto",
+        seed: int | None = None,
+        device: th.device | str = "auto",
         _init_setup_model: bool = True,
     ):
         super().__init__(
@@ -150,7 +150,7 @@ class SACD(OffPolicyAlgorithm):
         # Inverse of the reward scale
         self.ent_coef = ent_coef
         self.target_update_interval = target_update_interval
-        self.ent_coef_optimizer: Optional[th.optim.Adam] = None
+        self.ent_coef_optimizer: th.optim.Adam | None = None
         self.gradient_clip_norm = max_grad_norm
 
         if _init_setup_model:
@@ -276,9 +276,9 @@ class SACD(OffPolicyAlgorithm):
     def take_optimisation_step(
         self,
         optimizer: th.optim.Optimizer,
-        network: Optional[th.nn.Module],
+        network: th.nn.Module | None,
         loss: th.Tensor,
-        clipping_norm: Optional[float] = None,
+        clipping_norm: float | None = None,
     ) -> None:
         optimizer.zero_grad()
         loss.backward()
@@ -304,10 +304,10 @@ class SACD(OffPolicyAlgorithm):
             progress_bar=progress_bar,
         )
 
-    def _excluded_save_params(self) -> List[str]:
+    def _excluded_save_params(self) -> list[str]:
         return super()._excluded_save_params() + ["actor", "critic", "critic_target"]  # noqa: RUF005
 
-    def _get_torch_save_params(self) -> Tuple[List[str], List[str]]:
+    def _get_torch_save_params(self) -> tuple[list[str], list[str]]:
         state_dicts = ["policy", "actor.optimizer", "critic.optimizer"]
         if self.ent_coef_optimizer is not None:
             saved_pytorch_variables = ["log_ent_coef"]
