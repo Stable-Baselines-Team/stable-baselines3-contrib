@@ -73,6 +73,25 @@ class TestMaskableCategorical:
             dist.apply_masking(masks)
             assert int(dist.entropy().exp()) == v
 
+    def test_apply_masking_no_simplex_error_with_cached_probs(self):
+        """
+        Regression test for issue #322.
+        apply_masking() should not raise a Simplex validate_args error
+        when probs are cached before masking is re-applied (torch 2.9+, large action spaces).
+        """
+        n = 992
+        delta = 17
+        logits = th.full((1, n), -delta, dtype=th.float32)
+        logits[0, 0] = 0.0
+
+        distribution = MaskableCategorical(logits=logits)
+        _ = distribution.probs  # cache probs on the instance
+
+        mask = th.zeros((1, n), dtype=th.bool)
+        mask[0, 0] = True
+
+        # Should not raise ValueError: Simplex constraint
+        distribution.apply_masking(mask.numpy())
 
 class TestMaskableCategoricalDistribution:
     def test_distribution_must_be_initialized(self):
