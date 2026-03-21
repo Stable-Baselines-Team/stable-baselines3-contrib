@@ -65,6 +65,10 @@ class MaskableCategorical(Categorical):
             logits = self._original_logits
 
         # Reinitialize with updated logits
+        # Clear cached probs before reinit to avoid validate_args Simplex error
+        # when stale float32 probs deviate from sum=1 by >1e-6 (torch 2.9+, many categories)
+        self.__dict__.pop("probs", None)
+        self.__dict__.pop("_probs", None)
         super().__init__(logits=logits)
 
         # self.probs may already be cached, so we must force an update
