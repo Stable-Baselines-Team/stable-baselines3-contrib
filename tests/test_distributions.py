@@ -93,6 +93,7 @@ class TestMaskableCategorical:
         # Should not raise ValueError: Simplex constraint
         distribution.apply_masking(mask.numpy())
 
+
 class TestMaskableCategoricalDistribution:
     def test_distribution_must_be_initialized(self):
         """
