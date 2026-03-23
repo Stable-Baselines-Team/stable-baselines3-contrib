@@ -93,12 +93,12 @@ class TestMaskableCategorical:
         _ = distribution.probs  # cache probs on the instance
 
         th.testing.assert_close(distribution.probs, expected_proba, rtol=5e-5, atol=5e-5)
-        # Apply softmax, should be within 1e8 tolerance
+        # Apply softmax, should be within the default tolerance
         th.testing.assert_close(distribution.probs, logits_to_probs(logits))
 
         mask = th.zeros((1, n), dtype=th.bool)
         # Only the first action is valid, mask the rest of the actions,
-        # the rtol and atol when comparing to expected_proba can be smaller (1e-8 by default)
+        # the rtol and atol when comparing to expected_proba can be kept to the default values
         mask[0, 0] = True
 
         # Should not raise ValueError: Simplex constraint
