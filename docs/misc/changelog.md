@@ -16,9 +16,10 @@
 
 ### Bug Fixes:
 
-- Fix `MaskablePPO` and `RecurrentPPO` inaccurate `n_updates` counting when `target_kl` early exits the training loop
-- Fix `RecurrentPPO` and `MaskablePPO` forward and predict do not reshape action before clip it (@immortal-boy)
+- Fixed `MaskablePPO` and `RecurrentPPO` inaccurate `n_updates` counting when `target_kl` early exits the training loop
+- Fixed `RecurrentPPO` and `MaskablePPO` `forward` and `predict` not reshaping the action before clipping it (@immortal-boy)
 - Do not call `forward()` method directly in `RecurrentPPO` (@immortal-boy)
+- Fixed `MaskableCategorical.apply_masking()` crashing with `ValueError: Simplex` when cached `probs` deviate from sum=1 in float32 with large action spaces (torch 2.9+) (@kirann-05)
 
 ### Deprecations:
 
