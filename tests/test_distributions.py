@@ -65,7 +65,7 @@ class TestMaskableCategorical:
     def test_masking_affects_entropy(self):
         # All outcomes equally likely
         NUM_DIMS = 3
-        logits = th.tensor([[0] * NUM_DIMS])
+        logits = th.zeros((1, NUM_DIMS), dtype=th.float32)
         dist = MaskableCategorical(logits=logits)
 
         # For each possible number of valid actions valid_action, show that e^entropy == valid_action
@@ -167,7 +167,7 @@ class TestMaskableCategoricalDistribution:
         NUM_DIMS = 2
         dist = MaskableCategoricalDistribution(NUM_DIMS)
 
-        logits = th.tensor([[0] * NUM_DIMS])
+        logits = th.zeros((1, NUM_DIMS), dtype=th.float32)
         dist.proba_distribution(logits)
 
         assert (dist.distribution.probs == 0.5).all()
@@ -250,7 +250,7 @@ class TestMaskableMultiCategoricalDistribution:
         NUM_CATS = 3
         dist = MaskableMultiCategoricalDistribution([DIMS_PER_CAT] * NUM_CATS)
 
-        logits = th.tensor([[0] * DIMS_PER_CAT * NUM_CATS])
+        logits = th.tensor([[0] * DIMS_PER_CAT * NUM_CATS], dtype=th.float32)
         dist.proba_distribution(logits)
 
         assert len(dist.distributions) == NUM_CATS
@@ -338,7 +338,7 @@ class TestMaskableBernoulliDistribution:
         BINARY_STATES = 2
         dist = MaskableBernoulliDistribution(NUM_DIMS)
 
-        logits = th.tensor([[0] * BINARY_STATES * NUM_DIMS])
+        logits = th.tensor([[0] * BINARY_STATES * NUM_DIMS], dtype=th.float32)
         dist.proba_distribution(logits)
 
         assert len(dist.distributions) == NUM_DIMS
