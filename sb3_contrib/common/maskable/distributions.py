@@ -7,7 +7,6 @@ from gymnasium import spaces
 from stable_baselines3.common.distributions import Distribution
 from torch import nn
 from torch.distributions import Categorical
-from torch.distributions.utils import logits_to_probs
 
 SelfMaskableCategoricalDistribution = TypeVar("SelfMaskableCategoricalDistribution", bound="MaskableCategoricalDistribution")
 SelfMaskableMultiCategoricalDistribution = TypeVar(
@@ -68,11 +67,7 @@ class MaskableCategorical(Categorical):
         # Clear cached probs before reinit to avoid validate_args Simplex error
         # when stale float32 probs deviate from sum=1 by >1e-6 (torch 2.9+, many categories)
         self.__dict__.pop("probs", None)
-        self.__dict__.pop("_probs", None)
-        super().__init__(logits=logits)
-
-        # self.probs may already be cached, so we must force an update
-        self.probs = logits_to_probs(self.logits)
+        super().__init__(logits=logits, validate_args=self._validate_args)
 
     def entropy(self) -> th.Tensor:
         if self.masks is None:

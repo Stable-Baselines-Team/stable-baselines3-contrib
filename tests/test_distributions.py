@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 import torch as th
+from torch.distributions.utils import logits_to_probs
 
 from sb3_contrib.common.maskable.distributions import (
     MaskableBernoulliDistribution,
@@ -88,10 +89,12 @@ class TestMaskableCategorical:
         # Expected probs: first dim is close to one, rest are almost zero after the softmax
         expected_proba = th.cat((th.ones(1, 1), th.zeros(1, n - 1)), dim=1)
 
-        distribution = MaskableCategorical(logits=logits)
+        distribution = MaskableCategorical(logits=logits, validate_args=True)
         _ = distribution.probs  # cache probs on the instance
 
         th.testing.assert_close(distribution.probs, expected_proba, rtol=5e-5, atol=5e-5)
+        # Apply softmax, should be within 1e8 tolerance
+        th.testing.assert_close(distribution.probs, logits_to_probs(logits))
 
         mask = th.zeros((1, n), dtype=th.bool)
         # Only the first action is valid, mask the rest of the actions,
@@ -101,6 +104,8 @@ class TestMaskableCategorical:
         # Should not raise ValueError: Simplex constraint
         distribution.apply_masking(mask.numpy())
         th.testing.assert_close(distribution.probs, expected_proba)
+        # After masking, it should deviate from the original probs
+        assert not th.allclose(distribution.probs, logits_to_probs(logits))
 
 
 class TestMaskableCategoricalDistribution:
