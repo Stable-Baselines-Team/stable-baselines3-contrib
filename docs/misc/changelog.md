@@ -2,7 +2,7 @@
 
 # Changelog
 
-## Release 2.8.0a4 (WIP)
+## Release 2.8.0 (2026-04-01)
 
 ### Breaking Changes:
 
