@@ -2,6 +2,22 @@
 
 # Changelog
 
+## Release 2.8.1a0 (WIP)
+
+### Breaking Changes:
+
+### New Features:
+
+### Bug Fixes:
+
+### Deprecations:
+
+### Others:
+
+### Documentation:
+- Fixed dead link for `RecurrentPPO`.
+
+
 ## Release 2.8.0 (2026-04-01)
 
 ### Breaking Changes:
