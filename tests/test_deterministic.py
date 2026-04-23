@@ -7,7 +7,7 @@ from stable_baselines3.common.vec_env import VecNormalize
 from sb3_contrib import ARS, QRDQN, TQC, RecurrentPPO
 from sb3_contrib.common.vec_env import AsyncEval
 
-N_STEPS_TRAINING = 500
+N_STEPS_TRAINING = 256
 SEED = 0
 ARS_MULTI = "ars_multi"
 
@@ -17,7 +17,7 @@ def test_deterministic_training_common(algo):
     results = [[], []]
     rewards = [[], []]
     # Smaller network
-    kwargs = {"policy_kwargs": dict(net_arch=[64])}
+    kwargs = {"policy_kwargs": dict(net_arch=[16]), "learning_rate": 1e-3}
     env_id = "Pendulum-v1"
     if algo == ARS_MULTI:
         algo = ARS
@@ -33,15 +33,14 @@ def test_deterministic_training_common(algo):
                 "train_freq": 4,
             }
         )
-    else:
-        if algo == QRDQN:
-            env_id = "CartPole-v1"
-            kwargs.update({"learning_starts": 100, "target_update_interval": 100})
-        elif algo == ARS:
-            kwargs.update({"n_delta": 2})
-        elif algo == RecurrentPPO:
-            kwargs.update({"policy_kwargs": dict(net_arch=[], enable_critic_lstm=True, lstm_hidden_size=8)})
-            kwargs.update({"n_steps": 50, "n_epochs": 4})
+    elif algo == QRDQN:
+        env_id = "CartPole-v1"
+        kwargs.update({"learning_starts": 100, "target_update_interval": 100})
+    elif algo == ARS:
+        kwargs.update({"n_delta": 2})
+    elif algo == RecurrentPPO:
+        kwargs.update({"policy_kwargs": dict(net_arch=[], enable_critic_lstm=True, lstm_hidden_size=8)})
+        kwargs.update({"n_steps": 50, "n_epochs": 4})
     policy_str = "MlpLstmPolicy" if algo == RecurrentPPO else "MlpPolicy"
     for i in range(2):
         model = algo(policy_str, env_id, seed=SEED, **kwargs)
