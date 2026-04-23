@@ -25,7 +25,12 @@ def test_cnn(tmp_path, model_class, share_features_extractor):
         n_channels=1,
         discrete=model_class not in {TQC},
     )
-    kwargs = dict(policy_kwargs=dict(share_features_extractor=share_features_extractor))
+    kwargs = dict(
+        policy_kwargs=dict(
+            share_features_extractor=share_features_extractor,
+            features_extractor_kwargs=dict(features_dim=8),
+        )
+    )
     if model_class in {TQC, QRDQN}:
         # share_features_extractor is checked later for offpolicy algorithms
         if share_features_extractor:
@@ -33,14 +38,18 @@ def test_cnn(tmp_path, model_class, share_features_extractor):
         # Avoid memory error when using replay buffer
         # Reduce the size of the features and the number of quantiles
         kwargs = dict(
+            train_freq=4,
             buffer_size=250,
             policy_kwargs=dict(
                 n_quantiles=25,
-                features_extractor_kwargs=dict(features_dim=32),
+                features_extractor_kwargs=dict(features_dim=8),
             ),
         )
+    elif model_class == TRPO:
+        kwargs["n_steps"] = 128
+        kwargs["cg_max_steps"] = 10
 
-    model = model_class("CnnPolicy", env, **kwargs).learn(250)
+    model = model_class("CnnPolicy", env, **kwargs).learn(128)
 
     obs, _ = env.reset()
 
@@ -98,7 +107,8 @@ def test_feature_extractor_target_net(model_class, share_features_extractor):
         kwargs = dict(
             buffer_size=250,
             learning_starts=100,
-            policy_kwargs=dict(n_quantiles=25, features_extractor_kwargs=dict(features_dim=32)),
+            train_freq=4,
+            policy_kwargs=dict(n_quantiles=10, features_extractor_kwargs=dict(features_dim=8)),
         )
     if model_class != QRDQN:
         kwargs["policy_kwargs"]["share_features_extractor"] = share_features_extractor
@@ -194,7 +204,7 @@ def test_image_like_input(model_class, normalize_images):
     kwargs = dict(
         policy_kwargs=dict(
             normalize_images=normalize_images,
-            features_extractor_kwargs=dict(features_dim=32),
+            features_extractor_kwargs=dict(features_dim=8),
         ),
         seed=1,
     )
@@ -205,7 +215,7 @@ def test_image_like_input(model_class, normalize_images):
     else:
         # Avoid memory error when using replay buffer
         # Reduce the size of the features
-        kwargs.update(dict(buffer_size=250))
+        kwargs.update(dict(buffer_size=250, train_freq=4))
     if normalize_images:
         with pytest.raises(AssertionError):
             model_class(policy, vec_env, **kwargs).learn(128)

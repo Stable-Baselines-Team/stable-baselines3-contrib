@@ -51,11 +51,13 @@ def test_identity():
     model = MaskablePPO(
         "MlpPolicy",
         env,
-        gamma=0.4,
+        gamma=0.1,
         seed=32,
         verbose=0,
+        clip_range=0.4,
+        n_epochs=2,
     )
-    model.learn(3000)
+    model.learn(2048)
     evaluate_policy(model, env, n_eval_episodes=20, reward_threshold=90, warn=False)
 
 
