@@ -5,6 +5,7 @@ from sb3_contrib.crossq import CrossQ
 from sb3_contrib.ppo_mask import MaskablePPO
 from sb3_contrib.ppo_recurrent import RecurrentPPO
 from sb3_contrib.qrdqn import QRDQN
+from sb3_contrib.sacd import SACD
 from sb3_contrib.tqc import TQC
 from sb3_contrib.trpo import TRPO
 
@@ -16,6 +17,7 @@ with open(version_file) as file_handler:
 __all__ = [
     "ARS",
     "QRDQN",
+    "SACD",
     "TQC",
     "TRPO",
     "CrossQ",
