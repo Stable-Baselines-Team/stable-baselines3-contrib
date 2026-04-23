@@ -15,6 +15,8 @@
 
 ### Others:
 
+- Optimized tests (faster to run)
+
 ### Documentation:
 - Fixed dead link for `RecurrentPPO`.
 
