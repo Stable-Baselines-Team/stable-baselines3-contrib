@@ -36,7 +36,7 @@ def select_env(model_class: BaseAlgorithm) -> gym.Env:
 
 
 @pytest.mark.parametrize("model_class", MODEL_LIST)
-def test_save_load(tmp_path, model_class):
+def test_save_load(tmp_path, model_class):  # noqa: C901
     """
     Test if 'save' and 'load' saves and loads model correctly
     and if 'get_parameters' and 'set_parameters' and work correctly.

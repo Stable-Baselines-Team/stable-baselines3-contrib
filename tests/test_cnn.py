@@ -41,13 +41,14 @@ def test_cnn(tmp_path, model_class, share_features_extractor):
             train_freq=4,
             buffer_size=250,
             policy_kwargs=dict(
-                n_quantiles=25,
+                n_quantiles=10,
                 features_extractor_kwargs=dict(features_dim=8),
             ),
         )
     elif model_class == TRPO:
         kwargs["n_steps"] = 128
-        kwargs["cg_max_steps"] = 10
+        kwargs["batch_size"] = 64
+        kwargs["cg_max_steps"] = 5
 
     model = model_class("CnnPolicy", env, **kwargs).learn(128)
 
