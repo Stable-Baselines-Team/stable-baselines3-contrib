@@ -48,14 +48,20 @@ def test_save_load(tmp_path, model_class):
 
     env = DummyVecEnv([lambda: select_env(model_class)])
 
-    policy_kwargs = dict(net_arch=[16])
+    kwargs = {}
+    policy_kwargs = dict(net_arch=[8])
 
     if model_class in {QRDQN, TQC}:
-        policy_kwargs.update(dict(n_quantiles=20))
+        policy_kwargs.update(dict(n_quantiles=10))
 
+    if model_class in {QRDQN, TQC, CrossQ}:
+        kwargs = dict(buffer_size=256, train_freq=2)
+
+    if model_class in {TRPO}:
+        kwargs = dict(n_steps=256)
     # create model
-    model = model_class("MlpPolicy", env, verbose=1, policy_kwargs=policy_kwargs)
-    model.learn(total_timesteps=300)
+    model = model_class("MlpPolicy", env, verbose=1, policy_kwargs=policy_kwargs, **kwargs)
+    model.learn(total_timesteps=128)
 
     env.reset()
     observations = np.concatenate([env.step([env.action_space.sample()])[0] for _ in range(10)], axis=0)
