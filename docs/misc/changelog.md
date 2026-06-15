@@ -2,7 +2,7 @@
 
 # Changelog
 
-## Release 2.9.0a2 (WIP)
+## Release 2.9.0 (2026-06-15)
 
 ### Breaking Changes:
 - Upgraded to Stable-Baselines3 >= 2.9.0
@@ -14,7 +14,6 @@
 ### Deprecations:
 
 ### Others:
-
 - Optimized tests (faster to run)
 
 ### Documentation:
