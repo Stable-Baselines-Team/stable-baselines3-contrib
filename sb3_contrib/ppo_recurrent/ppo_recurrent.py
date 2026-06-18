@@ -384,11 +384,7 @@ class RecurrentPPO(OnPolicyAlgorithm):
                 value_losses.append(value_loss.item())
 
                 # Entropy loss favor exploration
-                if entropy is None:
-                    # Approximate entropy when no analytical form
-                    entropy_loss = -th.mean(-log_prob[mask])
-                else:
-                    entropy_loss = -th.mean(entropy[mask])
+                entropy_loss = -th.mean(entropy[mask])
 
                 entropy_losses.append(entropy_loss.item())
 
