@@ -10,7 +10,7 @@
 ### New Features:
 
 ### Bug Fixes:
-
+- Fixed faling test `tests/test_lstm.py::test_ppo_lstm_performance`
 ### Deprecations:
 
 ### Others:

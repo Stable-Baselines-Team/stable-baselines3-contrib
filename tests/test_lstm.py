@@ -232,9 +232,9 @@ def test_ppo_lstm_performance():
         max_grad_norm=1,
         gae_lambda=0.98,
         policy_kwargs=dict(
-            net_arch=dict(vf=[64], pi=[]),
+            net_arch=dict(vf=[64], pi=[64]),
             lstm_hidden_size=64,
-            ortho_init=False,
+            ortho_init=True,
             enable_critic_lstm=True,
         ),
     )
