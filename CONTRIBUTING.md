@@ -1,5 +1,7 @@
 ## Contributing to Stable-Baselines3 - Contrib
 
+**Important: When submitting issues or pull requests, the use of LLM or code assistants (e.g., Claude or Copilot) must be publicly disclosed.**
+
 This contrib repository is designed for experimental implementations of various
 parts of reinforcement training so that others may make use of them. This includes full
 RL algorithms, different tools (e.g. new environment wrappers,
@@ -30,6 +32,8 @@ are not very strict.
 See [issues with "experimental" tag](https://github.com/DLR-RM/stable-baselines3/issues?q=is%3Aissue+is%3Aopen+label%3Aexperimental)
 for suggestions of the community for new possible features to include in contrib.
 
+Note: If you do not follow the template (and its mandatory steps), your pull request will be ignored.
+
 ## How to implement your suggestion
 
 Implement your feature/suggestion/algorithm in following ways, using the first one that applies:
@@ -51,6 +55,8 @@ If algorithm you are implementing involves more complex/uncommon equations, comm
 calculations with references to the parts in paper.
 
 ## Pull Request (PR) and review
+
+**Important: We do not accept PRs that are fully generated using an LLM/code assistant unless triggered by a maintainer. Use of code assistants (e.g., Claude, Copilot) must be publicly disclosed.**
 
 Before proposing a PR, please open an issue, where the feature will be discussed.
 This prevent from duplicated PR to be proposed and also ease the code review process.
@@ -124,7 +130,7 @@ We are using [black codestyle](https://github.com/psf/black) (max line length of
 
 **Please run `make format`** to reformat your code. You can check the codestyle using `make check-codestyle` and `make lint`.
 
-Please document each function/method and [type](https://google.github.io/pytype/user_guide.html) them using the following template:
+Please document each function/method and [type](https://mypy-lang.org/) them using the following template:
 
 ```python
 
@@ -178,6 +184,6 @@ make doc
 
 ## Changelog and Documentation
 
-Please do not forget to update the changelog (`docs/misc/changelog.rst`).
+Please do not forget to update the changelog (`docs/misc/changelog.md`).
 
 Credits: this contributing guide is based on the [PyTorch](https://github.com/pytorch/pytorch/) one.

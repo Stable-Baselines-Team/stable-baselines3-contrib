@@ -100,11 +100,12 @@ def test_consistency(model_class):
     obs, _ = dict_env.reset(seed=10)
 
     kwargs = {}
-    n_steps = 256
+    n_steps = 128
 
     if model_class in {TRPO}:
         kwargs = dict(
-            n_steps=128,
+            n_steps=64,
+            batch_size=64,
         )
     else:
         # Avoid memory error when using replay buffer
@@ -144,14 +145,15 @@ def test_dict_spaces(model_class, channel_last):
     env = gym.wrappers.TimeLimit(env, 100)
 
     kwargs = {}
-    n_steps = 256
+    n_steps = 128
 
     if model_class in {TRPO}:
         kwargs = dict(
-            n_steps=128,
+            n_steps=64,
+            batch_size=64,
             policy_kwargs=dict(
-                net_arch=dict(pi=[32], vf=[32]),
-                features_extractor_kwargs=dict(cnn_output_dim=32),
+                net_arch=dict(pi=[8], vf=[8]),
+                features_extractor_kwargs=dict(cnn_output_dim=8),
             ),
         )
     else:
@@ -160,8 +162,8 @@ def test_dict_spaces(model_class, channel_last):
         kwargs = dict(
             buffer_size=250,
             policy_kwargs=dict(
-                net_arch=[32],
-                features_extractor_kwargs=dict(cnn_output_dim=32),
+                net_arch=[8],
+                features_extractor_kwargs=dict(cnn_output_dim=8),
                 n_quantiles=20,
             ),
             train_freq=8,
@@ -193,14 +195,15 @@ def test_dict_vec_framestack(model_class, channel_last):
     env = VecFrameStack(env, n_stack=3, channels_order=channels_order)
 
     kwargs = {}
-    n_steps = 256
+    n_steps = 128
 
     if model_class in {TRPO}:
         kwargs = dict(
-            n_steps=128,
+            n_steps=64,
+            batch_size=64,
             policy_kwargs=dict(
-                net_arch=dict(pi=[32], vf=[32]),
-                features_extractor_kwargs=dict(cnn_output_dim=32),
+                net_arch=dict(pi=[8], vf=[8]),
+                features_extractor_kwargs=dict(cnn_output_dim=8),
             ),
         )
     else:
@@ -209,9 +212,9 @@ def test_dict_vec_framestack(model_class, channel_last):
         kwargs = dict(
             buffer_size=250,
             policy_kwargs=dict(
-                net_arch=[32],
-                features_extractor_kwargs=dict(cnn_output_dim=32),
-                n_quantiles=20,
+                net_arch=[8],
+                features_extractor_kwargs=dict(cnn_output_dim=8),
+                n_quantiles=10,
             ),
             train_freq=8,
             gradient_steps=1,
@@ -236,13 +239,14 @@ def test_vec_normalize(model_class):
     env = VecNormalize(env, norm_obs_keys=["vec"])
 
     kwargs = {}
-    n_steps = 256
+    n_steps = 128
 
     if model_class in {TRPO}:
         kwargs = dict(
-            n_steps=128,
+            n_steps=64,
+            batch_size=64,
             policy_kwargs=dict(
-                net_arch=dict(pi=[32], vf=[32]),
+                net_arch=dict(pi=[8], vf=[8]),
             ),
         )
     else:
@@ -251,7 +255,7 @@ def test_vec_normalize(model_class):
         kwargs = dict(
             buffer_size=250,
             policy_kwargs=dict(
-                net_arch=[32],
+                net_arch=[8],
             ),
             train_freq=8,
             gradient_steps=1,

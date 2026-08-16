@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 import torch as th
+from torch.distributions.utils import logits_to_probs
 
 from sb3_contrib.common.maskable.distributions import (
     MaskableBernoulliDistribution,
@@ -16,8 +17,8 @@ class TestMaskableCategorical:
         Show that probs change as a result of masking
         """
 
-        starting_probs = th.Tensor([[0.2, 0.2, 0.6], [1, 0, 0]])
-        expected_probs = th.Tensor([[0, 0.25, 0.75], [0, 0.5, 0.5]])
+        starting_probs = th.tensor([[0.2, 0.2, 0.6], [1, 0, 0]])
+        expected_probs = th.tensor([[0, 0.25, 0.75], [0, 0.5, 0.5]])
         mask = np.array([[False, True, True], [False, True, True]])
 
         distribution = MaskableCategorical(probs=starting_probs)
@@ -29,8 +30,8 @@ class TestMaskableCategorical:
         Show that masks apply independently of each other
         """
 
-        starting_probs = th.Tensor([[0.2, 0.2, 0.6], [1, 0, 0]])
-        expected_probs = th.Tensor([[0.5, 0.5, 0], [0, 1, 0]])
+        starting_probs = th.tensor([[0.2, 0.2, 0.6], [1, 0, 0]])
+        expected_probs = th.tensor([[0.5, 0.5, 0], [0, 1, 0]])
         first_mask = np.array([[False, True, True], [False, True, True]])
         second_mask = np.array([[True, True, False], [False, True, False]])
 
@@ -52,7 +53,7 @@ class TestMaskableCategorical:
         Show that masking may be unapplied to recover original probs
         """
 
-        starting_probs = th.Tensor([[0.2, 0.2, 0.6], [1, 0, 0]])
+        starting_probs = th.tensor([[0.2, 0.2, 0.6], [1, 0, 0]])
         mask = np.array([[False, True, True], [False, True, True]])
 
         distribution = MaskableCategorical(probs=starting_probs)
@@ -64,14 +65,47 @@ class TestMaskableCategorical:
     def test_masking_affects_entropy(self):
         # All outcomes equally likely
         NUM_DIMS = 3
-        logits = th.Tensor([[0] * NUM_DIMS])
+        logits = th.zeros((1, NUM_DIMS), dtype=th.float32)
         dist = MaskableCategorical(logits=logits)
 
-        # For each possible number of valid actions v, show that e^entropy == v
-        for v in range(1, NUM_DIMS + 1):
-            masks = [j < v for j in range(NUM_DIMS)]
+        # For each possible number of valid actions valid_action, show that e^entropy == valid_action
+        for valid_action in range(1, NUM_DIMS + 1):
+            masks = [j < valid_action for j in range(NUM_DIMS)]
             dist.apply_masking(masks)
-            assert int(dist.entropy().exp()) == v
+            assert int(dist.entropy().exp()) == valid_action
+
+    def test_apply_masking_no_simplex_error_with_cached_probs(self):
+        """
+        Regression test for issue #322.
+        apply_masking() should not raise a Simplex validate_args error
+        when probs are cached before masking is re-applied (torch 2.9+, large action spaces).
+        """
+        n = 992
+        delta = 17
+        # Set all logits to -delta, then set the first one to 0 to make it the most likely
+        logits = th.full((1, n), -delta, dtype=th.float32)
+        logits[0, 0] = 0.0
+
+        # Expected probs: first dim is close to one, rest are almost zero after the softmax
+        expected_proba = th.cat((th.ones(1, 1), th.zeros(1, n - 1)), dim=1)
+
+        distribution = MaskableCategorical(logits=logits, validate_args=True)
+        _ = distribution.probs  # cache probs on the instance
+
+        th.testing.assert_close(distribution.probs, expected_proba, rtol=5e-5, atol=5e-5)
+        # Apply softmax, should be within the default tolerance
+        th.testing.assert_close(distribution.probs, logits_to_probs(logits))
+
+        mask = th.zeros((1, n), dtype=th.bool)
+        # Only the first action is valid, mask the rest of the actions,
+        # the rtol and atol when comparing to expected_proba can be kept to the default values
+        mask[0, 0] = True
+
+        # Should not raise ValueError: Simplex constraint
+        distribution.apply_masking(mask.numpy())
+        th.testing.assert_close(distribution.probs, expected_proba)
+        # After masking, it should deviate from the original probs
+        assert not th.allclose(distribution.probs, logits_to_probs(logits))
 
 
 class TestMaskableCategoricalDistribution:
@@ -133,7 +167,7 @@ class TestMaskableCategoricalDistribution:
         NUM_DIMS = 2
         dist = MaskableCategoricalDistribution(NUM_DIMS)
 
-        logits = th.Tensor([[0] * NUM_DIMS])
+        logits = th.zeros((1, NUM_DIMS), dtype=th.float32)
         dist.proba_distribution(logits)
 
         assert (dist.distribution.probs == 0.5).all()
@@ -216,7 +250,7 @@ class TestMaskableMultiCategoricalDistribution:
         NUM_CATS = 3
         dist = MaskableMultiCategoricalDistribution([DIMS_PER_CAT] * NUM_CATS)
 
-        logits = th.Tensor([[0] * DIMS_PER_CAT * NUM_CATS])
+        logits = th.tensor([[0] * DIMS_PER_CAT * NUM_CATS], dtype=th.float32)
         dist.proba_distribution(logits)
 
         assert len(dist.distributions) == NUM_CATS
@@ -304,7 +338,7 @@ class TestMaskableBernoulliDistribution:
         BINARY_STATES = 2
         dist = MaskableBernoulliDistribution(NUM_DIMS)
 
-        logits = th.Tensor([[0] * BINARY_STATES * NUM_DIMS])
+        logits = th.tensor([[0] * BINARY_STATES * NUM_DIMS], dtype=th.float32)
         dist.proba_distribution(logits)
 
         assert len(dist.distributions) == NUM_DIMS

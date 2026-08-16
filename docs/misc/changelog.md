@@ -2,7 +2,25 @@
 
 # Changelog
 
-## Release 2.8.0a4 (WIP)
+## Release 2.9.0 (2026-06-15)
+
+### Breaking Changes:
+- Upgraded to Stable-Baselines3 >= 2.9.0
+
+### New Features:
+
+### Bug Fixes:
+
+### Deprecations:
+
+### Others:
+- Optimized tests (faster to run)
+
+### Documentation:
+- Fixed dead link for `RecurrentPPO`.
+
+
+## Release 2.8.0 (2026-04-01)
 
 ### Breaking Changes:
 
@@ -16,9 +34,10 @@
 
 ### Bug Fixes:
 
-- Fix `MaskablePPO` and `RecurrentPPO` inaccurate `n_updates` counting when `target_kl` early exits the training loop
-- Fix `RecurrentPPO` and `MaskablePPO` forward and predict do not reshape action before clip it (@immortal-boy)
+- Fixed `MaskablePPO` and `RecurrentPPO` inaccurate `n_updates` counting when `target_kl` early exits the training loop
+- Fixed `RecurrentPPO` and `MaskablePPO` `forward` and `predict` not reshaping the action before clipping it (@immortal-boy)
 - Do not call `forward()` method directly in `RecurrentPPO` (@immortal-boy)
+- Fixed `MaskableCategorical.apply_masking()` crashing with `ValueError: Simplex` when cached `probs` deviate from sum=1 in float32 with large action spaces (torch 2.9+) (@kirann-05)
 
 ### Deprecations:
 
