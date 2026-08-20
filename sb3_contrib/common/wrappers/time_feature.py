@@ -22,7 +22,7 @@ class TimeFeatureWrapper(gym.Wrapper[TimeFeatureObs, ActType, TimeFeatureObs, Ac
     :param max_steps: Max number of steps of an episode
         if it is not wrapped in a ``TimeLimit`` object.
     :param test_mode: In test mode, the time feature is constant,
-        equal to zero. This allow to check that the agent did not overfit this feature,
+        equal to one. This allow to check that the agent did not overfit this feature,
         learning a deterministic pre-defined sequence of actions.
     """
 
@@ -46,16 +46,16 @@ class TimeFeatureWrapper(gym.Wrapper[TimeFeatureObs, ActType, TimeFeatureObs, Ac
         self.dtype = obs_space.dtype
         low, high = low.astype(self.dtype), high.astype(self.dtype)
 
-        if isinstance(env.observation_space, spaces.Dict):
-            env.observation_space.spaces["observation"] = spaces.Box(
-                low=low,
-                high=high,
-                dtype=self.dtype,  # type: ignore[arg-type]
-            )
-        else:
-            env.observation_space = spaces.Box(low=low, high=high, dtype=self.dtype)  # type: ignore[arg-type]
-
         super().__init__(env)
+
+        time_feature_space = spaces.Box(low=low, high=high, dtype=self.dtype)  # type: ignore[arg-type]
+        if isinstance(env.observation_space, spaces.Dict):
+            # Build a new `Dict` rather than assigning into the existing one: the space
+            # object belongs to the wrapped environment, so writing the wider `Box` into
+            # it changed that environment's own observation space too.
+            self.observation_space = spaces.Dict({**env.observation_space.spaces, "observation": time_feature_space})
+        else:
+            self.observation_space = time_feature_space
 
         # Try to infer the max number of steps per episode
         try:
