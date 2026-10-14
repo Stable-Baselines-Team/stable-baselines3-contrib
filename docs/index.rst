@@ -36,7 +36,7 @@ RL Baselines3 Zoo also offers a simple interface to train, evaluate agents and d
   modules/ppo_mask
   modules/ppo_recurrent
   modules/qrdqn
-  module/rainbow
+  modules/rainbow
   modules/tqc
   modules/trpo
 

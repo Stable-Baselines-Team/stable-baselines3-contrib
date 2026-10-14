@@ -23,13 +23,6 @@ transition.
 .. rubric:: Available Policies
 ```
 
-```{eval-rst}
-.. autosummary::
-    :nosignatures:
-
-    CnnPolicy
-```
-
 ## Notes
 
 - Original paper: [Rainbow: Combining Improvements in Deep Reinforcement Learning](https://arxiv.org/abs/1710.02298)
@@ -234,13 +227,7 @@ prediction disables the noise.
 ## Rainbow Policies
 
 ```{eval-rst}
-.. autoclass:: sb3_contrib.rainbow.policies.RainbowPolicy
+.. autoclass:: sb3_contrib.rainbow.policy.RainbowPolicy
   :members:
   :noindex:
-```
-
-```{eval-rst}
-.. autoclass:: CnnPolicy
-  :members:
-  :inherited-members:
 ```
