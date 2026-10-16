@@ -151,7 +151,7 @@ class AsyncEval:
             remote.send(("eval", jobs_per_worker[remote_idx]))
         self.waiting = True
 
-    def seed(self, seed: int | None = None) -> list[None | int]:
+    def seed(self, seed: int | None = None) -> list[int | None]:
         """
         Seed the environments.
 
@@ -166,7 +166,7 @@ class AsyncEval:
             remote.send(("seed", seed + idx))
         return [remote.recv() for remote in self.remotes]
 
-    def set_options(self, options: list[dict] | dict | None = None) -> list[None | int]:
+    def set_options(self, options: list[dict] | dict | None = None) -> list[int | None]:
         """
         Set environment options for all environments.
         If a dict is passed instead of a list, the same options will be used for all environments.
