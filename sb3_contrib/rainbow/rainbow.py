@@ -208,7 +208,7 @@ class Rainbow(OffPolicyAlgorithm):
 
         :param gradient_steps: Number of gradient steps to perform.
         :param batch_size: Minibatch size for each gradient update. This argument is
-        retained for compatibility with the ``OffPolicyAlgorithm`` interface.
+            retained for compatibility with the ``OffPolicyAlgorithm`` interface.
         """
         for _ in range(gradient_steps):
             self._train_call(batch_size)
