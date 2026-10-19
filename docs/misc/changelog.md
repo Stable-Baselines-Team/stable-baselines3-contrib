@@ -2,6 +2,24 @@
 
 # Changelog
 
+## Release 2.X.X (TBD)
+
+### Breaking Changes:
+
+### New Features:
+- Added `Rainbow DQN`
+
+### Bug Fixes:
+
+### Deprecations:
+
+### Others:
+
+### Documentation:
+- Documentation for `Rainbow DQN`.
+
+# Changelog
+
 ## Release 2.9.0 (2026-06-15)
 
 ### Breaking Changes:

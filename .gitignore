@@ -11,6 +11,8 @@
 __pycache__/
 _build/
 *.npz
+*.npy
+*.model
 *.pth
 .pytype/
 .mypy_cache
