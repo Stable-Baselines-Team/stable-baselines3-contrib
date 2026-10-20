@@ -67,3 +67,25 @@ def test_time_feature():
     obs = env.step(env.action_space.sample())[0]
     # Should be the same
     check_time_feature(obs, timestep=0, max_timesteps=200)
+
+
+def test_time_feature_leaves_the_wrapped_space_alone():
+    """Wrapping must not widen the observation space of the environment it wraps.
+
+    The `Dict` branch assigned the new `Box` into `env.observation_space.spaces`,
+    and that object belongs to the wrapped environment, so the environment ended
+    up advertising a space one entry wider than the observations it returns.
+    """
+    env = CustomGoalEnv()
+    wrapped_space = env.observation_space
+    original_shape = wrapped_space["observation"].shape
+
+    wrapper = TimeFeatureWrapper(env, max_steps=500)
+
+    assert wrapper.observation_space is not wrapped_space
+    assert wrapped_space["observation"].shape == original_shape
+    assert wrapper.observation_space["observation"].shape == (original_shape[0] + 1,)
+
+    # The other keys are carried over untouched.
+    for key in ("achieved_goal", "desired_goal"):
+        assert wrapper.observation_space[key] == wrapped_space[key]
