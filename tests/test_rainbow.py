@@ -27,6 +27,50 @@ def make_env(
     )
 
 
+def make_obs_space(
+    image_width: int = 84,
+    image_height: int = 84,
+    n_channels: int = 4,
+) -> spaces.Box:
+    return spaces.Box(
+        low=0,
+        high=255,
+        shape=(n_channels, image_height, image_width),
+        dtype=np.uint8,
+    )
+
+
+def make_action_space(n_actions: int = 6) -> spaces.Discrete:
+    return spaces.Discrete(n_actions)
+
+
+def make_per_buffer(
+    size: int = 100,
+    n_step: int = 3,
+    n_envs: int = 1,
+    gamma: float = 0.99,
+    alpha: float = 0.5,
+    beta: float = 0.4,
+    framestack: int = 4,
+    image_width: int = 84,
+    image_height: int = 84,
+    rgb: bool = False,
+) -> PER:
+    return PER(
+        size=size,
+        observation_space=make_obs_space(image_width, image_height, framestack),
+        action_space=make_action_space(),
+        device="cpu",
+        n_step=n_step,
+        n_envs=n_envs,
+        gamma=gamma,
+        alpha=alpha,
+        beta=beta,
+        framestack=framestack,
+        rgb=rgb,
+    )
+
+
 class TestDistributionProjection:
     def test_distribution_projection_sums_to_one(self):
         batch_size = 4
@@ -123,13 +167,7 @@ class TestDistributionProjection:
 
 class TestNStepReturns:
     def test_n_step_return(self):
-        buffer = PER(
-            size=100,
-            device="cpu",
-            n_step=3,
-            n_envs=1,
-            gamma=0.9,
-        )
+        buffer = make_per_buffer(size=100, n_step=3, n_envs=1, gamma=0.9)
 
         rewards = np.array([[1.0, 2.0, 3.0]])
         dones = np.array([[False, False, False]])
@@ -148,13 +186,7 @@ class TestNStepReturns:
         assert discounts[0] == pytest.approx(0.9**3)
 
     def test_n_step_return_stops_at_termination(self):
-        buffer = PER(
-            size=100,
-            device="cpu",
-            n_step=3,
-            n_envs=1,
-            gamma=0.9,
-        )
+        buffer = make_per_buffer(size=100, n_step=3, n_envs=1, gamma=0.9)
 
         rewards = np.array([[1.0, 2.0, 3.0]])
         dones = np.array([[False, True, False]])
@@ -172,13 +204,7 @@ class TestNStepReturns:
         assert cumulative_dones[0]
 
     def test_n_step_truncation_preserves_bootstrap(self):
-        buffer = PER(
-            size=100,
-            device="cpu",
-            n_step=3,
-            n_envs=1,
-            gamma=0.9,
-        )
+        buffer = make_per_buffer(size=100, n_step=3, n_envs=1, gamma=0.9)
 
         rewards = np.array([[1.0, 2.0, 3.0]])
         dones = np.array([[False, False, False]])
@@ -197,13 +223,7 @@ class TestNStepReturns:
         assert discounts[0] == pytest.approx(0.9**2)
 
     def test_one_step_discount(self):
-        buffer = PER(
-            size=100,
-            device="cpu",
-            n_step=1,
-            n_envs=1,
-            gamma=0.9,
-        )
+        buffer = make_per_buffer(size=100, n_step=1, n_envs=1, gamma=0.9)
 
         dummy_state = np.zeros((4, 84, 84), dtype=np.uint8)
 
@@ -472,13 +492,7 @@ class TestNatureC51:
 
 class TestRainbowMultiEnvBuffer:
     def test_environment_streams_are_independent(self):
-        buffer = PER(
-            size=100,
-            device="cpu",
-            n_step=3,
-            n_envs=2,
-            gamma=0.99,
-        )
+        buffer = make_per_buffer(size=100, n_step=3, n_envs=2, gamma=0.99)
 
         state_0 = np.zeros((4, 84, 84), dtype=np.uint8)
         state_1 = np.full((4, 84, 84), 255, dtype=np.uint8)
@@ -509,13 +523,7 @@ class TestRainbowMultiEnvBuffer:
         assert len(buffer.reward_buffer[0]) == len(buffer.reward_buffer[1])
 
     def test_termination_only_resets_terminated_stream(self):
-        buffer = PER(
-            size=100,
-            device="cpu",
-            n_step=3,
-            n_envs=2,
-            gamma=0.99,
-        )
+        buffer = make_per_buffer(size=100, n_step=3, n_envs=2, gamma=0.99)
 
         state = np.zeros((4, 84, 84), dtype=np.uint8)
 
@@ -629,7 +637,7 @@ class TestRainbowBufferInterface:
 class TestRainbowBufferPER:
 
     def test_replay(self):
-        buffer = PER(size=100, device="cpu", n_step=3, n_envs=1, gamma=0.99)
+        buffer = make_per_buffer(size=100, n_step=3, n_envs=1, gamma=0.99)
 
         dummy_state = np.zeros((4, 84, 84), dtype=np.uint8)
 
@@ -650,9 +658,8 @@ class TestRainbowBufferPER:
         assert batch.actions.shape[0] == 8
 
     def test_per_priority_update(self):
-        buffer = PER(
+        buffer = make_per_buffer(
             size=100,
-            device="cpu",
             n_step=3,
             n_envs=1,
             gamma=0.99,

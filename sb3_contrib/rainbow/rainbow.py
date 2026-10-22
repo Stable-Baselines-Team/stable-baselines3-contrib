@@ -83,8 +83,10 @@ class Rainbow(OffPolicyAlgorithm):
         :param batch_size: Minibatch size for each gradient update.
         :param rgb: Whether observations contain RGB frames.
         :param framestack: Number of frames in each stacked observation.
-        :param image_width: Observation image width.
-        :param image_height: Observation image height.
+        :param image_width: Deprecated. Image dimensions are now derived from the
+            observation space.
+        :param image_height: Deprecated. Image dimensions are now derived from the
+            observation space.
         :param _init_setup_model: Whether to build the networks and replay buffer
         during initialization.
         :param policy_kwargs: Additional arguments passed to the policy.
@@ -149,8 +151,8 @@ class Rainbow(OffPolicyAlgorithm):
         self.per_alpha = per_alpha
         self.per_beta = 0.4
         self.framestack = framestack
-        self.image_width = image_width
-        self.image_height = image_height
+
+        self.last_loss: float | None = None
 
         if _init_setup_model:
             self._setup_model()
@@ -164,6 +166,8 @@ class Rainbow(OffPolicyAlgorithm):
         # default SB3 replay buffer.
         self.per_buffer = PER(
             size=self.buffer_size,
+            observation_space=self.env.observation_space,
+            action_space=self.env.action_space,
             device=self.device,
             rgb=self.rgb,
             n_step=self.n_steps,
@@ -172,8 +176,6 @@ class Rainbow(OffPolicyAlgorithm):
             alpha=self.per_alpha,
             beta=self.per_beta,
             framestack=self.framestack,
-            image_width=self.image_width,
-            image_height=self.image_height,
         )
         self.replay_buffer = self.per_buffer
 

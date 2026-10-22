@@ -47,8 +47,8 @@ class RainbowPolicy(BasePolicy):
             in_depth=obs_shape[0],
             actions=n_actions,
             device=self.device,
-            image_width=obs_shape[1],
-            image_height=obs_shape[2],
+            image_height=obs_shape[1],
+            image_width=obs_shape[2],
             linear_size=linear_size,
         )
 
@@ -56,8 +56,8 @@ class RainbowPolicy(BasePolicy):
             in_depth=obs_shape[0],
             actions=n_actions,
             device=self.device,
-            image_width=obs_shape[1],
-            image_height=obs_shape[2],
+            image_height=obs_shape[1],
+            image_width=obs_shape[2],
             linear_size=linear_size,
         )
 
@@ -269,7 +269,7 @@ class NatureC51(nn.Module):
             nn.ReLU(),
         )
 
-        conv_out_size = self._get_conv_out((in_depth, image_width, image_height))
+        conv_out_size = self._get_conv_out((in_depth, image_height, image_width))
 
         # Noisy Linear Layers, with both value and advantage functions for dueling DQN
         self.fc1V = FactorizedNoisyLinear(conv_out_size, self.linear_size)

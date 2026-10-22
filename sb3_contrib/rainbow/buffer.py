@@ -2,7 +2,9 @@ from typing import TYPE_CHECKING, Any, NamedTuple
 
 import numpy as np
 import torch
+from gymnasium import spaces
 from stable_baselines3.common.buffers import ReplayBuffer
+from stable_baselines3.common.preprocessing import get_action_dim, get_obs_shape
 from stable_baselines3.common.type_aliases import ReplayBufferSamples
 from stable_baselines3.common.vec_env import VecNormalize
 
@@ -176,6 +178,8 @@ class PER(ReplayBuffer):
     def __init__(
         self,
         size: int,
+        observation_space: spaces.Space,
+        action_space: spaces.Space,
         device: torch.device | str,
         n_step: int,
         n_envs: int,
@@ -183,14 +187,14 @@ class PER(ReplayBuffer):
         alpha: float = 0.5,
         beta: float = 0.4,
         framestack: int = 4,
-        image_width: int = 84,
-        image_height: int = 84,
         rgb: bool = False,
     ) -> None:
         """
         Initialise the prioritised experience replay buffer.
 
         :param size: Maximum number of transitions stored in the replay buffer.
+        :param observation_space: Observation space of the environment.
+        :param action_space: Action space of the environment.
         :param device: PyTorch device used for sampled tensors.
         :param n_step: Number of steps used for multi-step returns.
         :param n_envs: Number of parallel environments.
@@ -198,14 +202,23 @@ class PER(ReplayBuffer):
         :param alpha: Priority exponent controlling the strength of prioritisation.
         :param beta: Initial importance-sampling exponent.
         :param framestack: Number of frames in each stacked observation.
-        :param image_width: Observation image width.
-        :param image_height: Observation image height.
         :param rgb: Whether observations contain RGB frames.
         """
+        # Set BaseBuffer attributes directly instead of calling ReplayBuffer.__init__()
+        # to avoid allocating large unused arrays (observations, actions, rewards, etc.)
         self.buffer_size = size
+        self.observation_space = observation_space
+        self.action_space = action_space
+        self.obs_shape = get_obs_shape(observation_space)
+        self.action_dim = get_action_dim(action_space)
         self.n_envs = n_envs
         self.pos = 0
         self.full = False
+
+        # Attributes expected by OffPolicyAlgorithm.load_replay_buffer() and _setup_learn()
+        self.handle_timeout_termination = False  # PER handles truncation explicitly via trun_mem
+        self.dones = np.zeros((size, n_envs), dtype=np.float32)
+        self.timeouts = np.zeros((size, n_envs), dtype=np.float32)
 
         self.st = SumTree(size)
         self.index = 0
@@ -228,8 +241,12 @@ class PER(ReplayBuffer):
         self.state_mem_idx = 0
         self.reward_mem_idx = 0
 
-        self.image_width = image_width
-        self.image_height = image_height
+        # Derive frame dimensions from observation space: obs_shape is (C, H, W)
+        # For grayscale: C = framestack, each frame is (H, W)
+        # For RGB: C = framestack * 3, each frame is (3, H, W)
+        self.image_height = self.obs_shape[1]
+        self.image_width = self.obs_shape[2]
+        channels_per_frame = 3 if rgb else 1
 
         self.max_prio = 1.0
 
@@ -250,9 +267,9 @@ class PER(ReplayBuffer):
         self.reward_buffer: list[list[int]] = [[] for _ in range(n_envs)]
 
         if rgb:
-            self.state_mem = np.zeros((self.storage_size, 3, self.image_width, self.image_height), dtype=np.uint8)
+            self.state_mem = np.zeros((self.storage_size, channels_per_frame, self.image_height, self.image_width), dtype=np.uint8)
         else:
-            self.state_mem = np.zeros((self.storage_size, self.image_width, self.image_height), dtype=np.uint8)
+            self.state_mem = np.zeros((self.storage_size, self.image_height, self.image_width), dtype=np.uint8)
         # One extra slot at index storage_size acts as a zero-reward sentinel for n-step padding.
         # Ring indices wrap modulo storage_size, so this extra slot is never overwritten.
         self.action_mem = np.zeros(self.storage_size + 1, dtype=np.int64)
@@ -279,6 +296,31 @@ class PER(ReplayBuffer):
         self.pointer_mem = np.array([self.blank_trans] * size, dtype=self.trans_dtype)
 
         self.overlap = self.framestack - self.n_step
+
+    def size(self) -> int:
+        """
+        Return the current number of transitions stored in the buffer.
+
+        :return: Number of valid transitions.
+        """
+        return self.capacity
+
+    def reset(self) -> None:
+        """
+        Reset the buffer to its initial empty state.
+        """
+        self.pos = 0
+        self.full = False
+        self.capacity = 0
+        self.point_mem_idx = 0
+        self.state_mem_idx = 0
+        self.reward_mem_idx = 0
+        self.st = SumTree(self.buffer_size)
+        self.last_terminal = [True for _ in range(self.n_envs)]
+        self.tstep_counter = [0 for _ in range(self.n_envs)]
+        self.state_buffer = [[] for _ in range(self.n_envs)]
+        self.reward_buffer = [[] for _ in range(self.n_envs)]
+        self.pointer_mem = np.array([self.blank_trans] * self.buffer_size, dtype=self.trans_dtype)
 
     def add(
         self,
@@ -490,6 +532,12 @@ class PER(ReplayBuffer):
         """
         # get total sumtree priority
         p_total = self.st.total()
+
+        if p_total <= 0 or self.capacity == 0:
+            raise ValueError(
+                "Cannot sample from an empty replay buffer. "
+                "Ensure learning_starts is reached before training."
+            )
 
         # first use sumtree prios to get the indices
         segment_length = p_total / batch_size
