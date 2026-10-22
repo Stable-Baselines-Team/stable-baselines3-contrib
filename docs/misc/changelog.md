@@ -7,7 +7,7 @@
 ### Breaking Changes:
 
 ### New Features:
-- Added `Rainbow DQN`
+- Added `Rainbow DQN` algorithm
 
 ### Bug Fixes:
 
@@ -16,9 +16,6 @@
 ### Others:
 
 ### Documentation:
-- Documentation for `Rainbow DQN`.
-
-# Changelog
 
 ## Release 2.9.0 (2026-06-15)
 
