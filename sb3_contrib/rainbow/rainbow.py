@@ -55,7 +55,7 @@ class Rainbow(OffPolicyAlgorithm):
     :param replay_buffer_class: Replay buffer class to use. Must be a ``PER`` subclass,
         as Rainbow relies on its prioritised sampling interface; if ``None``, ``PER`` is used.
     :param replay_buffer_kwargs: Keyword arguments to pass to the replay buffer on creation,
-        overriding the defaults derived from the Rainbow parameters (``n_step``, ``gamma``,
+        overriding the defaults derived from the Rainbow parameters (``n_steps``, ``gamma``,
         ``alpha``, ``beta``, ``framestack``, ``rgb``).
     :param learning_rate: Learning rate for the optimizer.
     :param buffer_size: Replay buffer capacity.

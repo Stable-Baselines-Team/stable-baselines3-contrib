@@ -386,7 +386,8 @@ class PER(ReplayBuffer):
         :param stream: Index of the parallel environment.
         """
         while (
-            len(self.state_buffer[stream]) >= self.framestack + self.n_steps and len(self.reward_buffer[stream]) >= self.n_steps
+            len(self.state_buffer[stream]) >= self.framestack + self.n_steps
+            and len(self.reward_buffer[stream]) >= self.n_steps
         ):
             # First array in the experience
             state_array = self.state_buffer[stream][: self.framestack]
@@ -526,7 +527,11 @@ class PER(ReplayBuffer):
         p_total = self.st.total()
 
         if p_total <= 0 or self.capacity == 0:
-            raise ValueError("Cannot sample from an empty replay buffer. Ensure learning_starts is reached before training.")
+            raise ValueError(
+                f"Cannot sample from an empty replay buffer: a transition is only stored after "
+                f"{self.framestack + self.n_steps} collected steps (or an episode end). Collect more "
+                f"transitions before sampling, e.g. by increasing learning_starts."
+            )
 
         # first use sumtree prios to get the indices
         segment_length = p_total / batch_size
