@@ -1,11 +1,10 @@
-from typing import TYPE_CHECKING, Any, NamedTuple
+from typing import Any, NamedTuple
 
 import numpy as np
 import torch
 from gymnasium import spaces
 from stable_baselines3.common.buffers import ReplayBuffer
 from stable_baselines3.common.preprocessing import get_action_dim, get_obs_shape
-from stable_baselines3.common.type_aliases import ReplayBufferSamples
 from stable_baselines3.common.vec_env import VecNormalize
 
 
@@ -141,36 +140,23 @@ class SumTree:
         return float(self.sum_tree[0])
 
 
-if TYPE_CHECKING:
+class PERReplayBufferSamples(NamedTuple):
+    """
+    Minibatch sampled from the prioritised experience replay buffer.
 
-    class PERReplayBufferSamples(NamedTuple):
-        observations: torch.Tensor
-        actions: torch.Tensor
-        next_observations: torch.Tensor
-        dones: torch.Tensor
-        rewards: torch.Tensor
-        idxs: np.ndarray
-        weights: torch.Tensor
-        discounts: torch.Tensor
+    Same fields as ``ReplayBufferSamples``, extended with the sum-tree indices
+    (``idxs``), importance-sampling weights (``weights``) and per-sample
+    bootstrap discounts (``discounts``) used for n-step returns.
+    """
 
-else:
-    # Extend ReplayBufferSamples with PER-specific fields.
-    replay_buffer_samples_fields = list(ReplayBufferSamples.__annotations__.items())
-    # Add PER-specific fields only
-    replay_buffer_samples_fields.append(("idxs", np.ndarray))
-    replay_buffer_samples_fields.append(("weights", torch.Tensor))
-    PERReplayBufferSamples = NamedTuple(
-        "PERReplayBufferSamples",
-        replay_buffer_samples_fields,
-    )
-    # Preserve the ReplayBufferSamples defaults and add defaults for the
-    # Rainbow-specific fields.
-    base_defaults = ReplayBufferSamples.__new__.__defaults__ or ()
-    PERReplayBufferSamples.__new__.__defaults__ = (
-        *base_defaults,
-        None,  # idxs
-        None,  # weights
-    )
+    observations: torch.Tensor
+    actions: torch.Tensor
+    next_observations: torch.Tensor
+    dones: torch.Tensor
+    rewards: torch.Tensor
+    idxs: np.ndarray
+    weights: torch.Tensor
+    discounts: torch.Tensor
 
 
 class PER(ReplayBuffer):
@@ -188,6 +174,7 @@ class PER(ReplayBuffer):
         beta: float = 0.4,
         framestack: int = 4,
         rgb: bool = False,
+        optimize_memory_usage: bool = False,
     ) -> None:
         """
         Initialise the prioritised experience replay buffer.
@@ -203,6 +190,8 @@ class PER(ReplayBuffer):
         :param beta: Initial importance-sampling exponent.
         :param framestack: Number of frames in each stacked observation.
         :param rgb: Whether observations contain RGB frames.
+        :param optimize_memory_usage: Unused, retained for compatibility with the
+            ``OffPolicyAlgorithm`` replay buffer creation interface.
         """
         # Set BaseBuffer attributes directly instead of calling ReplayBuffer.__init__()
         # to avoid allocating large unused arrays (observations, actions, rewards, etc.)
@@ -267,7 +256,10 @@ class PER(ReplayBuffer):
         self.reward_buffer: list[list[int]] = [[] for _ in range(n_envs)]
 
         if rgb:
-            self.state_mem = np.zeros((self.storage_size, channels_per_frame, self.image_height, self.image_width), dtype=np.uint8)
+            self.state_mem = np.zeros(
+                (self.storage_size, channels_per_frame, self.image_height, self.image_width),
+                dtype=np.uint8,
+            )
         else:
             self.state_mem = np.zeros((self.storage_size, self.image_height, self.image_width), dtype=np.uint8)
         # One extra slot at index storage_size acts as a zero-reward sentinel for n-step padding.
@@ -534,10 +526,7 @@ class PER(ReplayBuffer):
         p_total = self.st.total()
 
         if p_total <= 0 or self.capacity == 0:
-            raise ValueError(
-                "Cannot sample from an empty replay buffer. "
-                "Ensure learning_starts is reached before training."
-            )
+            raise ValueError("Cannot sample from an empty replay buffer. Ensure learning_starts is reached before training.")
 
         # first use sumtree prios to get the indices
         segment_length = p_total / batch_size
