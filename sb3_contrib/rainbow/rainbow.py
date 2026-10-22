@@ -7,6 +7,7 @@ import platform
 from typing import Any, ClassVar
 
 import torch
+from gymnasium import spaces
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.off_policy_algorithm import OffPolicyAlgorithm
 from stable_baselines3.common.policies import BasePolicy
@@ -27,10 +28,38 @@ logger = logging.getLogger(__name__)
 class Rainbow(OffPolicyAlgorithm):
     """
     Rainbow DQN.
+    Paper: https://arxiv.org/abs/1710.02298
 
     This implementation combines the main Rainbow DQN extensions, including
     distributional Q-learning, Double DQN, dueling networks, noisy networks,
     prioritized experience replay and multi-step returns.
+
+    :param policy: The policy model to use.
+    :param env: The environment to learn from.
+    :param target_update_interval: Number of gradient steps between target network
+        updates.
+    :param per_alpha: Priority exponent used by prioritized experience replay.
+    :param gamma: Discount factor.
+    :param n_steps: Number of steps used for multi-step returns.
+    :param max_grad_norm: Maximum gradient norm.
+    :param replay_ratio: Number of gradient updates per environment transition.
+    :param learning_rate: Learning rate for the optimizer.
+    :param buffer_size: Replay buffer capacity.
+    :param learning_starts: Number of transitions collected before training
+        starts.
+    :param batch_size: Minibatch size for each gradient update.
+    :param rgb: Whether observations contain RGB frames.
+    :param framestack: Number of frames in each stacked observation.
+    :param image_width: Deprecated. Image dimensions are now derived from the
+        observation space.
+    :param image_height: Deprecated. Image dimensions are now derived from the
+        observation space.
+    :param _init_setup_model: Whether to build the networks and replay buffer
+        during initialization.
+    :param policy_kwargs: Additional arguments passed to the policy.
+    :param compile_mode: Mode passed to ``torch.compile``. ``None`` disables
+        compilation.
+    :param kwargs: Additional arguments passed to ``OffPolicyAlgorithm``.
     """
 
     policy: RainbowPolicy
@@ -66,35 +95,6 @@ class Rainbow(OffPolicyAlgorithm):
         compile_mode: str | None = "max-autotune",
         **kwargs: Any,
     ) -> None:
-        """
-        :param policy: The policy model to use.
-        :param env: The environment to learn from.
-        :param target_update_interval: Number of gradient steps between target network
-        updates.
-        :param per_alpha: Priority exponent used by prioritized experience replay.
-        :param gamma: Discount factor.
-        :param n_steps: Number of steps used for multi-step returns.
-        :param max_grad_norm: Maximum gradient norm.
-        :param replay_ratio: Number of gradient updates per environment transition.
-        :param learning_rate: Learning rate for the optimizer.
-        :param buffer_size: Replay buffer capacity.
-        :param learning_starts: Number of transitions collected before training
-        starts.
-        :param batch_size: Minibatch size for each gradient update.
-        :param rgb: Whether observations contain RGB frames.
-        :param framestack: Number of frames in each stacked observation.
-        :param image_width: Deprecated. Image dimensions are now derived from the
-            observation space.
-        :param image_height: Deprecated. Image dimensions are now derived from the
-            observation space.
-        :param _init_setup_model: Whether to build the networks and replay buffer
-        during initialization.
-        :param policy_kwargs: Additional arguments passed to the policy.
-        :param compile_mode: Mode passed to ``torch.compile``. ``None`` disables
-        compilation.
-        :param kwargs: Additional arguments passed to ``OffPolicyAlgorithm``.
-        """
-
         policy_kwargs = policy_kwargs or {}
         if "linear_size" not in policy_kwargs:
             policy_kwargs["linear_size"] = 512
@@ -111,6 +111,7 @@ class Rainbow(OffPolicyAlgorithm):
             gradient_steps=1,
             policy_kwargs=policy_kwargs,
             support_multi_env=True,
+            supported_action_spaces=(spaces.Discrete,),
             **kwargs,
         )
 
