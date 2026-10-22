@@ -210,6 +210,11 @@ class Rainbow(OffPolicyAlgorithm):
         :param batch_size: Minibatch size for each gradient update. This argument is
             retained for compatibility with the ``OffPolicyAlgorithm`` interface.
         """
+        # Switch to train mode (this affects batch norm / dropout)
+        self.policy.set_training_mode(True)
+        # Update learning rate according to schedule
+        self._update_learning_rate(self.policy.optimizer)
+
         for _ in range(gradient_steps):
             self._train_call(batch_size)
 
