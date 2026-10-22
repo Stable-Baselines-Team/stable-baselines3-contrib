@@ -46,7 +46,7 @@ def make_action_space(n_actions: int = 6) -> spaces.Discrete:
 
 def make_per_buffer(
     size: int = 100,
-    n_step: int = 3,
+    n_steps: int = 3,
     n_envs: int = 1,
     gamma: float = 0.99,
     alpha: float = 0.5,
@@ -61,7 +61,7 @@ def make_per_buffer(
         observation_space=make_obs_space(image_width, image_height, framestack),
         action_space=make_action_space(),
         device="cpu",
-        n_step=n_step,
+        n_steps=n_steps,
         n_envs=n_envs,
         gamma=gamma,
         alpha=alpha,
@@ -167,7 +167,7 @@ class TestDistributionProjection:
 
 class TestNStepReturns:
     def test_n_step_return(self):
-        buffer = make_per_buffer(size=100, n_step=3, n_envs=1, gamma=0.9)
+        buffer = make_per_buffer(size=100, n_steps=3, n_envs=1, gamma=0.9)
 
         rewards = np.array([[1.0, 2.0, 3.0]])
         dones = np.array([[False, False, False]])
@@ -186,7 +186,7 @@ class TestNStepReturns:
         assert discounts[0] == pytest.approx(0.9**3)
 
     def test_n_step_return_stops_at_termination(self):
-        buffer = make_per_buffer(size=100, n_step=3, n_envs=1, gamma=0.9)
+        buffer = make_per_buffer(size=100, n_steps=3, n_envs=1, gamma=0.9)
 
         rewards = np.array([[1.0, 2.0, 3.0]])
         dones = np.array([[False, True, False]])
@@ -204,7 +204,7 @@ class TestNStepReturns:
         assert cumulative_dones[0]
 
     def test_n_step_truncation_preserves_bootstrap(self):
-        buffer = make_per_buffer(size=100, n_step=3, n_envs=1, gamma=0.9)
+        buffer = make_per_buffer(size=100, n_steps=3, n_envs=1, gamma=0.9)
 
         rewards = np.array([[1.0, 2.0, 3.0]])
         dones = np.array([[False, False, False]])
@@ -223,7 +223,7 @@ class TestNStepReturns:
         assert discounts[0] == pytest.approx(0.9**2)
 
     def test_one_step_discount(self):
-        buffer = make_per_buffer(size=100, n_step=1, n_envs=1, gamma=0.9)
+        buffer = make_per_buffer(size=100, n_steps=1, n_envs=1, gamma=0.9)
 
         dummy_state = np.zeros((4, 84, 84), dtype=np.uint8)
 
@@ -492,7 +492,7 @@ class TestNatureC51:
 
 class TestRainbowMultiEnvBuffer:
     def test_environment_streams_are_independent(self):
-        buffer = make_per_buffer(size=100, n_step=3, n_envs=2, gamma=0.99)
+        buffer = make_per_buffer(size=100, n_steps=3, n_envs=2, gamma=0.99)
 
         state_0 = np.zeros((4, 84, 84), dtype=np.uint8)
         state_1 = np.full((4, 84, 84), 255, dtype=np.uint8)
@@ -523,7 +523,7 @@ class TestRainbowMultiEnvBuffer:
         assert len(buffer.reward_buffer[0]) == len(buffer.reward_buffer[1])
 
     def test_termination_only_resets_terminated_stream(self):
-        buffer = make_per_buffer(size=100, n_step=3, n_envs=2, gamma=0.99)
+        buffer = make_per_buffer(size=100, n_steps=3, n_envs=2, gamma=0.99)
 
         state = np.zeros((4, 84, 84), dtype=np.uint8)
 
@@ -637,7 +637,7 @@ class TestRainbowBufferInterface:
 class TestRainbowBufferPER:
 
     def test_replay(self):
-        buffer = make_per_buffer(size=100, n_step=3, n_envs=1, gamma=0.99)
+        buffer = make_per_buffer(size=100, n_steps=3, n_envs=1, gamma=0.99)
 
         dummy_state = np.zeros((4, 84, 84), dtype=np.uint8)
 
@@ -660,7 +660,7 @@ class TestRainbowBufferPER:
     def test_per_priority_update(self):
         buffer = make_per_buffer(
             size=100,
-            n_step=3,
+            n_steps=3,
             n_envs=1,
             gamma=0.99,
             alpha=0.5,
@@ -805,13 +805,13 @@ class TestRainbowTraining:
             compile_mode=None,
         )
 
-        initial_beta = model.per_buffer.beta
+        initial_beta = model.replay_buffer.beta
 
         model._setup_learn(total_timesteps=1000)
 
         expected_increment = (1.0 - initial_beta) * model.n_envs / 1000
 
-        assert model.per_buffer.beta_increment == pytest.approx(expected_increment)
+        assert model.replay_buffer.beta_increment == pytest.approx(expected_increment)
 
 
 def test_subproc_vec_env():

@@ -167,7 +167,7 @@ class PER(ReplayBuffer):
         observation_space: spaces.Space,
         action_space: spaces.Space,
         device: torch.device | str,
-        n_step: int,
+        n_steps: int,
         n_envs: int,
         gamma: float,
         alpha: float = 0.5,
@@ -183,7 +183,7 @@ class PER(ReplayBuffer):
         :param observation_space: Observation space of the environment.
         :param action_space: Action space of the environment.
         :param device: PyTorch device used for sampled tensors.
-        :param n_step: Number of steps used for multi-step returns.
+        :param n_steps: Number of steps used for multi-step returns.
         :param n_envs: Number of parallel environments.
         :param gamma: Discount factor.
         :param alpha: Priority exponent controlling the strength of prioritisation.
@@ -251,7 +251,7 @@ class PER(ReplayBuffer):
         self.last_terminal = [True for i in range(n_envs)]
         self.tstep_counter = [0 for i in range(n_envs)]
 
-        self.n_step = n_step
+        self.n_steps = n_steps
         self.state_buffer: list[list[int]] = [[] for _ in range(n_envs)]
         self.reward_buffer: list[list[int]] = [[] for _ in range(n_envs)]
 
@@ -276,18 +276,18 @@ class PER(ReplayBuffer):
         # reward contains N values. The first value contains the action. The set of N contains the pointers for both
         # the reward and dones
         self.trans_dtype = np.dtype(
-            [("state", int, self.framestack), ("n_state", int, self.framestack), ("reward", int, self.n_step)]
+            [("state", int, self.framestack), ("n_state", int, self.framestack), ("reward", int, self.n_steps)]
         )
 
         self.blank_trans = (
             np.zeros(self.framestack, dtype=int),
             np.zeros(self.framestack, dtype=int),
-            np.zeros(self.n_step, dtype=int),
+            np.zeros(self.n_steps, dtype=int),
         )
 
         self.pointer_mem = np.array([self.blank_trans] * size, dtype=self.trans_dtype)
 
-        self.overlap = self.framestack - self.n_step
+        self.overlap = self.framestack - self.n_steps
 
     def size(self) -> int:
         """
@@ -386,16 +386,16 @@ class PER(ReplayBuffer):
         :param stream: Index of the parallel environment.
         """
         while (
-            len(self.state_buffer[stream]) >= self.framestack + self.n_step and len(self.reward_buffer[stream]) >= self.n_step
+            len(self.state_buffer[stream]) >= self.framestack + self.n_steps and len(self.reward_buffer[stream]) >= self.n_steps
         ):
             # First array in the experience
             state_array = self.state_buffer[stream][: self.framestack]
 
             # Second array in the experience (starts after N frames)
-            n_state_array = self.state_buffer[stream][self.n_step : self.n_step + self.framestack]
+            n_state_array = self.state_buffer[stream][self.n_steps : self.n_steps + self.framestack]
 
             # Reward array (first N rewards)
-            reward_array = self.reward_buffer[stream][: self.n_step]
+            reward_array = self.reward_buffer[stream][: self.n_steps]
 
             # Add the experience to the list
             self.pointer_mem[self.point_mem_idx] = (
@@ -432,7 +432,7 @@ class PER(ReplayBuffer):
             second_array = self.state_buffer[stream][-self.framestack :]
 
             reward_array = self.reward_buffer[stream][:]
-            while len(reward_array) < self.n_step:
+            while len(reward_array) < self.n_steps:
                 reward_array.append(self.pad_idx)
 
             self.pointer_mem[self.point_mem_idx] = (
@@ -479,7 +479,7 @@ class PER(ReplayBuffer):
                 self.state_buffer[stream].append(self.state_mem_idx)
                 self.state_mem_idx = (self.state_mem_idx + 1) % self.storage_size
 
-            # remember n_step is not applied in this memory
+            # remember n_steps is not applied in this memory
             self.state_mem[self.state_mem_idx] = n_state[self.framestack - 1]
             self.state_buffer[stream].append(self.state_mem_idx)
             self.state_mem_idx = (self.state_mem_idx + 1) % self.storage_size
@@ -544,7 +544,7 @@ class PER(ReplayBuffer):
         state_pointers = np.array([p[0] for p in pointers])
         n_state_pointers = np.array([p[1] for p in pointers])
         reward_pointers = np.array([p[2] for p in pointers])
-        if self.n_step > 1:
+        if self.n_steps > 1:
             action_pointers = np.array([p[2][0] for p in pointers])
         else:
             action_pointers = np.array([p[2] for p in pointers])
@@ -560,7 +560,7 @@ class PER(ReplayBuffer):
         actions_array = self.action_mem[action_pointers]
 
         # Apply n-step accumulation to rewards and terminations.
-        if self.n_step > 1:
+        if self.n_steps > 1:
             (
                 rewards_array,
                 dones_array,
@@ -640,13 +640,13 @@ class PER(ReplayBuffer):
         """
         Compute n-step discounted returns for a batch of transitions.
 
-        :param rewards_batch: Rewards with shape ``(batch_size, n_step)``.
-        :param dones_batch: Termination flags with shape ``(batch_size, n_step)``.
-        :param truns_batch: Truncation flags with shape ``(batch_size, n_step)``.
+        :param rewards_batch: Rewards with shape ``(batch_size, n_steps)``.
+        :param dones_batch: Termination flags with shape ``(batch_size, n_steps)``.
+        :param truns_batch: Truncation flags with shape ``(batch_size, n_steps)``.
         :return: Discounted returns, cumulative termination flags and bootstrap
         discounts for each transition.
         """
-        batch_size, n_step = rewards_batch.shape
+        batch_size, n_steps = rewards_batch.shape
         discounted_rewards = np.zeros(
             batch_size,
             dtype=np.float64,
@@ -657,13 +657,13 @@ class PER(ReplayBuffer):
         )
         discounts = np.full(
             batch_size,
-            self.gamma**n_step,
+            self.gamma**n_steps,
             dtype=np.float64,
         )
 
         for i in range(batch_size):
             cumulative_discount = 1.0
-            for j in range(n_step):
+            for j in range(n_steps):
                 discounted_rewards[i] += cumulative_discount * rewards_batch[i, j]
                 if dones_batch[i, j] == 1:
                     cumulative_dones[i] = True
