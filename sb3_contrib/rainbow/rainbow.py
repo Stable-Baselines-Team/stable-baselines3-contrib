@@ -34,6 +34,10 @@ class Rainbow(OffPolicyAlgorithm):
     distributional Q-learning, Double DQN, dueling networks, noisy networks,
     prioritized experience replay and multi-step returns.
 
+    The original paper uses 0.25 gradient updates per environment step; with a
+    single environment this corresponds to the default ``train_freq=4``,
+    ``gradient_steps=1``.
+
     :param policy: The policy model to use.
     :param env: The environment to learn from.
     :param target_update_interval: Number of gradient steps between target network
@@ -42,7 +46,17 @@ class Rainbow(OffPolicyAlgorithm):
     :param gamma: Discount factor.
     :param n_steps: Number of steps used for multi-step returns.
     :param max_grad_norm: Maximum gradient norm.
-    :param replay_ratio: Number of gradient updates per environment transition.
+    :param train_freq: Update the model every ``train_freq`` steps. Alternatively pass a tuple of frequency and unit
+        like ``(5, "step")`` or ``(2, "episode")``.
+    :param gradient_steps: How many gradient steps to do after each rollout
+        (see ``train_freq`` and ``n_episodes_rollout``)
+        Set to ``-1`` means to do as many gradient steps as steps done in the environment
+        during the rollout.
+    :param replay_buffer_class: Replay buffer class to use. Must be a ``PER`` subclass,
+        as Rainbow relies on its prioritised sampling interface; if ``None``, ``PER`` is used.
+    :param replay_buffer_kwargs: Keyword arguments to pass to the replay buffer on creation,
+        overriding the defaults derived from the Rainbow parameters (``n_step``, ``gamma``,
+        ``alpha``, ``beta``, ``framestack``, ``rgb``).
     :param learning_rate: Learning rate for the optimizer.
     :param buffer_size: Replay buffer capacity.
     :param learning_starts: Number of transitions collected before training
@@ -64,7 +78,6 @@ class Rainbow(OffPolicyAlgorithm):
 
     policy: RainbowPolicy
     replay_buffer: PER
-    per_buffer: PER
     q_net: NatureC51
     q_net_target: NatureC51
 
@@ -81,7 +94,10 @@ class Rainbow(OffPolicyAlgorithm):
         gamma: float = 0.99,
         n_steps: int = 3,
         max_grad_norm: float = 10,
-        replay_ratio: float = 0.25,
+        train_freq: int | tuple[int, str] = 4,
+        gradient_steps: int = 1,
+        replay_buffer_class: type[PER] | None = None,
+        replay_buffer_kwargs: dict[str, Any] | None = None,
         learning_rate: float | Schedule = 6.25e-5,
         buffer_size: int = 1_000_000,
         learning_starts: int = 20_000,
@@ -99,6 +115,21 @@ class Rainbow(OffPolicyAlgorithm):
         if "linear_size" not in policy_kwargs:
             policy_kwargs["linear_size"] = 512
 
+        replay_buffer_class = replay_buffer_class or PER
+        # Note(antonin): because self.n_steps>1 would trigger a warning
+        # from SB3, we keep self.n_steps = 1, the true value is inside
+        # self.replay_buffer.n_steps
+        # Maybe add a warn=False argument to SB3
+        replay_buffer_kwargs = {
+            "n_steps": n_steps,
+            "gamma": gamma,
+            "alpha": per_alpha,
+            "beta": 0.4,
+            "framestack": framestack,
+            "rgb": rgb,
+            **(replay_buffer_kwargs or {}),
+        }
+
         super().__init__(
             policy=policy,
             env=env,
@@ -107,8 +138,10 @@ class Rainbow(OffPolicyAlgorithm):
             learning_starts=learning_starts,
             batch_size=batch_size,
             gamma=gamma,
-            train_freq=(1, "step"),
-            gradient_steps=1,
+            train_freq=train_freq,
+            gradient_steps=gradient_steps,
+            replay_buffer_class=replay_buffer_class,
+            replay_buffer_kwargs=replay_buffer_kwargs,
             policy_kwargs=policy_kwargs,
             support_multi_env=True,
             supported_action_spaces=(spaces.Discrete,),
@@ -117,41 +150,12 @@ class Rainbow(OffPolicyAlgorithm):
 
         self.compile_mode = compile_mode
 
-        assert replay_ratio > 0, "replay_ratio must be positive"
-        self.replay_ratio = replay_ratio
-
-        grads_per_vec_step = replay_ratio * self.n_envs
-
-        if grads_per_vec_step >= 1:
-            self.train_freq = (1, "step")
-            self.gradient_steps = round(grads_per_vec_step)
-        else:
-            self.train_freq = (round(1 / grads_per_vec_step), "step")
-            self.gradient_steps = 1
-
-        effective = self.gradient_steps / (self.train_freq[0] * self.n_envs)
-
-        if abs(effective - replay_ratio) / replay_ratio > 0.01:
-            import warnings
-
-            warnings.warn(
-                f"replay_ratio={replay_ratio} is not achievable exactly with "
-                f"{self.n_envs} envs; using {effective:.4g} "
-                f"(train_freq={self.train_freq[0]} steps, gradient_steps={self.gradient_steps})"
-            )
         self.grad_steps = 0
         self.replace_target_cnt = target_update_interval
         self.v_min = -10
         self.v_max = 10
         self.N_ATOMS = 51
-        self.n_steps = n_steps
         self.grad_clip = max_grad_norm
-
-        self.rgb = rgb
-
-        self.per_alpha = per_alpha
-        self.per_beta = 0.4
-        self.framestack = framestack
 
         self.last_loss: float | None = None
 
@@ -160,26 +164,8 @@ class Rainbow(OffPolicyAlgorithm):
 
     def _setup_model(self) -> None:
         """
-        Create the replay buffer, policy networks and optional compiled forwards.
+        Create the policy networks and optional compiled forwards.
         """
-        assert self.env is not None
-        # Create the PER buffer before the base setup to avoid allocating the
-        # default SB3 replay buffer.
-        self.per_buffer = PER(
-            size=self.buffer_size,
-            observation_space=self.env.observation_space,
-            action_space=self.env.action_space,
-            device=self.device,
-            rgb=self.rgb,
-            n_step=self.n_steps,
-            n_envs=self.env.num_envs,
-            gamma=self.gamma,
-            alpha=self.per_alpha,
-            beta=self.per_beta,
-            framestack=self.framestack,
-        )
-        self.replay_buffer = self.per_buffer
-
         super()._setup_model()
 
         self.q_net = self.policy.q_net
@@ -202,7 +188,7 @@ class Rainbow(OffPolicyAlgorithm):
         :param total_timesteps: Number of environment transitions requested for training.
         :return: The result of the parent learning setup.
         """
-        self.per_buffer.beta_increment = (1.0 - self.per_buffer.beta) * self.n_envs / total_timesteps
+        self.replay_buffer.beta_increment = (1.0 - self.replay_buffer.beta) * self.n_envs / total_timesteps
         return super()._setup_learn(total_timesteps, *args, **kwargs)
 
     def train(self, gradient_steps: int, batch_size: int) -> None:
@@ -269,8 +255,8 @@ class Rainbow(OffPolicyAlgorithm):
 
         :param batch_size: Number of transitions to sample.
         """
-        if self.num_timesteps < self.learning_starts:
-            logger.debug("Skipping training: learning_starts not reached")
+        if self.num_timesteps < self.learning_starts or self.replay_buffer.size() < batch_size:
+            logger.debug("Skipping training: not enough transitions in the replay buffer")
             return
 
         # NoisyNet: resample noise on both networks per gradient step
@@ -356,6 +342,14 @@ class Rainbow(OffPolicyAlgorithm):
         if self.grad_steps % 10_000 == 0:
             logger.info(f"Completed {self.grad_steps} gradient steps")
             logger.info(f"Beta: {self.replay_buffer.beta}")
+
+    def _excluded_save_params(self) -> list[str]:
+        return [*super()._excluded_save_params(), "q_net", "q_net_target"]
+
+    def _get_torch_save_params(self) -> tuple[list[str], list[str]]:
+        state_dicts = ["policy", "policy.optimizer"]
+
+        return state_dicts, []
 
 
 def distr_projection(
