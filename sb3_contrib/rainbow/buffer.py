@@ -209,7 +209,7 @@ class PER(ReplayBuffer):
         self.buffer_size = size
         self.observation_space = observation_space
         self.action_space = action_space
-        self.obs_shape = get_obs_shape(observation_space)
+        self.obs_shape = get_obs_shape(observation_space)  # type: ignore[assignment]
         self.action_dim = get_action_dim(action_space)
         self.n_envs = n_envs
         self.pos = 0
