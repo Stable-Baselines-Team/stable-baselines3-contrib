@@ -2,6 +2,13 @@
 
 # Changelog
 
+## Release 2.X.X (TBD)
+
+### Breaking Changes:
+
+### New Features:
+- Added `Rainbow DQN` algorithm
+
 ## Release 2.9.2 (2026-10-26)
 
 :::{warning}

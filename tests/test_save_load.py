@@ -14,6 +14,7 @@ from stable_baselines3.common.utils import get_device
 from stable_baselines3.common.vec_env import DummyVecEnv
 
 from sb3_contrib import ARS, QRDQN, TQC, TRPO, CrossQ
+from sb3_contrib.rainbow.rainbow import Rainbow
 
 MODEL_LIST = [ARS, QRDQN, TQC, TRPO, CrossQ]
 
@@ -507,3 +508,48 @@ def test_dqn_target_update_interval(tmp_path):
     model = QRDQN.load(tmp_path / "dqn_cartpole")
     os.remove(tmp_path / "dqn_cartpole.zip")
     assert model.target_update_interval == 100
+
+
+def test_rainbow_save_load(tmp_path):
+    env = FakeImageEnv(
+        screen_height=84,
+        screen_width=84,
+        n_channels=4,
+        channel_first=True,
+        discrete=True,
+    )
+
+    model = Rainbow(
+        "CnnPolicy",
+        env,
+        learning_starts=10,
+        batch_size=8,
+        buffer_size=1000,
+        device="cpu",
+        compile_mode=None,
+    )
+
+    model.learn(100)
+
+    observation, _ = env.reset()
+
+    action_before, _ = model.predict(
+        observation,
+        deterministic=True,
+    )
+
+    save_path = tmp_path / "rainbow_test"
+    model.save(save_path)
+
+    loaded_model = Rainbow.load(
+        save_path,
+        env=env,
+        device="cpu",
+    )
+
+    action_after, _ = loaded_model.predict(
+        observation,
+        deterministic=True,
+    )
+
+    assert np.array_equal(action_before, action_after)
