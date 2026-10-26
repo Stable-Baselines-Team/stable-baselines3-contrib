@@ -214,6 +214,12 @@ Factorized Gaussian noise is applied to the value and advantage streams. Noise
 is resampled during training and non-deterministic prediction. Deterministic
 prediction disables the noise.
 
+## Acknowledgements
+
+This implementation was initially based on the Rainbow implementation by
+[VIPTankz/Rainbow](https://github.com/VIPTankz/Rainbow). [VIPTankz](https://github.com/VIPTankz)
+also supported the port and testing.
+
 ## Parameters
 
 ```{eval-rst}
