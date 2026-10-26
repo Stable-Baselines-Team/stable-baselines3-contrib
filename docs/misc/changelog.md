@@ -2,6 +2,26 @@
 
 # Changelog
 
+## Release 2.9.2 (2026-10-26)
+
+:::{warning}
+Stable-Baselines3 (SB3) v2.9.2 will be the last one supporting Python 3.10 (end of life in October 2026).
+We highly recommended you to upgrade to Python >= 3.11.
+:::
+
+### Breaking Changes:
+- Upgraded to Stable-Baselines3 >= 2.9.2
+
+### New Features:
+
+### Bug Fixes:
+
+### Deprecations:
+
+### Others:
+
+### Documentation:
+
 ## Release 2.9.0 (2026-06-15)
 
 ### Breaking Changes:
