@@ -86,7 +86,9 @@ class BatchRenorm(torch.nn.Module):
                 d = d.clamp(-self.dmax, self.dmax)
 
                 # BatchNorm normalization, using minibatch stats and running average stats
-                custom_mean = batch_mean - d * batch_var.sqrt() / r
+                # Note: batch_std includes eps, the gradient of sqrt(batch_var) is infinite
+                # when a feature is constant over the batch (batch_var == 0)
+                custom_mean = batch_mean - d * batch_std / r
                 custom_var = batch_var / (r**2)
 
             else:

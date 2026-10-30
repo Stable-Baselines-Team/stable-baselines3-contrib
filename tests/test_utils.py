@@ -4,6 +4,7 @@ import torch as th
 from stable_baselines3.common.utils import set_random_seed
 
 from sb3_contrib import TRPO
+from sb3_contrib.common.torch_layers import BatchRenorm1d
 from sb3_contrib.common.utils import conjugate_gradient_solver, flat_grad, quantile_huber_loss
 
 
@@ -62,3 +63,22 @@ def test_trpo_warnings():
     # Truncated mini-batch
     with pytest.warns(UserWarning):
         TRPO("MlpPolicy", "Pendulum-v1", n_steps=6, batch_size=8)
+
+
+@pytest.mark.parametrize("steps", [0, 10])  # during and after warm-up
+def test_batch_renorm_constant_feature_finite_grad(steps):
+    # A feature that is constant over the batch (e.g. a dead ReLU unit or an action
+    # saturated at the bound) has batch_var == 0, the gradient must stay finite
+    set_random_seed(0)
+    layer = BatchRenorm1d(4, warmup_steps=5)
+    layer.steps = th.tensor(steps)
+    x = th.randn(64, 4)
+    x[:, 0] = 1.0
+    x.requires_grad_(True)
+
+    loss = (th.nn.Linear(4, 1)(layer(x)) ** 2).mean()
+    loss.backward()
+
+    assert th.isfinite(x.grad).all()
+    for param in layer.parameters():
+        assert th.isfinite(param.grad).all()

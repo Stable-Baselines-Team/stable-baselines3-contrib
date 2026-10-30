@@ -2,6 +2,21 @@
 
 # Changelog
 
+## Release 2.9.3a0 (WIP)
+
+### Breaking Changes:
+
+### New Features:
+
+### Bug Fixes:
+- Fixed NaN gradients in `BatchRenorm` when a feature has zero batch variance after the warm-up phase (@Praissap)
+
+### Deprecations:
+
+### Others:
+
+### Documentation:
+
 ## Release 2.9.2 (2026-10-26)
 
 :::{warning}
